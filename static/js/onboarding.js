@@ -349,17 +349,18 @@
     startAnalyzingMessages();
     var allIds = state.cv.concat(state.supporting).map(function (d) { return d.id; });
 
-    // Belt-and-braces timeout: the server is expected to finish well
-    // under 30s (see analyzer.py), but if a request ever genuinely
-    // hangs — a dead connection, a serverless platform silently
-    // dropping it — this guarantees the user sees a real error instead
-    // of a spinner that waits forever.
+    // The server marks documents_confirmed BEFORE it ever starts the
+    // slow scoring call (see api_onboarding_confirm in app.py) — so by
+    // the time this timeout could ever fire, onboarding itself has
+    // already gone through server-side. That means the right thing to
+    // do on a timeout/dead-connection isn't to show an error and leave
+    // the user stuck here — it's to just go to the dashboard like a
+    // normal completion would. If scoring genuinely didn't finish in
+    // time, the dashboard's own "Refresh Score" button picks it up
+    // from there instead of a failed request stranding the user on
+    // this screen.
     var controller = new AbortController();
-    var timedOut = false;
-    var timeoutId = setTimeout(function () {
-      timedOut = true;
-      controller.abort();
-    }, 50000);
+    var timeoutId = setTimeout(function () { controller.abort(); }, 28000);
 
     fetch("/api/onboarding/confirm", {
       method: "POST",
@@ -373,6 +374,9 @@
         if (data.ok) {
           window.location.href = "/dashboard";
         } else {
+          // A real validation failure (e.g. no documents) — nothing
+          // was confirmed server-side, so this is the one case where
+          // staying put and telling the user is actually correct.
           stopAnalyzingMessages();
           analyzingOverlay.hidden = true;
           alert(data.error || "Something went wrong. Please try again.");
@@ -380,13 +384,7 @@
       })
       .catch(function () {
         clearTimeout(timeoutId);
-        stopAnalyzingMessages();
-        analyzingOverlay.hidden = true;
-        alert(
-          timedOut
-            ? "This is taking much longer than it should. Please try again — your documents are already saved."
-            : "Something went wrong. Please try again."
-        );
+        window.location.href = "/dashboard";
       });
   }
 

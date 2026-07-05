@@ -78,8 +78,9 @@
     <div class="dash-metrics" id="dash-metrics"></div>
 
     <div class="dash-empty" id="dash-empty" hidden>
-      Your documents are still being reviewed — check back shortly, or use
-      Refresh Score once that's available.
+      <p>Your documents haven't been scored yet — this can happen if the first attempt timed out.</p>
+      <button type="button" class="btn btn-gold btn-block" id="dash-refresh-score-btn">Refresh Score</button>
+      <div id="dash-refresh-score-error" class="flash flash-error" hidden></div>
     </div>
 
     <div class="dash-insights" id="dash-insights" hidden>

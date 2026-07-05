@@ -1081,6 +1081,10 @@ a {
   border-radius: 14px;
 }
 
+.dash-empty p {
+  margin-bottom: 16px;
+}
+
 /* ==========================================================================
    Dashboard insights: evidence, working well / hurting you, roadmap
    ========================================================================== */

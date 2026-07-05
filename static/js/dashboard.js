@@ -68,6 +68,38 @@
   var metricsEl = document.getElementById("dash-metrics");
   var emptyEl = document.getElementById("dash-empty");
 
+  // Actually implements what the empty state's copy has always
+  // promised — a real "Refresh Score" retry, for when the first
+  // analysis attempt (during onboarding) timed out or failed instead
+  // of completing, leaving the account confirmed but unscored.
+  var refreshScoreBtn = document.getElementById("dash-refresh-score-btn");
+  var refreshScoreError = document.getElementById("dash-refresh-score-error");
+  if (refreshScoreBtn) {
+    refreshScoreBtn.addEventListener("click", function () {
+      refreshScoreError.hidden = true;
+      refreshScoreBtn.disabled = true;
+      refreshScoreBtn.textContent = "Scoring…";
+      fetch("/api/reanalyze", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (data.ok) {
+            window.location.reload();
+          } else {
+            refreshScoreBtn.disabled = false;
+            refreshScoreBtn.textContent = "Refresh Score";
+            refreshScoreError.textContent = data.error || "Couldn't score your documents yet. Please try again.";
+            refreshScoreError.hidden = false;
+          }
+        })
+        .catch(function () {
+          refreshScoreBtn.disabled = false;
+          refreshScoreBtn.textContent = "Refresh Score";
+          refreshScoreError.textContent = "Something went wrong. Please try again.";
+          refreshScoreError.hidden = false;
+        });
+    });
+  }
+
   var CIRCUMFERENCE = 2 * Math.PI * 52;
   gaugeFill.style.strokeDasharray = CIRCUMFERENCE.toFixed(2);
 
