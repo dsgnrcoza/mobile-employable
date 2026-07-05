@@ -1,0 +1,17 @@
+.env
+.env.*
+!.env.example
+__pycache__/
+*.pyc
+*.pyo
+instance/
+uploads/
+cache/
+drift_log.jsonl
+.claude/
+.vercel/
+*.log
+.DS_Store
+node_modules/
+venv/
+.venv/

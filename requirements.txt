@@ -1,0 +1,11 @@
+flask>=3.0
+openai>=1.0
+python-dotenv>=1.0
+pypdf>=4.0
+python-docx>=1.1
+reportlab>=4.0
+pillow>=10.0
+psycopg2-binary>=2.9
+# pytesseract requires system Tesseract binary — available locally but not on Vercel
+# OCR on images is skipped gracefully when it's not installed
+pytesseract>=0.3.10

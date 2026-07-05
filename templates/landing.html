@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Employable{% endblock %}
+{% block content %}
+<div class="splash" id="splash">
+  <div class="splash-logo">Employable</div>
+  <div class="splash-loader" aria-hidden="true"></div>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script>
+  var MIN_DISPLAY_MS = 1100;
+  var startedAt = Date.now();
+
+  function goToNext() {
+    var splash = document.getElementById("splash");
+    splash.classList.add("is-hidden");
+    setTimeout(function () {
+      window.location.href = "{{ next_url }}";
+    }, 350);
+  }
+
+  window.addEventListener("load", function () {
+    var elapsed = Date.now() - startedAt;
+    var wait = Math.max(0, MIN_DISPLAY_MS - elapsed);
+    setTimeout(goToNext, wait);
+  });
+</script>
+{% endblock %}

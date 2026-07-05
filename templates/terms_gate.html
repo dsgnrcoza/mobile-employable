@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Terms & Conditions — Employable{% endblock %}
+{% block content %}
+<div class="ob-shell">
+  <div class="ob-topbar">
+    <span class="auth-wordmark">Employable</span>
+  </div>
+  <div class="ob-content terms-content">
+    <h1>Before you get started</h1>
+    <span class="ob-desc">Quick, plain-language basics. No fine print games.</span>
+
+    <div class="terms-point">
+      <h2>What this app actually does</h2>
+      <p>Employable reads your CV and any documents you upload, then gives you an honest score of how ready you are for the job market — plus specific steps to improve it.</p>
+    </div>
+
+    <div class="terms-point">
+      <h2>It works as hard as you do</h2>
+      <p>This app works with you exactly as much as you're willing to work with it. The more complete and honest the information you give it, the more accurate and useful your results will be. Half-effort in means half-useful out — that's on you, not a flaw in the app.</p>
+    </div>
+
+    <div class="terms-point">
+      <h2>Your uploads are private and secure</h2>
+      <p>Everything you upload is stored securely and kept private. We never sell it, share it, or hand it to recruiters, employers, or anyone else. It stays yours, for as long as you have an account — see our <a href="{{ url_for('privacy_policy') }}">Privacy Policy</a> for the full details.</p>
+    </div>
+
+    <div class="terms-point">
+      <h2>The basics we expect from you</h2>
+      <p>Only upload documents that are actually yours. Don't use this app to impersonate anyone, break the law, or cause harm. Keep your login details to yourself. That's really it.</p>
+    </div>
+
+    <div id="terms-error" class="flash flash-error" hidden></div>
+
+    {% if already_accepted %}
+      <a href="{{ url_for('dashboard') }}" class="btn btn-gold btn-block">Back to Employable</a>
+    {% else %}
+      <button type="button" class="btn btn-gold btn-block" id="terms-accept-btn">I Accept — Let's Go</button>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+  var acceptBtn = document.getElementById("terms-accept-btn");
+  if (acceptBtn) {
+    acceptBtn.addEventListener("click", function () {
+      acceptBtn.disabled = true;
+      fetch("/api/disclaimer-accept", { method: "POST" })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (data.ok) {
+            window.location.href = "{{ url_for('dashboard') }}";
+          } else {
+            document.getElementById("terms-error").hidden = false;
+            acceptBtn.disabled = false;
+          }
+        })
+        .catch(function () {
+          document.getElementById("terms-error").hidden = false;
+          acceptBtn.disabled = false;
+        });
+    });
+  }
+</script>
+{% endblock %}

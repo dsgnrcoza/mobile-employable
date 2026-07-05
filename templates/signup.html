@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Create Account — Employable{% endblock %}
+{% block content %}
+<div class="auth-shell">
+  <div class="auth-card">
+
+    <div class="auth-visual">
+      <div class="auth-wordmark">Employable<span class="dot">.</span></div>
+      <div class="auth-visual-inner">
+        <h1 class="auth-headline">Your documents.<br>Your scores.<br><em>Yours alone.</em></h1>
+      </div>
+      <div class="auth-visual-foot"></div>
+    </div>
+
+    <div class="auth-form-side">
+      <div class="auth-form-box">
+        <h1>Create account</h1>
+        <span class="sub">Everything you upload stays private under your account.</span>
+
+        <div id="signup-flash-area">
+          {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+              {% for category, message in messages %}
+                <div class="flash flash-{{ category }}">{{ message }}</div>
+              {% endfor %}
+            {% endif %}
+          {% endwith %}
+        </div>
+
+        <form method="POST" action="{{ url_for('signup_page') }}" autocomplete="off" id="signup-form">
+          <div class="field">
+            <label for="full_name">Your Name</label>
+            <input type="text" id="full_name" name="full_name" placeholder="e.g. Lebogang Hlongwane" required maxlength="80">
+          </div>
+          <div class="field">
+            <label for="username">Username</label>
+            <input type="text" id="username" name="username" placeholder="e.g. lebogang_h" required minlength="3" maxlength="32">
+          </div>
+          <div class="field">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" placeholder="8 characters minimum" required minlength="8">
+          </div>
+          <div class="field">
+            <label for="confirm_password">Confirm Password</label>
+            <input type="password" id="confirm_password" name="confirm_password" placeholder="Re-enter your password" required minlength="8">
+          </div>
+          <div class="field">
+            <label for="security_question">Security Question</label>
+            <select id="security_question" name="security_question" required>
+              <option value="" disabled selected>Choose a recovery question</option>
+              {% for q in security_questions %}
+                <option value="{{ q }}">{{ q }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="field">
+            <label for="security_answer">Your Answer</label>
+            <input type="text" id="security_answer" name="security_answer" placeholder="Not case-sensitive" required>
+          </div>
+          <button type="submit" class="btn btn-gold btn-block">Create Account</button>
+        </form>
+
+        <div class="auth-switch">Already have an account? <a href="{{ url_for('login_page') }}">Sign in</a></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="celebrate-overlay" id="celebrate-overlay" hidden>
+  <div class="celebrate-modal">
+    <div class="celebrate-icon">&#10003;</div>
+    <h2>Account created!</h2>
+    <p>You have created your account successfully.</p>
+    <button type="button" class="btn btn-gold btn-block" id="celebrate-continue-btn">Continue</button>
+  </div>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/signup.js') }}"></script>
+{% endblock %}

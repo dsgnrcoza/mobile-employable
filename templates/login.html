@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Sign In — Employable{% endblock %}
+{% block content %}
+<div class="auth-shell">
+  <div class="auth-card">
+
+    <div class="auth-visual">
+      <div class="auth-wordmark">Employable<span class="dot">.</span></div>
+      <div class="auth-visual-inner">
+        <h1 class="auth-headline">This is where you become <em>employable.</em></h1>
+      </div>
+      <div class="auth-visual-foot"></div>
+    </div>
+
+    <div class="auth-form-side">
+      <div class="auth-form-box">
+        <h1>Sign in</h1>
+        <span class="sub">Your profile, documents, and scores are waiting.</span>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="flash flash-{{ category }}">{{ message }}</div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <form method="POST" action="{{ url_for('login_page') }}" autocomplete="off">
+          <div class="field">
+            <label for="username">Username</label>
+            <input type="text" id="username" name="username" required>
+          </div>
+          <div class="field">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" required>
+          </div>
+          <button type="submit" class="btn btn-gold btn-block">Sign In</button>
+        </form>
+
+        <div style="height:12px"></div>
+        <a href="{{ url_for('signup_page') }}" class="btn btn-ghost btn-block">Create an account</a>
+
+        <div class="auth-switch"><a href="{{ url_for('forgot_password_page') }}">Forgot your password?</a></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

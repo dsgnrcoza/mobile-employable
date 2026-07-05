@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Privacy Policy — Employable{% endblock %}
+{% block content %}
+<div class="policy-shell">
+  <div class="policy-card">
+    <div class="policy-wordmark">Employable<span class="dot">.</span></div>
+    <h1>Privacy Policy</h1>
+    <p class="policy-date">Effective date: June 2025</p>
+
+    <p class="policy-lead">
+      Your privacy is fundamental to how we built Employable. This policy explains exactly what we collect, how we use it, and the protections we put in place.
+    </p>
+
+    <div class="policy-section">
+      <h2>1. Your information is secure</h2>
+      <p>All data you upload or enter into Employable — including your CV, supporting documents, skills, and profile information — is stored in a private, encrypted database. Access is restricted to authenticated sessions and server-side processes operating on your behalf. We do not store passwords in plain text; all authentication credentials are hashed using a salted, slow cryptographic function before they ever touch the database.</p>
+    </div>
+
+    <div class="policy-section">
+      <h2>2. We never share your data with third parties</h2>
+      <p>Your information is never sold, rented, traded, or otherwise shared with any external company, advertiser, recruiter, employer, data broker, or third party of any kind. The only external service your document text is transmitted to is the AI analysis engine (OpenAI) strictly for the purpose of generating your employability score — and that transmission is governed by OpenAI's data processing terms, not by any commercial data-sharing arrangement.</p>
+    </div>
+
+    <div class="policy-section">
+      <h2>3. Internal use to improve the app</h2>
+      <p>We may use anonymised, aggregated patterns from uploaded information internally to improve the accuracy of Employable's analysis engine over time. This means we may study patterns in how the system scores documents and where it makes errors — not to build profiles of individual users, but to improve the product for everyone. No individual's documents, scores, or personal details are exposed in this process.</p>
+      <p>This internal use is required for the app to function well and continue improving. Without the ability to learn from how the system performs, we could not maintain the accuracy of the Cubic-Metric scoring engine.</p>
+    </div>
+
+    <div class="policy-section">
+      <h2>4. What we collect</h2>
+      <ul class="policy-list">
+        <li><strong>Account credentials</strong> — your username and a hashed version of your password. Never the plain-text password.</li>
+        <li><strong>Uploaded documents</strong> — stored in a private, per-user folder on the server. Not accessible to other users.</li>
+        <li><strong>Profile information</strong> — name, headline, email, location, phone number, and profile photo, if you choose to provide them.</li>
+        <li><strong>Skills</strong> — the skills you add to your profile, whether typed manually or detected from your documents.</li>
+        <li><strong>Analysis results</strong> — your Cubic-Metric scores and the AI-generated insights derived from your documents.</li>
+        <li><strong>Score history</strong> — a timeline of your scores over time so you can track improvement.</li>
+        <li><strong>Job applications</strong> — any roles you log manually in the Applications tracker.</li>
+      </ul>
+    </div>
+
+    <div class="policy-section">
+      <h2>5. Data retention and deletion</h2>
+      <p>Your data remains on our servers for as long as your account is active. If you remove all uploaded documents, your account is reset to its initial state. You may request complete account deletion by contacting us at <a href="mailto:support@employable.app">support@employable.app</a>, after which all data associated with your account will be permanently deleted within 30 days.</p>
+    </div>
+
+    <div class="policy-section">
+      <h2>6. Contact</h2>
+      <p>If you have any questions or concerns about your data, reach us at <a href="mailto:support@employable.app">support@employable.app</a>.</p>
+    </div>
+
+    <div class="policy-back">
+      <a href="{{ url_for('dashboard') }}" class="btn btn-ghost btn-sm">← Back to Dashboard</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

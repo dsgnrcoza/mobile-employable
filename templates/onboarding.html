@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% block title %}Set up your profile — Employable{% endblock %}
+{% block content %}
+<div class="ob-shell">
+  <div class="ob-topbar">
+    <span class="auth-wordmark">Employable<span class="dot">.</span></span>
+  </div>
+
+  <div class="ob-content">
+
+    <!-- Step 1: CV -->
+    <section class="ob-step" data-step="cv" id="step-cv">
+      <div class="ob-dots">
+        <span class="ob-dot active" data-dot="cv"></span>
+        <span class="ob-dot" data-dot="supporting"></span>
+      </div>
+      <h1>Upload your CV</h1>
+      <span class="ob-desc">
+        Your CV is the foundation of your Employability Score — we read it to
+        understand your experience, skills, and qualifications. Upload it
+        below to get started.
+      </span>
+
+      <div class="ob-upload-card" data-state="empty" id="cv-upload-card">
+        <div class="ob-state-idle">
+          <div class="ob-upload-icon">&#8593;</div>
+          <div class="ob-tap-label">Tap to upload document</div>
+          <span class="ob-tap-sub">PDF, DOCX or TXT (max 25MB)</span>
+          <div class="ob-divider">or</div>
+          <button type="button" class="btn btn-gold btn-sm ob-files-btn" data-target="cv">Open Files</button>
+        </div>
+        <div class="ob-state-uploading">
+          <div class="ob-upload-icon">&#8942;</div>
+          <div class="ob-upload-pct">0%</div>
+          <div class="ob-progress-track"><div class="ob-progress-bar"></div></div>
+          <div class="ob-upload-status">Uploading document&hellip;</div>
+          <div class="ob-upload-filename"></div>
+        </div>
+        <div class="ob-state-complete">
+          <div class="ob-upload-icon success">&#10003;</div>
+          <div class="ob-upload-status">Upload complete</div>
+          <button type="button" class="ob-upload-filename ob-preview-trigger" data-target="cv"></button>
+          <span class="ob-tap-sub">Tap the file name to review it, tap below to add another</span>
+          <button type="button" class="ob-clear-btn" data-target="cv">Clear upload</button>
+        </div>
+        <input type="file" class="ob-file-input" data-target="cv" accept=".pdf,.doc,.docx,.txt" hidden>
+      </div>
+
+      <div class="ob-doc-list" id="cv-doc-list"></div>
+      <div class="ob-error" id="cv-error" hidden></div>
+
+      <button type="button" class="btn btn-gold btn-block ob-next-btn" id="cv-next-btn" disabled>Next</button>
+    </section>
+
+    <!-- Step 2: Supporting documents -->
+    <section class="ob-step" data-step="supporting" id="step-supporting" hidden>
+      <div class="ob-dots">
+        <span class="ob-dot" data-dot="cv"></span>
+        <span class="ob-dot active" data-dot="supporting"></span>
+      </div>
+      <h1>Add supporting documents</h1>
+      <span class="ob-desc">
+        Add anything else that backs up your CV — certificates, diplomas,
+        transcripts, reference letters, or online course completions from
+        high school, college, university, or elsewhere. Add as many as you
+        like, or skip this for now.
+      </span>
+
+      <div class="ob-upload-card" data-state="empty" id="supporting-upload-card">
+        <div class="ob-state-idle">
+          <div class="ob-upload-icon">&#8593;</div>
+          <div class="ob-tap-label">Tap to upload document</div>
+          <span class="ob-tap-sub">PDF, DOCX, TXT or image (max 25MB)</span>
+          <div class="ob-divider">or</div>
+          <button type="button" class="btn btn-gold btn-sm ob-files-btn" data-target="supporting">Open Files</button>
+        </div>
+        <div class="ob-state-uploading">
+          <div class="ob-upload-icon">&#8942;</div>
+          <div class="ob-upload-pct">0%</div>
+          <div class="ob-progress-track"><div class="ob-progress-bar"></div></div>
+          <div class="ob-upload-status">Uploading document&hellip;</div>
+          <div class="ob-upload-filename"></div>
+        </div>
+        <div class="ob-state-complete">
+          <div class="ob-upload-icon success">&#10003;</div>
+          <div class="ob-upload-status">Upload complete</div>
+          <button type="button" class="ob-upload-filename ob-preview-trigger" data-target="supporting"></button>
+          <span class="ob-tap-sub">Tap the file name to review it, tap below to add another</span>
+          <button type="button" class="ob-clear-btn" data-target="supporting">Clear upload</button>
+        </div>
+        <input type="file" class="ob-file-input" data-target="supporting" accept=".pdf,.doc,.docx,.txt,image/*" hidden>
+      </div>
+
+      <div class="ob-doc-list" id="supporting-doc-list"></div>
+      <div class="ob-error" id="supporting-error" hidden></div>
+
+      <button type="button" class="btn btn-gold btn-block ob-next-btn" id="supporting-next-btn">Next</button>
+    </section>
+
+  </div>
+</div>
+
+<div class="ob-preview-overlay" id="ob-preview-overlay" hidden>
+  <div class="ob-preview-modal">
+    <div class="ob-preview-header">
+      <span class="ob-preview-title" id="ob-preview-title"></span>
+      <button type="button" class="ob-preview-close" id="ob-preview-close">&times;</button>
+    </div>
+    <div class="ob-preview-body" id="ob-preview-body"></div>
+  </div>
+</div>
+
+<div class="celebrate-overlay" id="ob-review-overlay" hidden>
+  <div class="celebrate-modal">
+    <h2>Review your uploads</h2>
+    <p>Here's everything you've added. Happy with it?</p>
+    <div class="ob-review-list" id="ob-review-list"></div>
+    <button type="button" class="btn btn-gold btn-block" id="ob-review-continue-btn">Yes, continue</button>
+    <div style="height:10px"></div>
+    <button type="button" class="btn btn-ghost btn-block" id="ob-review-add-more-btn">Add more documents</button>
+  </div>
+</div>
+
+<div class="splash" id="ob-analyzing-overlay" hidden>
+  <div class="splash-logo">Employable</div>
+  <div class="splash-loader" aria-hidden="true"></div>
+  <div class="splash-subtext" id="ob-analyzing-subtext">This can take a little while&hellip;</div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  window.OB_INITIAL = {
+    cvDocuments: {{ cv_documents | tojson }},
+    supportingDocuments: {{ supporting_documents | tojson }},
+    hasCv: {{ has_cv | tojson }}
+  };
+</script>
+<script src="{{ url_for('static', filename='js/onboarding.js') }}"></script>
+{% endblock %}
