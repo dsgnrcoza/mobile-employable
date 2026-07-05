@@ -348,13 +348,28 @@
     analyzingOverlay.hidden = false;
     startAnalyzingMessages();
     var allIds = state.cv.concat(state.supporting).map(function (d) { return d.id; });
+
+    // Belt-and-braces timeout: the server is expected to finish well
+    // under 30s (see analyzer.py), but if a request ever genuinely
+    // hangs — a dead connection, a serverless platform silently
+    // dropping it — this guarantees the user sees a real error instead
+    // of a spinner that waits forever.
+    var controller = new AbortController();
+    var timedOut = false;
+    var timeoutId = setTimeout(function () {
+      timedOut = true;
+      controller.abort();
+    }, 50000);
+
     fetch("/api/onboarding/confirm", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name: "", keep_document_ids: allIds }),
+      signal: controller.signal,
     })
       .then(function (r) { return r.json(); })
       .then(function (data) {
+        clearTimeout(timeoutId);
         if (data.ok) {
           window.location.href = "/dashboard";
         } else {
@@ -364,9 +379,14 @@
         }
       })
       .catch(function () {
+        clearTimeout(timeoutId);
         stopAnalyzingMessages();
         analyzingOverlay.hidden = true;
-        alert("Something went wrong. Please try again.");
+        alert(
+          timedOut
+            ? "This is taking much longer than it should. Please try again — your documents are already saved."
+            : "Something went wrong. Please try again."
+        );
       });
   }
 

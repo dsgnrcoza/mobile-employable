@@ -83,11 +83,25 @@ DRIFT_CONFIDENCE_THRESHOLD = 10.0  # confidence_score points apart before loggin
 # re-check on top of it. The background audit in
 # _maybe_audit_cache_hit/_audit_once_against_cache is left untouched and
 # still runs (rarely) on cache HITS, where ensembling doesn't apply.
-ENSEMBLE_RUNS = 7
+#
+# Lowered from 7 -> 3: 7 concurrent full-size gpt-4o calls on the same
+# API key routinely queue/throttle each other, which — combined with no
+# output cap (see ANALYSIS_MAX_TOKENS below) — is what was pushing a
+# first-time (cache-miss) analysis well past 30 seconds. 3 independent
+# samples still gives real mode-based consensus for consistency, just
+# with less concurrency contention.
+ENSEMBLE_RUNS = 3
 # If fewer than this many of the ENSEMBLE_RUNS calls succeed, the sample
 # is too thin to trust a blended answer — raise instead of silently
 # blending a couple of results and calling it an "ensemble."
-ENSEMBLE_MIN_SUCCESSFUL = 4
+ENSEMBLE_MIN_SUCCESSFUL = 2
+
+# Hard cap on generated output per scoring call. Generation time scales
+# with output length far more than input length for gpt-4o, and the
+# requested JSON schema (8 dimensions + several 3-item lists + up to 10
+# roadmap entries) had no limit before — an uncapped, verbose response
+# was the other big contributor to slow analyses.
+ANALYSIS_MAX_TOKENS = 2200
 
 
 def _build_system_prompt() -> str:
@@ -365,8 +379,9 @@ enough that they could act on it immediately), "dimension" (which of the \
 8 Cubic-Metric dimensions this primarily improves), and \
 "projected_score_gain" (honest estimate of overall score impact, 0-10 \
 scale, proportional to the rubric weights — do not inflate). Generate \
-at least 5 roadmap items and up to 10, ordered from highest to lowest \
-projected gain. Items should cover different dimensions where possible.
+at least 3 roadmap items and up to 5, ordered from highest to lowest \
+projected gain. Items should cover different dimensions where possible. \
+Keep "why" and "how" each to one concise sentence — specific, not padded.
 
 Note: overall_rating, rating_label, and star_rating in your response are \
 advisory — the application recomputes these from your dimension scores \
@@ -786,8 +801,8 @@ def _run_one_scoring_attempt(client, base_messages: list, verified_achievement_c
     invalid-response logic the old single-call path used), starting
     fresh from base_messages each time this function is called — each
     of the ENSEMBLE_RUNS ensemble runs gets its own independent
-    conversation, not a shared/mutated one, so the 5 runs are genuinely
-    independent samples rather than 5 turns of the same conversation.
+    conversation, not a shared/mutated one, so the runs are genuinely
+    independent samples rather than turns of the same conversation.
 
     Returns the validated raw response dict on success. Raises
     CVAnalyzerError if both attempts fail validation.
@@ -801,6 +816,7 @@ def _run_one_scoring_attempt(client, base_messages: list, verified_achievement_c
                 response_format={"type": "json_object"},
                 temperature=0,
                 seed=42,
+                max_tokens=ANALYSIS_MAX_TOKENS,
                 messages=messages,
             )
         except Exception as e:
