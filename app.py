@@ -61,13 +61,23 @@ def _allowed_file(filename: str) -> bool:
     return bool(filename and filename.strip())
 
 
+_db_initialized = False
+
+
 @app.before_request
 def _ensure_db():
-    # init_db() is idempotent (CREATE TABLE IF NOT EXISTS), so calling
-    # it on every request has no harmful effect, and guarantees the
-    # schema exists even on the very first request after a fresh
-    # install with no manual setup step required.
-    db.init_db()
+    # init_db() is idempotent, but it still opens a connection and runs
+    # a dozen-plus CREATE TABLE / ALTER TABLE statements — over a real
+    # network connection to Postgres, doing that on every single
+    # request (every page, every API call) adds real, avoidable latency
+    # to everything the app does. The schema can't change mid-process,
+    # so once is enough per running instance; a fresh serverless cold
+    # start still gets its own fresh check via this same flag reset to
+    # False when the process starts.
+    global _db_initialized
+    if not _db_initialized:
+        db.init_db()
+        _db_initialized = True
 
 
 # Endpoints reachable even before a user has accepted the terms
@@ -154,15 +164,18 @@ def service_worker():
 
 @app.route("/")
 def landing():
-    # The splash animation should always play on a fresh app load, even
-    # for a user whose session is still valid — so the "where do you go
-    # next" decision is handed to the client to act on only once the
-    # splash has finished, instead of redirecting before it ever renders.
-    # /dashboard itself still redirects on to /onboarding when this
-    # user's documents_confirmed is false, so this one destination
-    # naturally covers both cases.
-    next_url = url_for("dashboard") if auth.current_user() else url_for("login_page")
-    return render_template("landing.html", next_url=next_url)
+    # Decide and redirect immediately, server-side — no splash screen
+    # waiting on a client-side timer/animation-end event to fire before
+    # it acts. That deferred pattern could get stuck on a real device
+    # (slow network, a resource that never finishes loading, etc.),
+    # leaving the user staring at a loading screen that never proceeds.
+    # /dashboard itself still redirects on to /terms or /onboarding when
+    # needed, so this one destination naturally covers every case: not
+    # logged in -> /login, logged in but not onboarded -> /onboarding,
+    # fully set up -> /dashboard.
+    if not auth.current_user():
+        return redirect(url_for("login_page"))
+    return redirect(url_for("dashboard"))
 
 
 @app.route("/signup", methods=["GET", "POST"])
