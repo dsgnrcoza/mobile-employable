@@ -2,6 +2,7 @@
 {% block title %}Create Account — Employable{% endblock %}
 {% block content %}
 <div class="auth-shell">
+  {% include "_auth_aurora.html" %}
   <div class="auth-card">
 
     <div class="auth-visual">
@@ -10,6 +11,11 @@
 
     <div class="auth-form-side">
       <div class="auth-form-box">
+        <div class="auth-tabs">
+          <a href="{{ url_for('login_page') }}" class="auth-tab">Login</a>
+          <span class="auth-tab active">Register</span>
+        </div>
+
         <h1>Create account</h1>
         <span class="sub">Everything you upload stays private under your account.</span>
 
@@ -60,8 +66,6 @@
           </div>
           <button type="submit" class="btn btn-gold btn-block">Create Account</button>
         </form>
-
-        <div class="auth-switch">Already have an account? <a href="{{ url_for('login_page') }}">Sign in</a></div>
       </div>
     </div>
 

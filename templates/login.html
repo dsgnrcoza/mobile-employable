@@ -2,6 +2,7 @@
 {% block title %}Sign In — Employable{% endblock %}
 {% block content %}
 <div class="auth-shell">
+  {% include "_auth_aurora.html" %}
   <div class="auth-card">
 
     <div class="auth-visual">
@@ -10,6 +11,11 @@
 
     <div class="auth-form-side">
       <div class="auth-form-box">
+        <div class="auth-tabs">
+          <span class="auth-tab active">Login</span>
+          <a href="{{ url_for('signup_page') }}" class="auth-tab">Register</a>
+        </div>
+
         <h1>Welcome back</h1>
         <span class="sub">Your profile, documents, and scores are waiting.</span>
 
@@ -38,9 +44,6 @@
           </div>
           <button type="submit" class="btn btn-gold btn-block">Sign In</button>
         </form>
-
-        <div style="height:12px"></div>
-        <a href="{{ url_for('signup_page') }}" class="btn btn-ghost btn-block">Create an account</a>
 
         <div class="auth-switch"><a href="{{ url_for('forgot_password_page') }}">Forgot your password?</a></div>
       </div>
