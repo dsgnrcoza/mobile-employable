@@ -848,36 +848,6 @@ def weighted_overall(dimension_scores: Dict[str, float]) -> float:
     return round(weighted_sum / total_weight, 2)
 
 
-# The dashboard only surfaces 5 of the 8 scored dimensions (see
-# static/js/dashboard.js's METRICS array -- keep this list in sync with
-# that one). Each one contributes up to 2 points there, so 5 full bars
-# sum to exactly 10, deliberately different from weighted_overall()'s
-# full 8-dimension score, which is used for score-history/roadmap
-# tracking rather than what's actually shown on the gauge.
-DASHBOARD_VISIBLE_LABELS = [
-    "Documentation Strength",
-    "Experience Strength",
-    "Skill Strength",
-    "Market Competitiveness",
-    "ATS Compatibility",
-]
-
-
-def dashboard_visible_score(dimension_scores: Dict[str, float]) -> float:
-    """
-    Replicates dashboard.js's exact "visible total" calculation (5
-    dimensions, each capped at 2 points), so anything quoting the
-    dashboard's rating -- the AI chat, in particular -- reports the
-    same number a user is actually looking at on screen, rather than
-    weighted_overall()'s different, full 8-dimension score.
-    """
-    total = sum(
-        (dimension_scores.get(label, 0.0) or 0.0) / 10.0 * 2.0
-        for label in DASHBOARD_VISIBLE_LABELS
-    )
-    return round(total, 1)
-
-
 def validate_scores(dimension_scores: Dict[str, float]) -> Tuple[bool, List[str]]:
     problems: List[str] = []
     expected_labels = {d.label for d in DIMENSIONS}

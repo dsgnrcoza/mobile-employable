@@ -37,7 +37,6 @@ import analyzer
 import extract
 import identity
 import cache as cache_module
-from rubric import DASHBOARD_VISIBLE_LABELS
 
 load_dotenv()  # reads OPENAI_API_KEY and FLASK_SECRET_KEY from a local .env file
 
@@ -1206,17 +1205,14 @@ def api_chat():
     state = pipeline.get_dashboard_state(user["id"])
     profile = state.get("profile", {})
     analysis = state.get("analysis") or {}
-    dashboard_rating = state.get("dashboard_rating")
     docs = state.get("documents", [])
     skills = state.get("skills", [])
 
-    # Build context block. Only the 5 dimensions the dashboard actually
-    # shows (see rubric.DASHBOARD_VISIBLE_LABELS) -- the analysis has 8
-    # in total, and quoting one of the other 3 (or the raw 8-dimension
-    # overall_rating below) would have the AI contradicting numbers the
-    # user is looking at on screen.
-    dims_by_label = {d["label"]: d for d in analysis.get("dimensions", [])}
-    dims = [dims_by_label[label] for label in DASHBOARD_VISIBLE_LABELS if label in dims_by_label]
+    # All 8 scored dimensions are visible on the dashboard now, so
+    # there's no "shown vs. hidden" subset to filter to -- listing every
+    # one here, in the same order the dashboard displays them, keeps the
+    # AI's view exactly in sync with what the user is looking at.
+    dims = analysis.get("dimensions", [])
     dim_lines = "\n".join(
         f"  - {d['label']}: {d['score']:.1f}/10 — {d.get('description','')}"
         for d in dims
@@ -1298,7 +1294,7 @@ You also have full context of this user's Employable profile:
 - Location: {profile.get('location') or 'Not specified'}
 - Skills: {skill_list}
 - Documents uploaded: {doc_names}
-- Current Employability Rating: {f"{dashboard_rating['score']:.1f}/10 ({dashboard_rating['label']})" if dashboard_rating else 'Not scored yet'} -- this is the EXACT number and label shown on this user's dashboard right now. Always use this one, never recompute or estimate your own overall score.
+- Current Employability Rating: {f"{analysis['overall_rating']:.2f}/10 ({analysis.get('rating_label','')})" if analysis.get('overall_rating') else 'Not scored yet'} -- this is the EXACT number and label shown on this user's dashboard right now (the dashboard displays all 8 dimensions and this same overall score). Always use this one, never recompute or estimate your own overall score.
 
 Cubic-Metric Dimension Scores:
 {dim_lines}
