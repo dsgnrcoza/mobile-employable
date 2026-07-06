@@ -13,7 +13,7 @@
         <!--
           No custom Activity code needed: LauncherActivity (from the
           androidbrowserhelper library declared in build.gradle) opens
-          DEFAULT_URL as a full-screen Trusted Web Activity -- the exact
+          DEFAULT_URL as a full-screen Trusted Web Activity, the exact
           same live site, running standalone with no browser chrome,
           once Android verifies ownership via the assetlinks.json
           served at DEFAULT_URL's /.well-known/ path (see app.py).
