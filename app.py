@@ -1220,13 +1220,33 @@ def api_chat():
     ) if roadmap else "  No roadmap yet."
     doc_names = ", ".join(d["filename"] for d in docs) if docs else "None uploaded."
 
-    # Extract text from uploaded documents (cap at 3000 chars each to stay within token limits)
+    # dashboard_state's "documents" list is trimmed to display fields only
+    # (no content/stored_path), so pull the full rows here instead --
+    # same source pipeline.py's own document-text assembly uses.
+    full_docs = db.get_documents_for_user(user["id"])
+
+    # Prefer content already extracted at upload time and stored in the
+    # DB (works on Vercel, where the upload directory is ephemeral and
+    # won't still have the file by the time a later chat request comes
+    # in). Only fall back to re-extracting from disk if that's empty and
+    # the file still happens to exist locally. Cap at 3000 chars/doc and
+    # 20000 chars total to stay within token limits without silently
+    # dropping every document once someone has uploaded a handful.
     doc_texts = []
-    for d in docs[:4]:
+    total_chars = 0
+    DOC_CHAR_CAP = 3000
+    TOTAL_CHAR_CAP = 20000
+    for d in full_docs:
+        if total_chars >= TOTAL_CHAR_CAP:
+            break
         try:
-            txt = extract.extract_text(d["stored_path"])
-            if txt and txt.strip():
-                doc_texts.append(f"[{d['filename']}]\n{txt.strip()[:3000]}")
+            txt = (d.get("content") or "").strip()
+            if not txt and d.get("stored_path") and os.path.exists(d["stored_path"]):
+                txt = (extract.extract_text(d["stored_path"]) or "").strip()
+            if txt:
+                snippet = txt[:DOC_CHAR_CAP]
+                doc_texts.append(f"[{d['filename']}]\n{snippet}")
+                total_chars += len(snippet)
         except Exception:
             pass
     doc_content_block = "\n\n---\n\n".join(doc_texts) if doc_texts else "No document content available."
@@ -1278,7 +1298,7 @@ Top Improvement Priorities:
 Full content of user's uploaded documents (use this to give specific, accurate advice about their actual CV and experience):
 {doc_content_block}
 
-Use this context naturally when relevant. Don't dump it all at once — weave it in when it helps. If the user asks something general ("how are you", "what's the weather"), respond naturally like a human would. If they go off-topic in a fun way, engage briefly then gently steer back to career topics if appropriate. Never say "I can only discuss employment topics" — just be human."""
+Use this context naturally when relevant. Don't dump it all at once — weave it in when it helps. When it actually strengthens a point, quote or paraphrase the specific line from their documents ("your CV says you led a 6-person team at X" beats "you have leadership experience") — that specificity is exactly what makes you useful instead of generic. Never claim you can't see their documents; if doc_content_block above says no content is available, say that plainly instead of guessing. If the user asks something general ("how are you", "what's the weather"), respond naturally like a human would. If they go off-topic in a fun way, engage briefly then gently steer back to career topics if appropriate. Never say "I can only discuss employment topics" — just be human."""
 
     import re as _re, base64 as _b64
     openai_messages = [{"role": "system", "content": system_prompt}]

@@ -1064,6 +1064,7 @@
   var chatHistoryBtn = document.getElementById("chat-history-btn");
   var chatHistoryCloseBtn = document.getElementById("chat-history-close-btn");
   var chatHistoryNewBtn = document.getElementById("chat-history-new-btn");
+  var chatHistoryNewBtnFab = document.getElementById("chat-history-new-btn-fab");
   var chatHistoryListEl = document.getElementById("chat-history-list");
   var chatHistorySearchInput = document.getElementById("chat-history-search");
   var chatHistoryConversations = [];
@@ -1135,13 +1136,16 @@
   chatHistoryCloseBtn.addEventListener("click", function () { chatHistoryOverlay.hidden = true; });
   chatHistorySearchInput.addEventListener("input", function () { renderChatHistoryList(chatHistorySearchInput.value); });
 
-  chatHistoryNewBtn.addEventListener("click", function () {
+  function startNewChat() {
     chatConversationId = null;
     chatHistory = [];
     chatMessagesEl.innerHTML = "";
     appendChatMessage("assistant", "Hey! I'm here to help with the app, your documents, or anything about getting hired. What's up?");
     chatHistoryOverlay.hidden = true;
-  });
+  }
+
+  chatHistoryNewBtn.addEventListener("click", startNewChat);
+  if (chatHistoryNewBtnFab) chatHistoryNewBtnFab.addEventListener("click", startNewChat);
 
   // ---------- CV Workshop: Google-Docs-style editor ----------
 
@@ -1332,31 +1336,18 @@
   if (installMobileBtn) installMobileBtn.addEventListener("click", handleMobileDownloadClick);
   if (installDesktopBtn) installDesktopBtn.addEventListener("click", handleDesktopInstallClick);
 
-  // ---------- Shop: product cards open real Whop checkout links ----------
-  // TODO(you): replace each value below with the actual checkout link for
-  // that product from your Whop dashboard (Whop product -> "Copy link" or
-  // the checkout URL for that plan). Until you do, cards show a heads-up
-  // instead of navigating anywhere — nothing here is a working purchase
-  // link yet, since only you have access to your Whop account to create
-  // these.
-  var WHOP_CHECKOUT_LINKS = {
-    "Excel AutoCalc": "PASTE_YOUR_WHOP_CHECKOUT_LINK_HERE",
-    "CV Templates Pack": "PASTE_YOUR_WHOP_CHECKOUT_LINK_HERE",
-    "Cover Letter Generator": "PASTE_YOUR_WHOP_CHECKOUT_LINK_HERE",
-    "Interview Prep Coach": "PASTE_YOUR_WHOP_CHECKOUT_LINK_HERE",
-    "Invoice & Quote Builder": "PASTE_YOUR_WHOP_CHECKOUT_LINK_HERE",
-    "Budget & Expense Tracker": "PASTE_YOUR_WHOP_CHECKOUT_LINK_HERE",
-  };
-
-  document.querySelectorAll(".shop-card-price").forEach(function (priceBtn) {
-    priceBtn.addEventListener("click", function () {
-      var product = priceBtn.dataset.product;
-      var link = WHOP_CHECKOUT_LINKS[product];
-      if (link && link.indexOf("PASTE_YOUR_WHOP") !== 0) {
-        window.open(link, "_blank", "noopener");
-      } else {
-        alert("This product isn't connected to a checkout link yet — add it to WHOP_CHECKOUT_LINKS in dashboard.js.");
-      }
+  // ---------- Shop: "coming soon" info popup ----------
+  var shopComingSoonInfoBtn = document.getElementById("shop-coming-soon-info-btn");
+  var shopComingSoonOverlay = document.getElementById("shop-coming-soon-overlay");
+  var shopComingSoonCloseBtn = document.getElementById("shop-coming-soon-close-btn");
+  if (shopComingSoonInfoBtn) {
+    shopComingSoonInfoBtn.addEventListener("click", function () {
+      shopComingSoonOverlay.hidden = false;
     });
-  });
+  }
+  if (shopComingSoonCloseBtn) {
+    shopComingSoonCloseBtn.addEventListener("click", function () {
+      shopComingSoonOverlay.hidden = true;
+    });
+  }
 })();
