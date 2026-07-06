@@ -918,10 +918,30 @@
     chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
   }
 
+  function escapeHtml(str) {
+    return str
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+  }
+
+  // The AI is asked to mark bold text with **double asterisks** and
+  // nothing else (see the FORMATTING section of its system prompt) --
+  // turn that into real bold instead of showing the literal asterisks.
+  // Escaped first so nothing in a reply (or a user's own message, if
+  // this is ever reused for that) can inject markup.
+  function formatChatText(text) {
+    return escapeHtml(text).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  }
+
   function appendChatMessage(role, text) {
     var el = document.createElement("div");
     el.className = "chat-msg " + (role === "user" ? "chat-msg-user" : "chat-msg-bot");
-    el.textContent = text;
+    if (role === "user") {
+      el.textContent = text;
+    } else {
+      el.innerHTML = formatChatText(text);
+    }
     chatMessagesEl.appendChild(el);
     scrollChatToBottom();
     return el;
@@ -940,9 +960,16 @@
     var i = 0;
     var interval = setInterval(function () {
       i = Math.min(text.length, i + chunkSize);
-      el.textContent = text.slice(0, i);
+      if (i >= text.length) {
+        // Swap to the fully-formatted version only once the reveal is
+        // done — mid-reveal, a partially-typed "**word" would otherwise
+        // show a dangling, unclosed tag for a moment.
+        el.innerHTML = formatChatText(text);
+        clearInterval(interval);
+      } else {
+        el.textContent = text.slice(0, i);
+      }
       scrollChatToBottom();
-      if (i >= text.length) clearInterval(interval);
     }, 15);
     return el;
   }

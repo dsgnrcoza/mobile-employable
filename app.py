@@ -37,6 +37,7 @@ import analyzer
 import extract
 import identity
 import cache as cache_module
+from rubric import DASHBOARD_VISIBLE_LABELS
 
 load_dotenv()  # reads OPENAI_API_KEY and FLASK_SECRET_KEY from a local .env file
 
@@ -1205,11 +1206,17 @@ def api_chat():
     state = pipeline.get_dashboard_state(user["id"])
     profile = state.get("profile", {})
     analysis = state.get("analysis") or {}
+    dashboard_rating = state.get("dashboard_rating")
     docs = state.get("documents", [])
     skills = state.get("skills", [])
 
-    # Build context block
-    dims = analysis.get("dimensions", [])
+    # Build context block. Only the 5 dimensions the dashboard actually
+    # shows (see rubric.DASHBOARD_VISIBLE_LABELS) -- the analysis has 8
+    # in total, and quoting one of the other 3 (or the raw 8-dimension
+    # overall_rating below) would have the AI contradicting numbers the
+    # user is looking at on screen.
+    dims_by_label = {d["label"]: d for d in analysis.get("dimensions", [])}
+    dims = [dims_by_label[label] for label in DASHBOARD_VISIBLE_LABELS if label in dims_by_label]
     dim_lines = "\n".join(
         f"  - {d['label']}: {d['score']:.1f}/10 — {d.get('description','')}"
         for d in dims
@@ -1273,6 +1280,10 @@ How you actually talk — this is the part most AI chatbots get wrong, don't rep
 - Vary your sentence rhythm and length like a real person texting — not uniform, evenly-spaced sentences. Short reactions are fine. Fragments are fine. One-word reactions are fine when that's genuinely all a moment calls for.
 - It's fine to have a light opinion or push back gently if something in their plan seems off — a real friend wouldn't just validate everything.
 
+FORMATTING — this chat only displays bold text and paragraph breaks correctly if you produce them exactly like this, so follow it precisely:
+- To bold something, wrap it in double asterisks like **this** — the app renders that as real bold text. Never use single asterisks, underscores, headers (#), or any other markdown syntax; none of those render as anything but literal characters.
+- Whenever you start a new paragraph or a new numbered/bulleted list item, put a genuine blank line before it (an empty line between the two), not just a line break. Don't run paragraphs or list items together with only a single line break — the visual gap is what makes it readable in a chat bubble.
+
 What makes you different from ChatGPT or other general AI tools:
 - You are purpose-built for one thing: helping this specific user become more employable and get hired.
 - You have direct access to this user's actual uploaded documents — their CV, certificates, references — and can give advice based on their real profile, not hypothetical examples.
@@ -1287,7 +1298,7 @@ You also have full context of this user's Employable profile:
 - Location: {profile.get('location') or 'Not specified'}
 - Skills: {skill_list}
 - Documents uploaded: {doc_names}
-- Current Employability Rating: {f"{analysis['overall_rating']:.2f}/10 ({analysis.get('rating_label','')})" if analysis.get('overall_rating') else 'Not scored yet'}
+- Current Employability Rating: {f"{dashboard_rating['score']:.1f}/10 ({dashboard_rating['label']})" if dashboard_rating else 'Not scored yet'} -- this is the EXACT number and label shown on this user's dashboard right now. Always use this one, never recompute or estimate your own overall score.
 
 Cubic-Metric Dimension Scores:
 {dim_lines}
