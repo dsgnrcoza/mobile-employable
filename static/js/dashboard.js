@@ -1276,11 +1276,15 @@
   document.getElementById("cv-download-pdf-btn").addEventListener("click", function () { downloadCv("pdf"); });
   document.getElementById("cv-download-docx-btn").addEventListener("click", function () { downloadCv("docx"); });
 
-  // ---------- Store: real install of this exact app (PWA) ----------
-  // There's no true native .exe/.apk build pipeline available here, so
-  // this uses the real, standards-based browser install flow instead —
-  // same live app, running standalone with its own icon on the home
-  // screen / desktop, no separate build required.
+  // ---------- Store: Mobile = real Android APK, Desktop = PWA install ----------
+  // Mobile gets an actual installable Android app — a Trusted Web
+  // Activity (see android/) built and signed by
+  // .github/workflows/build-android-apk.yml, published as a stable
+  // GitHub Release download. Desktop still uses the real,
+  // standards-based browser install flow (no desktop .exe build
+  // pipeline exists, and the PWA install prompt is the correct native
+  // equivalent there).
+  var ANDROID_APK_URL = "https://github.com/dsgnrcoza/mobile-employable/releases/download/android-latest/employable.apk";
 
   function isStandaloneApp() {
     return window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
@@ -1290,7 +1294,22 @@
     return /iphone|ipad|ipod/i.test(navigator.userAgent);
   }
 
-  function handleInstallClick() {
+  function handleMobileDownloadClick() {
+    var note = document.getElementById("install-note");
+    if (isIOSDevice()) {
+      // No .ipa side-loading equivalent exists on iOS outside the App
+      // Store/TestFlight — the real native-feeling install there is
+      // still "Add to Home Screen," exactly like the old PWA flow.
+      note.textContent = "On iPhone/iPad: tap the Share icon in Safari, then \"Add to Home Screen.\"";
+      note.hidden = false;
+      return;
+    }
+    window.location.href = ANDROID_APK_URL;
+    note.textContent = "Downloading the Android app… once it's done, open the file and allow installs from this browser if prompted.";
+    note.hidden = false;
+  }
+
+  function handleDesktopInstallClick() {
     var note = document.getElementById("install-note");
     if (isStandaloneApp()) {
       note.textContent = "You're already using the installed app — nothing more to download.";
@@ -1304,18 +1323,14 @@
       note.hidden = true;
       return;
     }
-    if (isIOSDevice()) {
-      note.textContent = "On iPhone/iPad: tap the Share icon in Safari, then \"Add to Home Screen.\"";
-    } else {
-      note.textContent = "Your browser hasn't offered an install prompt yet — look for an install icon in the address bar, or open this site in Chrome/Edge for a one-tap install.";
-    }
+    note.textContent = "Your browser hasn't offered an install prompt yet — look for an install icon in the address bar, or open this site in Chrome/Edge for a one-tap install.";
     note.hidden = false;
   }
 
   var installMobileBtn = document.getElementById("install-mobile-btn");
   var installDesktopBtn = document.getElementById("install-desktop-btn");
-  if (installMobileBtn) installMobileBtn.addEventListener("click", handleInstallClick);
-  if (installDesktopBtn) installDesktopBtn.addEventListener("click", handleInstallClick);
+  if (installMobileBtn) installMobileBtn.addEventListener("click", handleMobileDownloadClick);
+  if (installDesktopBtn) installDesktopBtn.addEventListener("click", handleDesktopInstallClick);
 
   // ---------- Shop: product cards open real Whop checkout links ----------
   // TODO(you): replace each value below with the actual checkout link for

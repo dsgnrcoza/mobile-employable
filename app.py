@@ -91,6 +91,7 @@ _TERMS_EXEMPT_ENDPOINTS = {
     "logout_page",
     "static",
     "service_worker",
+    "android_asset_links",
     "privacy_policy",
     "landing",
 }
@@ -122,6 +123,7 @@ _ONBOARDING_EXEMPT_ENDPOINTS = {
     "logout_page",
     "static",
     "service_worker",
+    "android_asset_links",
     "privacy_policy",
     "terms_page",
     "api_disclaimer_accept",
@@ -160,6 +162,30 @@ def service_worker():
     # controls the page the user is on (/dashboard, etc).
     from flask import send_from_directory
     return send_from_directory(app.static_folder, "sw.js", mimetype="application/javascript")
+
+
+@app.route("/.well-known/assetlinks.json")
+def android_asset_links():
+    # Lets Android's Digital Asset Links verifier confirm the Android
+    # TWA app (signed with the matching certificate) is allowed to act
+    # as this site's "app" — without this, the TWA still works but
+    # falls back to showing a browser-style URL bar instead of the
+    # full-screen native feel. The fingerprint below isn't secret (it's
+    # meant to be published exactly like this) — it's the SHA-256 of the
+    # release signing certificate generated for android/, matching what
+    # .github/workflows/build-android-apk.yml signs the APK with.
+    return jsonify([
+        {
+            "relation": ["delegate_permission/common.handle_all_urls"],
+            "target": {
+                "namespace": "android_app",
+                "package_name": "com.employable.app",
+                "sha256_cert_fingerprints": [
+                    "67:DB:89:8E:9A:BA:6C:28:BF:B5:74:D4:08:C1:16:04:A4:E1:C1:9C:84:8B:B2:F6:78:C4:2F:C1:8D:09:81:35"
+                ],
+            },
+        }
+    ])
 
 
 @app.route("/")
