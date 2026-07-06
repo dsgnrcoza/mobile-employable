@@ -75,7 +75,18 @@
     <button type="button" class="btn btn-gold btn-block" id="celebrate-continue-btn">Continue</button>
   </div>
 </div>
+
+<!-- Floating download button: grab the app any time, mobile or desktop -->
+<button type="button" class="download-fab" id="download-fab-btn" aria-label="Download the app">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+</button>
+<div class="download-fab-menu" id="download-fab-menu" hidden>
+  <button type="button" id="download-fab-mobile-btn">Download for Mobile</button>
+  <button type="button" id="download-fab-desktop-btn">Download for Desktop</button>
+  <div id="download-fab-note" class="download-fab-note" hidden></div>
+</div>
 {% endblock %}
 {% block extra_scripts %}
 <script src="{{ url_for('static', filename='js/signup.js') }}"></script>
+<script src="{{ url_for('static', filename='js/download-fab.js') }}"></script>
 {% endblock %}
