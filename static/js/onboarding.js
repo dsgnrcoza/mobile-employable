@@ -239,6 +239,7 @@
     var filesBtn = card.querySelector(".ob-files-btn");
     var clearBtn = card.querySelector(".ob-clear-btn");
     var previewTrigger = card.querySelector(".ob-preview-trigger");
+    var addMoreBtn = card.querySelector(".ob-add-more-btn");
 
     // The file input is nested inside the card so a plain click on it
     // would bubble straight back up to the card's own listener below,
@@ -248,11 +249,21 @@
 
     card.addEventListener("click", function (e) {
       if (card.dataset.state === "uploading") return;
-      if (e.target.closest(".ob-files-btn") || e.target.closest(".ob-clear-btn") || e.target.closest(".ob-preview-trigger")) return;
+      if (e.target.closest(".ob-files-btn") || e.target.closest(".ob-clear-btn") || e.target.closest(".ob-preview-trigger") || e.target.closest(".ob-add-more-btn")) return;
       fileInput.click();
     });
 
     filesBtn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      fileInput.click();
+    });
+
+    // Once a card shows its "complete" state, the idle state's own
+    // "Open Files" button is hidden -- this is the only remaining,
+    // clearly-labeled way to add a further document instead of the
+    // card's completed filename/checkmark display, which otherwise
+    // gives no visible cue that uploading again is even possible.
+    addMoreBtn.addEventListener("click", function (e) {
       e.stopPropagation();
       fileInput.click();
     });
