@@ -182,8 +182,6 @@ def init_db():
             points_awarded REAL NOT NULL DEFAULT 0,
             completed_at TEXT NOT NULL
         );
-
-        CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email) WHERE email <> '';
     """)
     conn.commit()
 
@@ -214,6 +212,18 @@ def init_db():
         "ALTER TABLE documents ADD COLUMN content TEXT NOT NULL DEFAULT ''",
         "ALTER TABLE documents ADD COLUMN category TEXT NOT NULL DEFAULT ''",
         "ALTER TABLE documents ADD COLUMN file_size INTEGER DEFAULT NULL",
+        # Deliberately last and best-effort, not part of the CREATE TABLE
+        # block above: if any pre-existing rows already share a non-blank
+        # email (e.g. two accounts that both had their email set to the
+        # same address via Edit Profile, back when email wasn't required
+        # or unique), this single statement failing inside an unprotected
+        # executescript() would abort the whole migration and, since
+        # _db_initialized never gets set to True, take down EVERY request
+        # after it forever -- not just fail to add an index. Letting it
+        # fail silently here just means uniqueness isn't DB-enforced;
+        # signup() already rejects duplicate emails at the application
+        # level regardless.
+        "CREATE UNIQUE INDEX idx_users_email ON users(email) WHERE email <> ''",
     ]
     for ddl in _migrations:
         try:
