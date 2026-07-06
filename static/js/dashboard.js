@@ -15,9 +15,10 @@
     deferredInstallPrompt = e;
   });
 
-  // Order and short display names for the 5 dimensions surfaced on the
-  // dashboard (the backend scores 8 in total — these are the ones users
-  // see here; the rest still exist in the underlying analysis data).
+  // All 8 dimensions the backend scores, in the same canonical order
+  // rubric.py's DIMENSIONS (and therefore the AI's own view of them)
+  // uses — every one of them visible here now, so the dashboard and
+  // the AI chat are always looking at the exact same set.
   var METRICS = [
     {
       label: "Documentation Strength",
@@ -30,6 +31,11 @@
       icon: '<rect x="3" y="8" width="18" height="12" rx="1.5"/><path d="M8 8V6a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
     },
     {
+      label: "Qualification Strength",
+      short: "Qualifications",
+      icon: '<path d="M22 10 12 5 2 10l10 5 10-5z"/><path d="M6 12v5c0 1.5 2.5 3 6 3s6-1.5 6-3v-5"/><path d="M22 10v6"/>',
+    },
+    {
       label: "Skill Strength",
       short: "Skills",
       icon: '<path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z"/>',
@@ -40,9 +46,19 @@
       icon: '<path d="M3 17l6-6 4 4 8-8"/><path d="M15 6h6v6"/>',
     },
     {
+      label: "Evidence Credibility",
+      short: "Credibility",
+      icon: '<circle cx="12" cy="12" r="9"/><path d="m8.5 12.5 2.5 2.5 4.5-5"/>',
+    },
+    {
       label: "ATS Compatibility",
       short: "ATS Score",
       icon: '<path d="M12 2 4 5v6c0 5 3.5 8.5 8 11 4.5-2.5 8-6 8-11V5l-8-3z"/><path d="m9 12 2 2 4-4"/>',
+    },
+    {
+      label: "Career Progression",
+      short: "Progression",
+      icon: '<path d="M3 20h4v-4h4v-4h4v-4h4V4"/>',
     },
   ];
 
@@ -108,25 +124,6 @@
     gaugeFill.style.strokeDashoffset = (CIRCUMFERENCE * (1 - pct)).toFixed(2);
   }
 
-  // Same bands the backend uses for rating_label (rubric.py's
-  // label_for_score), duplicated here because the dashboard's gauge
-  // shows a different number than the backend's overall_rating (see
-  // below) and needs a label that actually matches what's on screen.
-  var LABEL_BANDS = [
-    { min: 7.5, label: "Highly Employable" },
-    { min: 6.5, label: "Job Ready" },
-    { min: 5.0, label: "Competitive" },
-    { min: 3.5, label: "Needs Work" },
-    { min: 2.0, label: "Highly Hindered" },
-    { min: -Infinity, label: "Critical Gaps" },
-  ];
-  function labelForScore(score) {
-    for (var i = 0; i < LABEL_BANDS.length; i++) {
-      if (score >= LABEL_BANDS[i].min) return LABEL_BANDS[i].label;
-    }
-    return "Critical Gaps";
-  }
-
   var LABEL_EXPLANATIONS = {
     "Highly Employable": {
       clear: "Your profile is strong across the board — real experience, real skills, and real proof of both. Recruiters would see very few red flags here.",
@@ -182,25 +179,14 @@
     var dimByLabel = {};
     (analysis.dimensions || []).forEach(function (d) { dimByLabel[d.label] = d; });
 
-    // The dashboard surfaces only 5 of the backend's 8 dimensions. Each
-    // one is still displayed "out of 10" for readability, but its
-    // contribution to the total below is capped at 2 points, so 5 full
-    // bars always sum to exactly 10 — matching what's actually visible
-    // on this screen. The backend's own overall_rating (a full
-    // 8-dimension weighted score, used for history/roadmap elsewhere)
-    // is intentionally not shown here, since it factors in 3 dimensions
-    // this screen never displays.
-    var visibleTotal = 0;
-    METRICS.forEach(function (m) {
-      var dim = dimByLabel[m.label];
-      var score = dim ? dim.score : 0;
-      visibleTotal += (score / 10) * 2;
-    });
-    visibleTotal = Math.round(visibleTotal * 10) / 10;
-
-    setGauge(visibleTotal);
-    gaugeScore.textContent = visibleTotal.toFixed(1);
-    gaugeLabel.textContent = labelForScore(visibleTotal);
+    // All 8 dimensions are visible now, so the gauge just shows the
+    // backend's own overall_rating/rating_label directly -- the exact
+    // same weighted score used for history and the roadmap, and the
+    // exact same one the AI chat quotes. One number, everywhere.
+    var overall = analysis.overall_rating || 0;
+    setGauge(overall);
+    gaugeScore.textContent = overall.toFixed(1);
+    gaugeLabel.textContent = analysis.rating_label || "Unrated";
     labelInfoBtn.hidden = false;
 
     METRICS.forEach(function (m) {

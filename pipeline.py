@@ -23,7 +23,7 @@ import extract
 import analyzer
 import identity
 import db
-from rubric import score_skill_set, weighted_overall, label_for_score, stars_for_score, get_skill_market_value, mechanical_ats_check, dashboard_visible_score
+from rubric import score_skill_set, weighted_overall, label_for_score, stars_for_score, get_skill_market_value, mechanical_ats_check
 
 PLAN_NAME = "Employable Pro"
 PLAN_PRICE_ZAR = 149
@@ -583,15 +583,6 @@ def get_dashboard_state(user_id: int) -> dict:
         except Exception:
             pass  # roadmap recompute must never break the main flow
 
-    dashboard_rating = None
-    if analysis_data is not None:
-        try:
-            score_map = {d["label"]: d["score"] for d in analysis_data.get("dimensions", [])}
-            visible_score = dashboard_visible_score(score_map)
-            dashboard_rating = {"score": visible_score, "label": label_for_score(visible_score)}
-        except Exception:
-            pass  # must never break the main flow
-
     avatar_path = user.get("avatar_path") or ""
     if avatar_path.startswith("data:"):
         avatar_url = avatar_path
@@ -623,7 +614,6 @@ def get_dashboard_state(user_id: int) -> dict:
             for d in documents
         ],
         "analysis": analysis_data,
-        "dashboard_rating": dashboard_rating,
         "applications_count": len(applications),
         "applications": [
             {
