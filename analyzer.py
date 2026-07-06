@@ -32,6 +32,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
+import httpx
 from dotenv import load_dotenv
 from openai import OpenAI
 
@@ -102,6 +103,16 @@ ENSEMBLE_MIN_SUCCESSFUL = 2
 # roadmap entries) had no limit before — an uncapped, verbose response
 # was the other big contributor to slow analyses.
 ANALYSIS_MAX_TOKENS = 2200
+
+# The openai SDK's default connect timeout (5s) is tight for a cold-started
+# serverless function opening several concurrent HTTPS connections at once
+# (see ENSEMBLE_RUNS above) — under that kind of cold-start contention, a
+# slow DNS/TLS handshake can exceed 5s well before the model has even started
+# generating anything, surfacing as a raw "Connection error" with no useful
+# detail. The function itself has a generous 300s execution budget, so there
+# is no reason to keep such a tight connect timeout; give it real headroom.
+CLIENT_TIMEOUT = httpx.Timeout(90.0, connect=20.0)
+CLIENT_MAX_RETRIES = 3
 
 
 def _build_system_prompt() -> str:
@@ -556,7 +567,7 @@ def _audit_once_against_cache(user_content: str, cached_data: dict) -> None:
         if not api_key:
             return  # nothing to audit with; silently skip
 
-        client = OpenAI(api_key=api_key)
+        client = OpenAI(api_key=api_key, timeout=CLIENT_TIMEOUT, max_retries=CLIENT_MAX_RETRIES)
         system_prompt = _build_system_prompt()
         response = client.chat.completions.create(
             model=MODEL,
@@ -883,7 +894,7 @@ def analyze_documents(combined_text: str, extra_context: str = "") -> CVAnalysis
             "OPENAI_API_KEY=sk-... next to your script."
         )
 
-    client = OpenAI(api_key=api_key)
+    client = OpenAI(api_key=api_key, timeout=CLIENT_TIMEOUT, max_retries=CLIENT_MAX_RETRIES)
 
     if not combined_text or not combined_text.strip():
         raise CVAnalyzerError("No readable text was extracted from the uploaded files.")
