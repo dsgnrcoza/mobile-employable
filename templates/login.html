@@ -6,15 +6,11 @@
 
     <div class="auth-visual">
       <div class="auth-wordmark">Employable<span class="dot">.</span></div>
-      <div class="auth-visual-inner">
-        <h1 class="auth-headline">This is where you become <em>employable.</em></h1>
-      </div>
-      <div class="auth-visual-foot"></div>
     </div>
 
     <div class="auth-form-side">
       <div class="auth-form-box">
-        <h1>Sign in</h1>
+        <h1>Welcome back</h1>
         <span class="sub">Your profile, documents, and scores are waiting.</span>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
@@ -27,12 +23,18 @@
 
         <form method="POST" action="{{ url_for('login_page') }}" autocomplete="off">
           <div class="field">
-            <label for="username">Username</label>
-            <input type="text" id="username" name="username" autocapitalize="off" autocorrect="off" spellcheck="false" required>
+            <label for="email">Email</label>
+            <div class="field-input-wrap">
+              <svg class="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/><path d="m3.5 6 8.5 7 8.5-7"/></svg>
+              <input type="email" id="email" name="email" placeholder="you@example.com" autocapitalize="off" autocorrect="off" spellcheck="false" required>
+            </div>
           </div>
           <div class="field">
             <label for="password">Password</label>
-            <input type="password" id="password" name="password" required>
+            <div class="field-input-wrap">
+              <svg class="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+              <input type="password" id="password" name="password" placeholder="Your password" required>
+            </div>
           </div>
           <button type="submit" class="btn btn-gold btn-block">Sign In</button>
         </form>
@@ -59,18 +61,10 @@
   </div>
 </div>
 
-<!-- Floating download button: grab the app any time, mobile or desktop -->
-<button type="button" class="download-fab" id="download-fab-btn" aria-label="Download the app">
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-</button>
-<div class="download-fab-menu" id="download-fab-menu" hidden>
-  <button type="button" id="download-fab-mobile-btn">Download for Mobile</button>
-  <button type="button" id="download-fab-desktop-btn">Download for Desktop</button>
-  <div id="download-fab-note" class="download-fab-note" hidden></div>
-</div>
+{% include "_download_app_button.html" %}
 {% endblock %}
 
 {% block extra_scripts %}
 <script src="{{ url_for('static', filename='js/install-prompt.js') }}"></script>
-<script src="{{ url_for('static', filename='js/download-fab.js') }}"></script>
+<script src="{{ url_for('static', filename='js/download-app.js') }}"></script>
 {% endblock %}

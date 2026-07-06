@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Enter Code — Employable{% endblock %}
+{% block content %}
+<div class="auth-shell">
+  <div class="auth-card">
+
+    <div class="auth-visual">
+      <div class="auth-wordmark">Employable<span class="dot">.</span></div>
+    </div>
+
+    <div class="auth-form-side">
+      <div class="auth-form-box">
+        <h1>Enter your code</h1>
+        {% if purpose == "2fa_login" %}
+          <span class="sub">We've emailed a 6-digit code to finish signing in.</span>
+        {% else %}
+          <span class="sub">We've emailed a 6-digit code to reset your password.</span>
+        {% endif %}
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="flash flash-{{ category }}">{{ message }}</div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <form method="POST" action="{{ url_for('verify_code_page') }}" autocomplete="off" id="verify-code-form">
+          <div class="code-input-row" id="code-input-row">
+            <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="code-digit" autofocus>
+            <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="code-digit">
+            <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="code-digit">
+            <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="code-digit">
+            <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="code-digit">
+            <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="1" class="code-digit">
+          </div>
+          <input type="hidden" name="code" id="code-hidden-input">
+          <button type="submit" class="btn btn-gold btn-block" id="verify-code-submit-btn">Verify</button>
+        </form>
+
+        <div class="auth-resend">
+          Didn't get a code? <button type="button" id="resend-code-btn">Resend code</button>
+        </div>
+
+        <div class="auth-switch"><a href="{{ url_for('login_page') }}">Back to Sign In</a></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/verify-code.js') }}"></script>
+{% endblock %}

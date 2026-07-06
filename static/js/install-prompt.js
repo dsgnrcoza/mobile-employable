@@ -54,10 +54,17 @@
       note.hidden = false;
       return;
     }
-    // Same-origin proxy (see /download/android in app.py) so the
-    // download starts immediately instead of navigating out to
-    // github.com first.
-    window.location.href = "/download/android";
+    // Same-origin proxy (see /download/android in app.py), triggered
+    // through a throwaway <a download> link rather than a full page
+    // navigation — the download starts immediately instead of
+    // navigating out to github.com, and the page itself never jumps.
+    var a = document.createElement("a");
+    a.href = "/download/android";
+    a.download = "employable.apk";
+    a.rel = "noopener";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
     // Android shows an "Unknown apps"/Play Protect warning for any APK
     // from outside the Play Store — that's a real, unremovable OS
     // security check, not a bug in this app. Saying so upfront turns a

@@ -68,6 +68,27 @@
     submitBtn.disabled = false;
   }
 
+  // Live checklist matching the exact rules auth.validate_password()
+  // enforces server-side, so a rejected password never comes as a
+  // surprise -- every rule is visibly met before the user even submits.
+  var passwordInput = document.getElementById("password");
+  var reqItems = document.querySelectorAll("#password-reqs li");
+  var RULES = {
+    length: function (pw) { return pw.length >= 9; },
+    upper: function (pw) { return /[A-Z]/.test(pw); },
+    lower: function (pw) { return /[a-z]/.test(pw); },
+    special: function (pw) { return /[^A-Za-z0-9]/.test(pw); },
+  };
+  if (passwordInput && reqItems.length) {
+    passwordInput.addEventListener("input", function () {
+      var pw = passwordInput.value;
+      reqItems.forEach(function (li) {
+        var rule = RULES[li.dataset.rule];
+        li.classList.toggle("is-met", !!(rule && rule(pw)));
+      });
+    });
+  }
+
   form.addEventListener("submit", function (e) {
     e.preventDefault();
     submitBtn.disabled = true;

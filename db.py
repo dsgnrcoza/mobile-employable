@@ -182,30 +182,45 @@ def init_db():
             points_awarded REAL NOT NULL DEFAULT 0,
             completed_at TEXT NOT NULL
         );
+
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users(email) WHERE email <> '';
     """)
     conn.commit()
 
-    if not _USE_PG:
-        _sqlite_migrations = [
-            "ALTER TABLE users ADD COLUMN documents_confirmed INTEGER NOT NULL DEFAULT 0",
-            "ALTER TABLE users ADD COLUMN confirmed_owner_name TEXT DEFAULT ''",
-            "ALTER TABLE users ADD COLUMN phone TEXT DEFAULT ''",
-            "ALTER TABLE users ADD COLUMN avatar_path TEXT DEFAULT ''",
-            "ALTER TABLE users ADD COLUMN disclaimer_accepted INTEGER NOT NULL DEFAULT 0",
-            "ALTER TABLE users ADD COLUMN target_field TEXT DEFAULT ''",
-            "ALTER TABLE documents ADD COLUMN score_delta REAL DEFAULT NULL",
-            "ALTER TABLE documents ADD COLUMN dimension_deltas TEXT DEFAULT NULL",
-            "ALTER TABLE documents ADD COLUMN insight_cache TEXT DEFAULT NULL",
-            "ALTER TABLE documents ADD COLUMN content TEXT NOT NULL DEFAULT ''",
-            "ALTER TABLE documents ADD COLUMN category TEXT NOT NULL DEFAULT ''",
-            "ALTER TABLE documents ADD COLUMN file_size INTEGER DEFAULT NULL",
-        ]
-        for ddl in _sqlite_migrations:
-            try:
-                conn.execute(ddl)
-                conn.commit()
-            except sqlite3.OperationalError:
-                pass
+    # Previously guarded by "if not _USE_PG" -- meaning none of these ever
+    # ran against a live Postgres database, only local SQLite. Harmless
+    # while every column here already existed in the CREATE TABLE above
+    # from day one on whatever database Postgres was first initialized
+    # against, but silently wrong the moment a column is added here
+    # *after* a production database already exists (CREATE TABLE IF NOT
+    # EXISTS is a no-op against an existing table, so the new column
+    # would just never show up in Postgres). Running for both engines
+    # and swallowing "already exists" is safe either way.
+    _migrations = [
+        "ALTER TABLE users ADD COLUMN documents_confirmed INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE users ADD COLUMN confirmed_owner_name TEXT DEFAULT ''",
+        "ALTER TABLE users ADD COLUMN phone TEXT DEFAULT ''",
+        "ALTER TABLE users ADD COLUMN avatar_path TEXT DEFAULT ''",
+        "ALTER TABLE users ADD COLUMN disclaimer_accepted INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE users ADD COLUMN target_field TEXT DEFAULT ''",
+        "ALTER TABLE users ADD COLUMN two_factor_enabled INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE users ADD COLUMN pending_code TEXT DEFAULT ''",
+        "ALTER TABLE users ADD COLUMN pending_code_purpose TEXT DEFAULT ''",
+        "ALTER TABLE users ADD COLUMN pending_code_expires_at TEXT DEFAULT ''",
+        "ALTER TABLE users ADD COLUMN pending_code_attempts INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE documents ADD COLUMN score_delta REAL DEFAULT NULL",
+        "ALTER TABLE documents ADD COLUMN dimension_deltas TEXT DEFAULT NULL",
+        "ALTER TABLE documents ADD COLUMN insight_cache TEXT DEFAULT NULL",
+        "ALTER TABLE documents ADD COLUMN content TEXT NOT NULL DEFAULT ''",
+        "ALTER TABLE documents ADD COLUMN category TEXT NOT NULL DEFAULT ''",
+        "ALTER TABLE documents ADD COLUMN file_size INTEGER DEFAULT NULL",
+    ]
+    for ddl in _migrations:
+        try:
+            conn.execute(ddl)
+            conn.commit()
+        except Exception:
+            conn.rollback() if _USE_PG else None
 
     conn.close()
 
@@ -216,14 +231,15 @@ def now_iso() -> str:
 
 # ---------------- USER QUERIES ----------------
 
-def create_user(username, password_hash, security_question, security_answer_hash, full_name=""):
+def create_user(username, password_hash, security_question, security_answer_hash, full_name="", email=""):
     conn = get_db()
     try:
         cur = conn.execute(
             """INSERT INTO users (username, password_hash, security_question,
-                                   security_answer_hash, full_name, created_at)
-               VALUES (?, ?, ?, ?, ?, ?)""",
-            (username, password_hash, security_question, security_answer_hash, full_name or "", now_iso()),
+                                   security_answer_hash, full_name, email, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (username, password_hash, security_question, security_answer_hash,
+             full_name or "", email or "", now_iso()),
         )
         conn.commit()
         return cur.lastrowid
@@ -235,6 +251,15 @@ def get_user_by_username(username):
     conn = get_db()
     try:
         row = conn.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
+        return dict(row) if row else None
+    finally:
+        conn.close()
+
+
+def get_user_by_email(email):
+    conn = get_db()
+    try:
+        row = conn.execute("SELECT * FROM users WHERE email = ? AND email <> ''", (email,)).fetchone()
         return dict(row) if row else None
     finally:
         conn.close()
@@ -253,6 +278,55 @@ def update_password(user_id, new_password_hash):
     conn = get_db()
     try:
         conn.execute("UPDATE users SET password_hash = ? WHERE id = ?", (new_password_hash, user_id))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def set_two_factor_enabled(user_id, enabled: bool):
+    conn = get_db()
+    try:
+        conn.execute("UPDATE users SET two_factor_enabled = ? WHERE id = ?", (1 if enabled else 0, user_id))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def set_pending_code(user_id, code, purpose, expires_at_iso):
+    conn = get_db()
+    try:
+        conn.execute(
+            """UPDATE users SET pending_code = ?, pending_code_purpose = ?,
+                                 pending_code_expires_at = ?, pending_code_attempts = 0
+               WHERE id = ?""",
+            (code, purpose, expires_at_iso, user_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def increment_pending_code_attempts(user_id):
+    conn = get_db()
+    try:
+        conn.execute(
+            "UPDATE users SET pending_code_attempts = pending_code_attempts + 1 WHERE id = ?",
+            (user_id,),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def clear_pending_code(user_id):
+    conn = get_db()
+    try:
+        conn.execute(
+            """UPDATE users SET pending_code = '', pending_code_purpose = '',
+                                 pending_code_expires_at = '', pending_code_attempts = 0
+               WHERE id = ?""",
+            (user_id,),
+        )
         conn.commit()
     finally:
         conn.close()

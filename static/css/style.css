@@ -112,23 +112,29 @@ a {
   margin-top: -8px;
 }
 
-/* ---------- Auth shell (login / signup / forgot password) ---------- */
+/* ---------- Auth shell (login / signup / forgot password / verify / reset) ---------- */
 
 .auth-shell {
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
   background: var(--bg);
+  padding: 0 20px;
 }
 
 .auth-card {
   flex: 1;
   display: flex;
   flex-direction: column;
+  justify-content: center;
+  width: 100%;
+  max-width: 440px;
+  margin: 0 auto;
+  padding: 32px 0;
 }
 
 .auth-visual {
-  padding: 40px 24px 8px;
+  padding: 0 4px 22px;
   text-align: center;
 }
 
@@ -177,22 +183,28 @@ a {
 }
 
 .auth-form-side {
-  flex: 1;
-  display: flex;
-  align-items: flex-start;
-  padding: 32px 24px 40px;
+  flex: none;
+  padding: 0;
 }
 
+/* The rounded "sheet" every auth screen's form sits on -- the concept
+   pulled from the reference design (a big soft card floating on a
+   plain background, pill inputs, pill buttons) rebuilt in this app's
+   own monochrome palette rather than copying its color scheme. */
 .auth-form-box {
   width: 100%;
-  max-width: 420px;
-  margin: 6vh auto 0;
+  max-width: none;
+  margin: 0;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 28px;
+  padding: 30px 24px 26px;
 }
 
 .auth-form-box h1 {
-  font-size: 26px;
+  font-size: 24px;
   font-weight: 700;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .auth-form-box .sub {
@@ -200,7 +212,7 @@ a {
   color: var(--muted);
   font-size: 14px;
   line-height: 1.5;
-  margin-bottom: 28px;
+  margin-bottom: 26px;
 }
 
 /* ---------- Form fields ---------- */
@@ -209,7 +221,7 @@ a {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-bottom: 22px;
+  margin-bottom: 18px;
 }
 
 .field label {
@@ -219,17 +231,41 @@ a {
   color: var(--muted);
 }
 
+.field-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.field-icon {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  color: var(--muted);
+  pointer-events: none;
+}
+
 .field input,
 .field select {
-  background: transparent;
-  border: none;
-  border-bottom: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--line);
   color: var(--fg);
-  font-size: 16px;
-  padding: 8px 2px;
+  font-size: 15px;
+  padding: 14px 16px;
   outline: none;
-  border-radius: 0;
+  border-radius: 16px;
   font-family: inherit;
+  width: 100%;
+}
+
+/* Must come after the shared .field input rule above (equal
+   specificity otherwise) so this actually wins and the icon doesn't
+   sit on top of the placeholder/typed text. */
+.field-input-wrap input {
+  padding-left: 44px;
 }
 
 .field select option {
@@ -243,7 +279,59 @@ a {
 
 .field input:focus,
 .field select:focus {
-  border-bottom-color: var(--fg);
+  border-color: var(--fg);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.field-hint {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: -10px;
+  margin-bottom: 4px;
+  line-height: 1.5;
+}
+
+.field-hint.is-met {
+  color: #2dd4bf;
+}
+
+.password-reqs {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.password-reqs li {
+  font-size: 12px;
+  color: var(--muted);
+  padding-left: 22px;
+  position: relative;
+  transition: color 0.15s ease;
+}
+
+.password-reqs li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1.5px solid var(--muted);
+  box-sizing: border-box;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.password-reqs li.is-met {
+  color: #2dd4bf;
+}
+
+.password-reqs li.is-met::before {
+  border-color: #2dd4bf;
+  background: #2dd4bf;
 }
 
 /* ---------- Buttons ---------- */
@@ -252,8 +340,8 @@ a {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 14px 22px;
-  border-radius: 10px;
+  padding: 15px 24px;
+  border-radius: 999px;
   font-size: 15px;
   font-weight: 600;
   text-decoration: none;
@@ -287,8 +375,13 @@ a {
 }
 
 .btn-sm {
-  padding: 8px 14px;
+  padding: 9px 16px;
   font-size: 13px;
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 /* ---------- Switch links ---------- */
@@ -303,6 +396,59 @@ a {
 .auth-switch a {
   color: var(--fg);
   text-decoration: underline;
+}
+
+/* ---------- 6-digit code entry ---------- */
+
+.code-input-row {
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  margin-bottom: 22px;
+}
+
+.code-input-row input {
+  width: 100%;
+  aspect-ratio: 1;
+  text-align: center;
+  font-size: 22px;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  color: var(--fg);
+  outline: none;
+  font-family: inherit;
+  padding: 0;
+}
+
+.code-input-row input:focus {
+  border-color: var(--fg);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.auth-resend {
+  text-align: center;
+  margin: 16px 0 18px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.auth-resend button {
+  background: none;
+  border: none;
+  color: var(--fg);
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 13px;
+  font-family: inherit;
+  padding: 0;
+}
+
+.auth-resend button:disabled {
+  color: var(--muted);
+  text-decoration: none;
+  cursor: default;
 }
 
 /* ---------- Blank post-auth placeholder ---------- */
@@ -633,7 +779,7 @@ a {
 .celebrate-modal {
   background: #0a0a0a;
   border: 1px solid var(--line-strong);
-  border-radius: 18px;
+  border-radius: 26px;
   padding: 32px 26px;
   text-align: center;
   max-width: 340px;
@@ -1177,7 +1323,7 @@ a {
   align-items: center;
   gap: 12px;
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: 18px;
   padding: 14px 16px;
   background: transparent;
   text-align: left;
@@ -1692,27 +1838,30 @@ a {
   height: 16px;
 }
 
-/* ---------- Auth pages: floating "download the app" button ---------- */
+/* ---------- Auth pages: small centered "Download App" button ---------- */
 
-.download-fab {
+.download-app-btn {
   position: fixed;
   bottom: 20px;
-  right: 16px;
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 18px;
+  border-radius: 999px;
   background: var(--fg);
   color: #000;
   border: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
   cursor: pointer;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
   z-index: 500;
 }
 
-.download-fab[hidden] {
+.download-app-btn[hidden] {
   /* The class above sets "display" directly, and an author stylesheet
      rule always wins over the [hidden] attribute's user-agent default
      of display:none at equal specificity -- without this, setting
@@ -1723,22 +1872,23 @@ a {
   display: none;
 }
 
-.download-fab:hover {
+.download-app-btn:hover {
   opacity: 0.85;
 }
 
-.download-fab svg {
-  width: 22px;
-  height: 22px;
+.download-app-btn svg {
+  width: 16px;
+  height: 16px;
 }
 
-.download-fab-menu {
+.download-app-menu {
   position: fixed;
-  bottom: 82px;
-  right: 16px;
+  bottom: 66px;
+  left: 50%;
+  transform: translateX(-50%);
   background: #0a0a0a;
   border: 1px solid var(--line-strong);
-  border-radius: 12px;
+  border-radius: 16px;
   padding: 6px;
   display: flex;
   flex-direction: column;
@@ -1748,28 +1898,28 @@ a {
   z-index: 501;
 }
 
-.download-fab-menu[hidden] {
+.download-app-menu[hidden] {
   display: none;
 }
 
-.download-fab-menu button {
+.download-app-menu button {
   background: none;
   border: none;
   color: var(--fg);
   padding: 12px 14px;
   text-align: left;
-  border-radius: 8px;
+  border-radius: 10px;
   font-size: 14px;
   font-family: inherit;
   cursor: pointer;
   white-space: nowrap;
 }
 
-.download-fab-menu button:hover {
+.download-app-menu button:hover {
   background: var(--surface);
 }
 
-.download-fab-note {
+.download-app-note {
   font-size: 12px;
   color: var(--muted);
   padding: 8px 10px 4px;
@@ -2401,6 +2551,38 @@ a {
   height: 16px;
   color: var(--muted);
   flex-shrink: 0;
+}
+
+.toggle-switch {
+  flex-shrink: 0;
+  width: 42px;
+  height: 24px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  position: relative;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.toggle-switch-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--muted);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.toggle-switch.is-on {
+  background: var(--fg);
+  border-color: var(--fg);
+}
+
+.toggle-switch.is-on .toggle-switch-knob {
+  transform: translateX(18px);
+  background: #000;
 }
 
 .profile-legal-links {
