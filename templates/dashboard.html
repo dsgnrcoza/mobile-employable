@@ -310,6 +310,13 @@
         <span class="profile-menu-label">Location</span>
         <svg class="profile-menu-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
       </button>
+      <button type="button" class="profile-menu-row" id="profile-2fa-btn">
+        <span class="profile-menu-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 5v6c0 5 3.4 9 8 11 4.6-2 8-6 8-11V5z"/><path d="m9 12 2 2 4-4"/></svg>
+        </span>
+        <span class="profile-menu-label">Two-Factor Authentication</span>
+        <span class="toggle-switch" id="profile-2fa-toggle"><span class="toggle-switch-knob"></span></span>
+      </button>
       <button type="button" class="profile-menu-row" id="profile-subscription-btn">
         <span class="profile-menu-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15 9 22 9.5 17 14.5 18.5 22 12 18 5.5 22 7 14.5 2 9.5 9 9 12 2"/></svg>
@@ -635,6 +642,22 @@
     <button type="button" class="btn btn-gold btn-block" id="delete-account-confirm-btn">Yes, delete my account</button>
     <div style="height:10px"></div>
     <button type="button" class="btn btn-ghost btn-block" id="delete-account-cancel-btn">Cancel</button>
+  </div>
+</div>
+
+<!-- Two-factor authentication toggle confirmation -->
+<div class="celebrate-overlay" id="tfa-overlay" hidden>
+  <div class="celebrate-modal uploads-modal">
+    <h2 id="tfa-modal-title">Enable Two-Factor Authentication</h2>
+    <p id="tfa-modal-sub" class="uploads-modal-sub">We'll email you a 6-digit code every time you sign in. Enter your password to confirm.</p>
+    <div class="field">
+      <label for="tfa-password">Password</label>
+      <input type="password" id="tfa-password" placeholder="Your current password">
+    </div>
+    <div id="tfa-error" class="flash flash-error" hidden></div>
+    <button type="button" class="btn btn-gold btn-block" id="tfa-confirm-btn">Confirm</button>
+    <div style="height:10px"></div>
+    <button type="button" class="btn btn-ghost btn-block" id="tfa-cancel-btn">Cancel</button>
   </div>
 </div>
 

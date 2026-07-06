@@ -601,6 +601,7 @@ def get_dashboard_state(user_id: int) -> dict:
             "username": user.get("username"),
             "avatar_url": avatar_url,
             "target_field": user.get("target_field") or "",
+            "two_factor_enabled": bool(user.get("two_factor_enabled")),
         },
         "skills": [{"id": s["id"], "label": s["label"], "source": s["source"]} for s in skills],
         "documents": [
