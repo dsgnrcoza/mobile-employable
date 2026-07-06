@@ -17,12 +17,6 @@
     return /iphone|ipad|ipod/i.test(navigator.userAgent);
   }
 
-  // Already using the installed app — nothing to offer here.
-  if (isStandaloneApp()) {
-    fabBtn.hidden = true;
-    return;
-  }
-
   // Captured as early as possible, same as dashboard.js — Chrome fires
   // this once per page load and only if the PWA installability
   // criteria are already met, so it has to be listened for up front
@@ -47,6 +41,14 @@
   var note = document.getElementById("download-fab-note");
 
   document.getElementById("download-fab-mobile-btn").addEventListener("click", function () {
+    if (isStandaloneApp()) {
+      // Already using the installed app — say so instead of silently
+      // doing nothing, which (from inside the app) looks exactly like
+      // a broken button.
+      note.textContent = "You're already using the installed app — nothing more to download here.";
+      note.hidden = false;
+      return;
+    }
     if (isIOSDevice()) {
       // No .ipa side-loading equivalent exists on iOS outside the App
       // Store/TestFlight — the real native-feeling install there is
@@ -68,6 +70,11 @@
   });
 
   document.getElementById("download-fab-desktop-btn").addEventListener("click", function () {
+    if (isStandaloneApp()) {
+      note.textContent = "You're already using the installed app — nothing more to download here.";
+      note.hidden = false;
+      return;
+    }
     if (deferredInstallPrompt) {
       var promptEvent = deferredInstallPrompt;
       deferredInstallPrompt = null;
