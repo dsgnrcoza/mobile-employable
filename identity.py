@@ -97,10 +97,9 @@ def _ai_guess_name(text: str) -> str | None:
     for a given file, to keep this cheap and rare.
     """
     try:
-        import os as _os
         from openai import OpenAI
 
-        api_key = _os.environ.get("OPENAI_API_KEY")
+        api_key = analyzer.get_openai_api_key()
         if not api_key:
             return None
         client = OpenAI(api_key=api_key, timeout=analyzer.CLIENT_TIMEOUT, max_retries=analyzer.CLIENT_MAX_RETRIES)
@@ -197,10 +196,9 @@ def _ai_classify_cv(text: str) -> bool:
     _ai_guess_name()'s fail-safe behaviour — any error just means "no".
     """
     try:
-        import os as _os
         from openai import OpenAI
 
-        api_key = _os.environ.get("OPENAI_API_KEY")
+        api_key = analyzer.get_openai_api_key()
         if not api_key:
             return False
         client = OpenAI(api_key=api_key, timeout=analyzer.CLIENT_TIMEOUT, max_retries=analyzer.CLIENT_MAX_RETRIES)
