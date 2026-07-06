@@ -1658,6 +1658,34 @@ a {
   text-overflow: ellipsis;
 }
 
+.chat-history-new-fab {
+  position: absolute;
+  bottom: 20px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--fg);
+  color: #000;
+  border: none;
+  border-radius: 24px;
+  padding: 12px 20px;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+.chat-history-new-fab:hover {
+  opacity: 0.85;
+}
+
+.chat-history-new-fab svg {
+  width: 16px;
+  height: 16px;
+}
+
 .chat-history-item-time {
   font-size: 12px;
   color: var(--muted);
@@ -1839,86 +1867,18 @@ a {
 }
 
 /* ==========================================================================
-   Employable Store — Browse Extras catalogue grid
+   Employable Store — Browse Extras (coming soon)
    ========================================================================== */
 
-.shop-extras-label {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  margin: 8px 0 12px;
-}
-
-.shop-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  padding-bottom: 12px;
-}
-
-.shop-card {
-  min-width: 0;
-  height: 196px;
-  border: 1px solid var(--line);
-  border-radius: 16px;
+.shop-coming-soon {
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  text-align: center;
-  padding: 14px 12px;
   gap: 6px;
-}
-
-.shop-card-sub,
-.shop-card-name {
-  max-width: 100%;
-}
-
-.shop-card-icon {
-  width: 36px;
-  height: 36px;
-  border: 1px solid var(--line-strong);
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 2px;
-}
-
-.shop-card-icon svg {
-  width: 18px;
-  height: 18px;
-}
-
-.shop-card-name {
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.shop-card-sub {
-  font-size: 11px;
+  padding: 24px 0 12px;
   color: var(--muted);
-  line-height: 1.4;
-}
-
-.shop-card-price {
-  font-size: 12px;
-  font-weight: 700;
-  margin-top: 4px;
-  background: var(--fg);
-  color: #000;
-  border: none;
-  border-radius: 20px;
-  padding: 7px 16px;
-  cursor: pointer;
-  font-family: inherit;
-}
-
-.shop-card-price:hover {
-  opacity: 0.85;
+  font-size: 14px;
+  font-weight: 600;
 }
 
 /* ==========================================================================
