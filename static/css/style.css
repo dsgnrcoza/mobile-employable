@@ -1712,6 +1712,17 @@ a {
   z-index: 500;
 }
 
+.download-fab[hidden] {
+  /* The class above sets "display" directly, and an author stylesheet
+     rule always wins over the [hidden] attribute's user-agent default
+     of display:none at equal specificity -- without this, setting
+     .hidden = true in JS leaves the button fully visible (and,
+     critically, never wired up, since the script returns before
+     attaching its click handler), which looks exactly like "the
+     button does nothing." */
+  display: none;
+}
+
 .download-fab:hover {
   opacity: 0.85;
 }
