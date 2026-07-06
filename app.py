@@ -847,7 +847,7 @@ def api_document_insight(doc_id):
     dim_deltas = json.loads(doc["dimension_deltas"]) if doc.get("dimension_deltas") else {}
     all_filenames = [d["filename"] for d in docs if d["id"] != doc_id]
 
-    client = OpenAI(api_key=os.environ["OPENAI_API_KEY"], timeout=analyzer.CLIENT_TIMEOUT, max_retries=analyzer.CLIENT_MAX_RETRIES)
+    client = OpenAI(api_key=analyzer.get_openai_api_key(), timeout=analyzer.CLIENT_TIMEOUT, max_retries=analyzer.CLIENT_MAX_RETRIES)
     system = (
         "You are a career intelligence analyst inside the Employable platform. "
         "Respond ONLY with valid HTML — use <p>, <ul>, <li>, <strong> tags. "
@@ -983,7 +983,7 @@ def api_roadmap_complete():
     _analysis_data = json.loads(_analysis_row["result_json"]) if _analysis_row and _analysis_row.get("result_json") else {}
     overall = float(_analysis_data.get("overall_score") or 0)
 
-    client = OpenAI(api_key=os.environ["OPENAI_API_KEY"], timeout=analyzer.CLIENT_TIMEOUT, max_retries=analyzer.CLIENT_MAX_RETRIES)
+    client = OpenAI(api_key=analyzer.get_openai_api_key(), timeout=analyzer.CLIENT_TIMEOUT, max_retries=analyzer.CLIENT_MAX_RETRIES)
     system = (
         "You are a strict but fair career coach evaluating whether a document fulfills a specific career improvement objective. "
         "Reply ONLY with a JSON object in this exact format:\n"
@@ -1043,7 +1043,7 @@ def api_cv_edit():
     if not instruction:
         return jsonify({"error": "Missing instruction."}), 400
 
-    client = OpenAI(api_key=os.environ["OPENAI_API_KEY"], timeout=analyzer.CLIENT_TIMEOUT, max_retries=analyzer.CLIENT_MAX_RETRIES)
+    client = OpenAI(api_key=analyzer.get_openai_api_key(), timeout=analyzer.CLIENT_TIMEOUT, max_retries=analyzer.CLIENT_MAX_RETRIES)
 
     import re as _re
     system = (
@@ -1298,7 +1298,7 @@ Use this context naturally when relevant. Don't dump it all at once — weave it
 
     model_name = "gpt-4o" if has_images else "gpt-4o-mini"
     try:
-        client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"), timeout=analyzer.CLIENT_TIMEOUT, max_retries=analyzer.CLIENT_MAX_RETRIES)
+        client = OpenAI(api_key=analyzer.get_openai_api_key(), timeout=analyzer.CLIENT_TIMEOUT, max_retries=analyzer.CLIENT_MAX_RETRIES)
         response = client.chat.completions.create(
             model=model_name,
             messages=openai_messages,

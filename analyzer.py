@@ -52,6 +52,21 @@ from cache import get_cached, store_result
 
 load_dotenv()  # reads OPENAI_API_KEY out of a local .env file
 
+
+def get_openai_api_key() -> str | None:
+    """
+    Reads OPENAI_API_KEY and strips surrounding whitespace before anyone
+    hands it to the OpenAI client. A stray trailing newline (easy to pick
+    up when pasting a key into a dashboard's env var field) makes the SDK
+    build a literal "Bearer sk-...\\n" Authorization header, which HTTP
+    forbids — httpx raises LocalProtocolError immediately, and the OpenAI
+    SDK collapses that into a generic "Connection error." with no hint
+    the key itself was the problem. Every OpenAI(...) construction in this
+    app should read the key through this function, not os.environ directly.
+    """
+    api_key = os.getenv("OPENAI_API_KEY")
+    return api_key.strip() if api_key else api_key
+
 # Model choice: gpt-4o gives meaningfully better reasoning on messy,
 # multi-document evidence chains than gpt-4o-mini — this spec asks the
 # model to cross-reference claims across documents and reason about
@@ -563,7 +578,7 @@ def _audit_once_against_cache(user_content: str, cached_data: dict) -> None:
     allowed to affect the real request that already returned.
     """
     try:
-        api_key = os.getenv("OPENAI_API_KEY")
+        api_key = get_openai_api_key()
         if not api_key:
             return  # nothing to audit with; silently skip
 
@@ -895,7 +910,7 @@ def analyze_documents(combined_text: str, extra_context: str = "") -> CVAnalysis
     stage, things to ignore, anything. Pass "" if there's nothing to add;
     it's entirely optional and the analyzer works fine without it.
     """
-    api_key = os.getenv("OPENAI_API_KEY")
+    api_key = get_openai_api_key()
     if not api_key:
         raise CVAnalyzerError(
             "OPENAI_API_KEY not found. Create a .env file with "
