@@ -112,12 +112,39 @@
   <!-- CV Workshop: real Google-Docs-style editor -->
   <div class="dash-view dash-view-full" id="dash-view-cv" hidden>
     <div class="cv-toolbar" id="cv-toolbar">
+      <!-- Styles: paragraph / heading level -->
+      <div class="cv-dd">
+        <button type="button" class="cv-dd-toggle cv-styles-toggle" id="cv-styles-btn" aria-label="Text style" title="Text style">
+          <span id="cv-styles-label">Normal</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="cv-dd-menu" id="cv-styles-menu" hidden>
+          <button type="button" data-style="p">Normal text</button>
+          <button type="button" data-style="h1" class="cv-style-h1">Title</button>
+          <button type="button" data-style="h2" class="cv-style-h2">Heading 1</button>
+          <button type="button" data-style="h3" class="cv-style-h3">Heading 2</button>
+        </div>
+      </div>
+      <span class="cv-toolbar-sep"></span>
       <button type="button" data-cmd="bold" aria-label="Bold" title="Bold"><b>B</b></button>
       <button type="button" data-cmd="italic" aria-label="Italic" title="Italic"><i>I</i></button>
       <button type="button" data-cmd="underline" aria-label="Underline" title="Underline"><u>U</u></button>
       <span class="cv-toolbar-sep"></span>
-      <button type="button" data-cmd="formatBlock" data-value="&lt;h2&gt;" aria-label="Heading" title="Heading">H2</button>
-      <button type="button" data-cmd="formatBlock" data-value="&lt;p&gt;" aria-label="Paragraph" title="Paragraph text">¶</button>
+      <!-- Text color -->
+      <div class="cv-dd">
+        <button type="button" class="cv-dd-toggle" id="cv-textcolor-btn" aria-label="Text color" title="Text color">
+          <span class="cv-color-btn-label">A</span>
+          <span class="cv-color-swatch" id="cv-textcolor-swatch" style="background:#e03131"></span>
+        </button>
+        <div class="cv-dd-menu cv-color-menu" id="cv-textcolor-menu" hidden></div>
+      </div>
+      <!-- Highlight color -->
+      <div class="cv-dd">
+        <button type="button" class="cv-dd-toggle" id="cv-highlight-btn" aria-label="Highlight color" title="Highlight color">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11 6-6 4 4-6 6"/><path d="m3 21 4-1 8-8-3-3-8 8z"/></svg>
+        </button>
+        <div class="cv-dd-menu cv-color-menu" id="cv-highlight-menu" hidden></div>
+      </div>
       <span class="cv-toolbar-sep"></span>
       <button type="button" data-cmd="insertUnorderedList" aria-label="Bullet list" title="Bullet list">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><circle cx="4" cy="6" r="1.2" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="4" cy="18" r="1.2" fill="currentColor" stroke="none"/></svg>
@@ -126,15 +153,30 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="10" y1="6" x2="20" y2="6"/><line x1="10" y1="12" x2="20" y2="12"/><line x1="10" y1="18" x2="20" y2="18"/><text x="2" y="8.5" font-size="7" fill="currentColor" stroke="none">1</text><text x="2" y="14.5" font-size="7" fill="currentColor" stroke="none">2</text><text x="2" y="20.5" font-size="7" fill="currentColor" stroke="none">3</text></svg>
       </button>
       <span class="cv-toolbar-sep"></span>
-      <button type="button" data-cmd="justifyLeft" aria-label="Align left" title="Align left">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="14" y2="12"/><line x1="4" y1="18" x2="17" y2="18"/></svg>
-      </button>
-      <button type="button" data-cmd="justifyCenter" aria-label="Align center" title="Align center">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="6" y1="18" x2="18" y2="18"/></svg>
-      </button>
-      <button type="button" data-cmd="justifyRight" aria-label="Align right" title="Align right">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="10" y1="12" x2="20" y2="12"/><line x1="7" y1="18" x2="20" y2="18"/></svg>
-      </button>
+      <!-- Alignment -->
+      <div class="cv-dd">
+        <button type="button" class="cv-dd-toggle" id="cv-align-btn" aria-label="Alignment" title="Alignment">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="14" y2="12"/><line x1="4" y1="18" x2="17" y2="18"/></svg>
+        </button>
+        <div class="cv-dd-menu" id="cv-align-menu" hidden>
+          <button type="button" data-cmd="justifyLeft">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="14" y2="12"/><line x1="4" y1="18" x2="17" y2="18"/></svg>
+            Left
+          </button>
+          <button type="button" data-cmd="justifyCenter">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="6" y1="18" x2="18" y2="18"/></svg>
+            Center
+          </button>
+          <button type="button" data-cmd="justifyRight">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="10" y1="12" x2="20" y2="12"/><line x1="7" y1="18" x2="20" y2="18"/></svg>
+            Right
+          </button>
+          <button type="button" data-cmd="justifyFull">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
+            Justify
+          </button>
+        </div>
+      </div>
       <span class="cv-toolbar-sep"></span>
       <button type="button" data-cmd="undo" aria-label="Undo" title="Undo">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"/><path d="M4 9h10a6 6 0 0 1 0 12h-2"/></svg>
@@ -143,11 +185,51 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 14 20 9 15 4"/><path d="M20 9H10a6 6 0 0 0 0 12h2"/></svg>
       </button>
       <span class="cv-toolbar-spacer"></span>
+      <!-- Insert -->
+      <div class="cv-dd">
+        <button type="button" class="cv-dd-toggle" id="cv-insert-btn" aria-label="Insert" title="Insert">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
+        <div class="cv-dd-menu cv-dd-menu-right" id="cv-insert-menu" hidden>
+          <button type="button" id="cv-insert-link-btn">Link</button>
+          <button type="button" id="cv-insert-hr-btn">Horizontal line</button>
+          <button type="button" id="cv-insert-table-btn">Table</button>
+        </div>
+      </div>
+      <!-- More -->
+      <div class="cv-dd">
+        <button type="button" class="cv-dd-toggle" id="cv-more-btn" aria-label="More" title="More">
+          <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+        </button>
+        <div class="cv-dd-menu cv-dd-menu-right" id="cv-more-menu" hidden>
+          <button type="button" id="cv-print-preview-btn">Print preview (A4)</button>
+          <button type="button" id="cv-findreplace-toggle-btn">Find and replace</button>
+          <button type="button" id="cv-wordcount-btn">Word count</button>
+          <button type="button" id="cv-pagesetup-btn">Page setup</button>
+          <button type="button" id="cv-spellcheck-toggle-btn">Spell check <span class="cv-menu-check" id="cv-spellcheck-check"></span></button>
+        </div>
+      </div>
       <button type="button" id="cv-download-btn" aria-label="Download">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
       </button>
     </div>
-    <div class="cv-page-wrap">
+
+    <!-- Find and replace bar (Google Docs shows this as a slide-down bar, not a modal) -->
+    <div class="cv-findreplace-bar" id="cv-findreplace-bar" hidden>
+      <input type="text" id="cv-find-input" placeholder="Find">
+      <input type="text" id="cv-replace-input" placeholder="Replace with">
+      <span class="cv-findreplace-status" id="cv-findreplace-status"></span>
+      <button type="button" id="cv-find-next-btn" aria-label="Find next" title="Find next">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <button type="button" id="cv-replace-btn">Replace</button>
+      <button type="button" id="cv-replace-all-btn">Replace all</button>
+      <button type="button" id="cv-findreplace-close-btn" aria-label="Close" title="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <div class="cv-page-wrap" id="cv-page-wrap">
       <div class="cv-page" id="cv-page" contenteditable="true" spellcheck="false"></div>
     </div>
     <div class="cv-ai-row">
@@ -157,6 +239,29 @@
       </div>
       <input type="text" id="cv-ai-input" placeholder="Ask AI to edit your CV…" autocomplete="off">
       <button type="button" id="cv-ai-send-btn">Send</button>
+    </div>
+  </div>
+
+  <!-- Page setup (margins) -->
+  <div class="celebrate-overlay" id="cv-pagesetup-overlay" hidden>
+    <div class="celebrate-modal uploads-modal">
+      <h2>Page setup</h2>
+      <p class="uploads-modal-sub">Margins used for Print preview and downloads.</p>
+      <div class="cv-pagesetup-options" id="cv-pagesetup-options">
+        <button type="button" class="cv-pagesetup-option" data-margin="narrow">Narrow</button>
+        <button type="button" class="cv-pagesetup-option" data-margin="normal">Normal</button>
+        <button type="button" class="cv-pagesetup-option" data-margin="wide">Wide</button>
+      </div>
+      <button type="button" class="btn btn-ghost btn-block" id="cv-pagesetup-close-btn">Close</button>
+    </div>
+  </div>
+
+  <!-- Word count -->
+  <div class="celebrate-overlay" id="cv-wordcount-overlay" hidden>
+    <div class="celebrate-modal dash-metric-modal">
+      <h2>Word count</h2>
+      <p id="cv-wordcount-body"></p>
+      <button type="button" class="btn btn-gold btn-block" id="cv-wordcount-close-btn">Close</button>
     </div>
   </div>
 

@@ -1784,15 +1784,31 @@ a {
   margin: 0 0 8px;
 }
 
+.cv-page h1 {
+  font-size: 22px;
+  margin: 0 0 10px;
+}
+
 .cv-page h2 {
   font-size: 17px;
   margin: 16px 0 8px;
+}
+
+.cv-page h3 {
+  font-size: 15px;
+  margin: 14px 0 6px;
 }
 
 .cv-page ul,
 .cv-page ol {
   margin: 0 0 8px;
   padding-left: 22px;
+}
+
+.cv-page hr {
+  border: none;
+  border-top: 1px solid #ccc;
+  margin: 16px 0;
 }
 
 .cv-ai-row {
@@ -1870,6 +1886,265 @@ a {
 
 .cv-download-menu button:hover {
   background: var(--surface);
+}
+
+/* -- Toolbar dropdowns (Styles / color / align / Insert / More) -- */
+
+.cv-dd {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.cv-dd-toggle {
+  background: none;
+  border: none;
+  color: var(--fg);
+  height: 32px;
+  padding: 0 6px 0 10px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.cv-dd-toggle:hover {
+  background: var(--surface);
+}
+
+.cv-dd-toggle svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
+.cv-styles-toggle {
+  min-width: 88px;
+  justify-content: space-between;
+}
+
+.cv-color-btn-label {
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.cv-color-swatch {
+  width: 16px;
+  height: 4px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.cv-dd-menu {
+  /* Fixed (not absolute) because .cv-toolbar scrolls horizontally --
+     setting overflow-x on it forces overflow-y to compute as auto too
+     (CSS spec), which would clip an absolutely-positioned menu that
+     extends below the toolbar. Fixed positioning escapes that
+     clipping; JS sets top/left from the toggle button's rect. */
+  position: fixed;
+  background: #0a0a0a;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  min-width: 168px;
+  max-width: calc(100vw - 24px);
+  max-height: calc(100vh - 24px);
+  overflow-y: auto;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  z-index: 9999;
+}
+
+.cv-dd-menu[hidden] {
+  display: none;
+}
+
+.cv-dd-menu button {
+  background: none;
+  border: none;
+  color: var(--fg);
+  padding: 10px 12px;
+  text-align: left;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  white-space: nowrap;
+}
+
+.cv-dd-menu button:hover {
+  background: var(--surface);
+}
+
+.cv-dd-menu button svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.cv-style-h1 {
+  font-size: 19px;
+  font-weight: 700;
+}
+
+.cv-style-h2 {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.cv-style-h3 {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.cv-menu-check {
+  margin-left: auto;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.cv-menu-check::after {
+  content: "";
+  display: none;
+  width: 5px;
+  height: 9px;
+  border-right: 2px solid var(--fg);
+  border-bottom: 2px solid var(--fg);
+  transform: rotate(45deg) translate(-1px, -2px);
+}
+
+.cv-menu-check.is-on::after {
+  display: block;
+}
+
+/* Color swatch grid, shared by text-color and highlight-color dropdowns */
+
+.cv-color-menu {
+  flex-direction: row;
+  flex-wrap: wrap;
+  width: 168px;
+  gap: 4px;
+}
+
+.cv-color-menu button {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  flex-shrink: 0;
+}
+
+.cv-color-menu button.is-selected {
+  outline: 2px solid var(--fg);
+  outline-offset: 1px;
+}
+
+.cv-color-menu button.cv-color-none {
+  background: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--fg);
+  font-size: 14px;
+}
+
+/* -- Find and replace bar -- */
+
+.cv-findreplace-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+}
+
+.cv-findreplace-bar[hidden] {
+  display: none;
+}
+
+.cv-findreplace-bar input {
+  background: transparent;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  padding: 7px 10px;
+  color: var(--fg);
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  width: 108px;
+  flex-shrink: 0;
+}
+
+.cv-findreplace-status {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.cv-findreplace-bar > button {
+  background: none;
+  border: none;
+  color: var(--fg);
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 13px;
+  font-family: inherit;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.cv-findreplace-bar > button:hover {
+  background: var(--surface);
+}
+
+.cv-findreplace-bar > button svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* -- Page setup overlay -- */
+
+.cv-pagesetup-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.cv-pagesetup-option {
+  background: none;
+  border: 1px solid var(--line-strong);
+  color: var(--fg);
+  border-radius: 10px;
+  padding: 12px 16px;
+  text-align: left;
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.cv-pagesetup-option.is-selected {
+  border-color: var(--fg);
+  background: var(--surface);
+  font-weight: 600;
 }
 
 /* ==========================================================================

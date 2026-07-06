@@ -1164,7 +1164,59 @@
 
   var cvPage = document.getElementById("cv-page");
   var CV_DRAFT_KEY = "employable_cv_draft";
+  var CV_MARGINS_KEY = "employable_cv_margins";
   var cvLoaded = false;
+
+  // ---------- CV Workshop: toolbar dropdowns (Styles / color / align / Insert / More) ----------
+
+  // Menus get reparented to <body> when opened (see positionCvDropdown),
+  // so their element references are captured up front here rather than
+  // re-queried from `dd` each time -- once moved, `dd.querySelector(...)`
+  // would no longer find them.
+  var cvAllMenus = Array.prototype.slice.call(document.querySelectorAll("#cv-toolbar .cv-dd-menu"));
+
+  function closeAllCvDropdowns() {
+    cvAllMenus.forEach(function (menu) { menu.hidden = true; });
+  }
+
+  function positionCvDropdown(toggle, menu) {
+    // Moved to <body> so its "position: fixed" isn't relative to some
+    // clipping/positioned ancestor, then placed from the toggle's live
+    // rect -- necessary since the toolbar scrolls horizontally and the
+    // menu must still land directly under whichever button opened it.
+    document.body.appendChild(menu);
+    menu.hidden = false;
+    var rect = toggle.getBoundingClientRect();
+    var menuRect = menu.getBoundingClientRect();
+    var left = rect.left;
+    if (left + menuRect.width > window.innerWidth - 8) {
+      left = Math.max(8, window.innerWidth - menuRect.width - 8);
+    }
+    var top = rect.bottom + 6;
+    if (top + menuRect.height > window.innerHeight - 8) {
+      top = Math.max(8, rect.top - menuRect.height - 6);
+    }
+    menu.style.left = left + "px";
+    menu.style.top = top + "px";
+  }
+
+  Array.prototype.slice.call(document.querySelectorAll("#cv-toolbar .cv-dd")).forEach(function (dd) {
+    var toggle = dd.querySelector(".cv-dd-toggle");
+    var menu = dd.querySelector(".cv-dd-menu");
+    if (!toggle || !menu) return;
+    toggle.addEventListener("click", function (e) {
+      e.stopPropagation();
+      var willOpen = menu.hidden;
+      closeAllCvDropdowns();
+      if (willOpen) positionCvDropdown(toggle, menu);
+    });
+  });
+
+  document.addEventListener("click", function (e) {
+    if (!e.target.closest || !e.target.closest("#cv-toolbar .cv-dd")) {
+      closeAllCvDropdowns();
+    }
+  });
 
   // Toolbar buttons apply document.execCommand on the current
   // selection. mousedown on the button (not click) would steal focus
@@ -1176,7 +1228,315 @@
     btn.addEventListener("click", function () {
       cvPage.focus();
       document.execCommand(btn.dataset.cmd, false, btn.dataset.value || undefined);
+      closeAllCvDropdowns();
     });
+  });
+
+  // Styles dropdown: paragraph vs heading level
+  var cvStylesMenu = document.getElementById("cv-styles-menu");
+  var cvStylesLabel = document.getElementById("cv-styles-label");
+  var CV_STYLE_LABELS = { p: "Normal", h1: "Title", h2: "Heading 1", h3: "Heading 2" };
+
+  cvStylesMenu.querySelectorAll("[data-style]").forEach(function (btn) {
+    btn.addEventListener("mousedown", function (e) { e.preventDefault(); });
+    btn.addEventListener("click", function () {
+      cvPage.focus();
+      document.execCommand("formatBlock", false, "<" + btn.dataset.style + ">");
+      cvStylesLabel.textContent = CV_STYLE_LABELS[btn.dataset.style] || "Normal";
+      closeAllCvDropdowns();
+    });
+  });
+
+  // Text color and highlight color swatch grids
+  var CV_TEXT_COLORS = ["#000000", "#434343", "#666666", "#999999", "#b7b7b7",
+    "#e03131", "#f08c00", "#2f9e44", "#1971c2", "#7048e8", "#e64980", "#0c8599"];
+  var CV_HIGHLIGHT_COLORS = ["#ffd8a8", "#ffec99", "#b2f2bb", "#a5d8ff", "#eebefa", "#ffc9c9", "#d0bfff"];
+
+  var cvTextColorMenu = document.getElementById("cv-textcolor-menu");
+  var cvTextColorSwatch = document.getElementById("cv-textcolor-swatch");
+
+  CV_TEXT_COLORS.forEach(function (color) {
+    var b = document.createElement("button");
+    b.type = "button";
+    b.style.background = color;
+    b.title = color;
+    b.addEventListener("mousedown", function (e) { e.preventDefault(); });
+    b.addEventListener("click", function () {
+      cvPage.focus();
+      document.execCommand("foreColor", false, color);
+      cvTextColorSwatch.style.background = color;
+      closeAllCvDropdowns();
+    });
+    cvTextColorMenu.appendChild(b);
+  });
+
+  var cvHighlightMenu = document.getElementById("cv-highlight-menu");
+
+  function applyCvHighlight(color) {
+    cvPage.focus();
+    var ok = false;
+    try { ok = document.execCommand("hiliteColor", false, color); } catch (e) { ok = false; }
+    if (!ok) {
+      try { document.execCommand("backColor", false, color); } catch (e) {}
+    }
+  }
+
+  var cvHighlightNoneBtn = document.createElement("button");
+  cvHighlightNoneBtn.type = "button";
+  cvHighlightNoneBtn.className = "cv-color-none";
+  cvHighlightNoneBtn.textContent = "✕";
+  cvHighlightNoneBtn.title = "None";
+  cvHighlightNoneBtn.addEventListener("mousedown", function (e) { e.preventDefault(); });
+  cvHighlightNoneBtn.addEventListener("click", function () {
+    applyCvHighlight("transparent");
+    closeAllCvDropdowns();
+  });
+  cvHighlightMenu.appendChild(cvHighlightNoneBtn);
+
+  CV_HIGHLIGHT_COLORS.forEach(function (color) {
+    var b = document.createElement("button");
+    b.type = "button";
+    b.style.background = color;
+    b.title = color;
+    b.addEventListener("mousedown", function (e) { e.preventDefault(); });
+    b.addEventListener("click", function () {
+      applyCvHighlight(color);
+      closeAllCvDropdowns();
+    });
+    cvHighlightMenu.appendChild(b);
+  });
+
+  // Insert menu: link / horizontal line / table
+  document.getElementById("cv-insert-link-btn").addEventListener("click", function () {
+    closeAllCvDropdowns();
+    var url = prompt("Link URL:", "https://");
+    if (!url) return;
+    cvPage.focus();
+    document.execCommand("createLink", false, url);
+  });
+
+  document.getElementById("cv-insert-hr-btn").addEventListener("click", function () {
+    closeAllCvDropdowns();
+    cvPage.focus();
+    document.execCommand("insertHorizontalRule", false);
+  });
+
+  document.getElementById("cv-insert-table-btn").addEventListener("click", function () {
+    closeAllCvDropdowns();
+    cvPage.focus();
+    var cell = 'style="border:1px solid #999;padding:6px;min-width:60px;"';
+    var row = "<tr><td " + cell + ">&nbsp;</td><td " + cell + ">&nbsp;</td></tr>";
+    document.execCommand("insertHTML", false,
+      '<table style="width:100%;border-collapse:collapse;">' + row + row + "</table><p><br></p>");
+  });
+
+  // More menu: print preview / find & replace / word count / page setup / spell check
+  document.getElementById("cv-print-preview-btn").addEventListener("click", function () {
+    closeAllCvDropdowns();
+    // Open the tab synchronously (before the fetch resolves) so mobile
+    // popup blockers don't treat it as an unrequested popup; PDFs also
+    // don't render reliably embedded in an iframe on mobile, so this
+    // hands off to the device's native PDF viewer instead (same pattern
+    // used for the Android onboarding flow).
+    var win = window.open("", "_blank");
+    var margins = null;
+    try { margins = localStorage.getItem(CV_MARGINS_KEY); } catch (e) {}
+    fetch("/api/cv-download/pdf", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cv_html: cvPage.innerHTML, margins: margins || "normal" }),
+    })
+      .then(function (r) {
+        if (!r.ok) throw new Error("Preview failed");
+        return r.blob();
+      })
+      .then(function (blob) {
+        var url = URL.createObjectURL(blob);
+        if (win) {
+          win.location.href = url;
+        } else {
+          window.open(url, "_blank");
+        }
+      })
+      .catch(function () {
+        if (win) win.close();
+        alert("Couldn't generate the preview. Please try again.");
+      });
+  });
+
+  var cvFindReplaceBar = document.getElementById("cv-findreplace-bar");
+  var cvFindInput = document.getElementById("cv-find-input");
+  var cvReplaceInput = document.getElementById("cv-replace-input");
+  var cvFindReplaceStatus = document.getElementById("cv-findreplace-status");
+
+  // Built on Range/Selection (not window.find, which Chrome doesn't
+  // support) so it works consistently in the Android WebView and on iOS.
+  function cvTextNodes() {
+    var walker = document.createTreeWalker(cvPage, NodeFilter.SHOW_TEXT, null, false);
+    var nodes = [];
+    var n;
+    while ((n = walker.nextNode())) nodes.push(n);
+    return nodes;
+  }
+
+  function cvFindRanges(term) {
+    if (!term) return [];
+    var lower = term.toLowerCase();
+    var ranges = [];
+    cvTextNodes().forEach(function (node) {
+      var textLower = node.textContent.toLowerCase();
+      var idx = textLower.indexOf(lower);
+      while (idx !== -1) {
+        var range = document.createRange();
+        range.setStart(node, idx);
+        range.setEnd(node, idx + term.length);
+        ranges.push(range);
+        idx = textLower.indexOf(lower, idx + term.length);
+      }
+    });
+    return ranges;
+  }
+
+  var cvFindIndex = -1;
+
+  function cvUpdateFindStatus() {
+    var term = cvFindInput.value;
+    if (!term) { cvFindReplaceStatus.textContent = ""; return; }
+    var count = cvFindRanges(term).length;
+    cvFindReplaceStatus.textContent = count ? ((cvFindIndex + 1) + " of " + count) : "No matches";
+  }
+
+  function cvFindNext() {
+    var ranges = cvFindRanges(cvFindInput.value);
+    if (!ranges.length) { cvFindIndex = -1; cvUpdateFindStatus(); return; }
+    cvFindIndex = (cvFindIndex + 1) % ranges.length;
+    var range = ranges[cvFindIndex];
+    var sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    var el = range.startContainer.parentElement;
+    if (el && el.scrollIntoView) el.scrollIntoView({ block: "center", behavior: "smooth" });
+    cvUpdateFindStatus();
+  }
+
+  document.getElementById("cv-find-next-btn").addEventListener("click", cvFindNext);
+  cvFindInput.addEventListener("input", function () { cvFindIndex = -1; cvUpdateFindStatus(); });
+  cvFindInput.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") cvFindNext();
+  });
+
+  document.getElementById("cv-replace-btn").addEventListener("click", function () {
+    var term = cvFindInput.value;
+    var replace = cvReplaceInput.value;
+    if (!term) return;
+    var ranges = cvFindRanges(term);
+    if (!ranges.length) { cvUpdateFindStatus(); return; }
+    var range = ranges[cvFindIndex >= 0 ? cvFindIndex : 0];
+    range.deleteContents();
+    range.insertNode(document.createTextNode(replace));
+    cvPage.normalize();
+    try { localStorage.setItem(CV_DRAFT_KEY, cvPage.innerHTML); } catch (e) {}
+    cvFindIndex = -1;
+    cvUpdateFindStatus();
+  });
+
+  document.getElementById("cv-replace-all-btn").addEventListener("click", function () {
+    var term = cvFindInput.value;
+    var replace = cvReplaceInput.value;
+    if (!term) return;
+    var ranges = cvFindRanges(term);
+    // Replace back-to-front so earlier ranges' offsets stay valid.
+    for (var i = ranges.length - 1; i >= 0; i--) {
+      ranges[i].deleteContents();
+      ranges[i].insertNode(document.createTextNode(replace));
+    }
+    cvPage.normalize();
+    cvFindReplaceStatus.textContent = ranges.length ? ("Replaced " + ranges.length) : "No matches";
+    try { localStorage.setItem(CV_DRAFT_KEY, cvPage.innerHTML); } catch (e) {}
+    cvFindIndex = -1;
+  });
+
+  document.getElementById("cv-findreplace-toggle-btn").addEventListener("click", function () {
+    closeAllCvDropdowns();
+    cvFindReplaceBar.hidden = !cvFindReplaceBar.hidden;
+    if (!cvFindReplaceBar.hidden) cvFindInput.focus();
+  });
+
+  document.getElementById("cv-findreplace-close-btn").addEventListener("click", function () {
+    cvFindReplaceBar.hidden = true;
+  });
+
+  document.getElementById("cv-wordcount-btn").addEventListener("click", function () {
+    closeAllCvDropdowns();
+    var text = (cvPage.innerText || "").trim();
+    var words = text ? text.split(/\s+/).length : 0;
+    var chars = text.length;
+    var charsNoSpaces = text.replace(/\s/g, "").length;
+    document.getElementById("cv-wordcount-body").textContent =
+      words + " words, " + chars + " characters, " + charsNoSpaces + " characters (no spaces).";
+    document.getElementById("cv-wordcount-overlay").hidden = false;
+  });
+
+  document.getElementById("cv-wordcount-close-btn").addEventListener("click", function () {
+    document.getElementById("cv-wordcount-overlay").hidden = true;
+  });
+
+  var cvPageSetupOptions = document.querySelectorAll(".cv-pagesetup-option");
+
+  function cvApplyMargin(margin) {
+    cvPageSetupOptions.forEach(function (b) {
+      b.classList.toggle("is-selected", b.dataset.margin === margin);
+    });
+    var pad = margin === "narrow" ? "28px 24px" : margin === "wide" ? "64px 60px" : "48px 44px";
+    document.getElementById("cv-page").style.padding = pad;
+  }
+
+  (function () {
+    var saved = null;
+    try { saved = localStorage.getItem(CV_MARGINS_KEY); } catch (e) {}
+    cvApplyMargin(saved || "normal");
+  })();
+
+  document.getElementById("cv-pagesetup-btn").addEventListener("click", function () {
+    closeAllCvDropdowns();
+    document.getElementById("cv-pagesetup-overlay").hidden = false;
+  });
+
+  document.getElementById("cv-pagesetup-close-btn").addEventListener("click", function () {
+    document.getElementById("cv-pagesetup-overlay").hidden = true;
+  });
+
+  cvPageSetupOptions.forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      cvApplyMargin(btn.dataset.margin);
+      try { localStorage.setItem(CV_MARGINS_KEY, btn.dataset.margin); } catch (e) {}
+      document.getElementById("cv-pagesetup-overlay").hidden = true;
+    });
+  });
+
+  var cvSpellcheckCheck = document.getElementById("cv-spellcheck-check");
+  var CV_SPELLCHECK_KEY = "employable_cv_spellcheck";
+
+  function cvApplySpellcheck(on) {
+    cvPage.spellcheck = on;
+    // Re-mount so Chrome/Safari actually re-evaluate the spellcheck attribute.
+    var parent = cvPage.parentNode;
+    parent.removeChild(cvPage);
+    parent.appendChild(cvPage);
+    cvSpellcheckCheck.classList.toggle("is-on", on);
+  }
+
+  (function () {
+    var saved = null;
+    try { saved = localStorage.getItem(CV_SPELLCHECK_KEY); } catch (e) {}
+    cvApplySpellcheck(saved === "on");
+  })();
+
+  document.getElementById("cv-spellcheck-toggle-btn").addEventListener("click", function () {
+    closeAllCvDropdowns();
+    var on = !cvSpellcheckCheck.classList.contains("is-on");
+    cvApplySpellcheck(on);
+    try { localStorage.setItem(CV_SPELLCHECK_KEY, on ? "on" : "off"); } catch (e) {}
   });
 
   function loadCvContent() {
@@ -1264,11 +1624,12 @@
   });
 
   function downloadCv(format) {
-    var content = cvPage.innerText;
+    var margins = null;
+    try { margins = localStorage.getItem(CV_MARGINS_KEY); } catch (e) {}
     fetch("/api/cv-download/" + format, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content: content }),
+      body: JSON.stringify({ cv_html: cvPage.innerHTML, margins: margins || "normal" }),
     })
       .then(function (r) {
         if (!r.ok) throw new Error("Download failed");

@@ -1071,6 +1071,34 @@ def api_cv_edit():
 
     client = OpenAI(api_key=analyzer.get_openai_api_key(), timeout=analyzer.CLIENT_TIMEOUT, max_retries=analyzer.CLIENT_MAX_RETRIES)
 
+    # Same grounding the main chat endpoint uses (see api_chat) -- without
+    # this, an empty editor + an instruction like "write me a CV like
+    # mine" had nothing real to draw from, and the model would invent a
+    # complete fake person (wrong job history, wrong employers, wrong
+    # everything) rather than ever admitting it had nothing to go on.
+    state = pipeline.get_dashboard_state(user["id"])
+    profile = state.get("profile", {})
+    full_docs = db.get_documents_for_user(user["id"])
+    doc_texts = []
+    total_chars = 0
+    DOC_CHAR_CAP = 3000
+    TOTAL_CHAR_CAP = 20000
+    for d in full_docs:
+        if total_chars >= TOTAL_CHAR_CAP:
+            break
+        try:
+            txt = (d.get("content") or "").strip()
+            if not txt and d.get("stored_path") and os.path.exists(d["stored_path"]):
+                txt = (extract.extract_text(d["stored_path"]) or "").strip()
+            if txt:
+                snippet = txt[:DOC_CHAR_CAP]
+                doc_texts.append(f"[{d['filename']}]\n{snippet}")
+                total_chars += len(snippet)
+        except Exception:
+            pass
+    doc_content_block = "\n\n---\n\n".join(doc_texts) if doc_texts else "No documents uploaded yet."
+    skill_names = [s["label"] for s in state.get("skills", [])]
+
     import re as _re
     system = (
         "You are an expert CV/document editor built into the Employable platform. "
@@ -1083,8 +1111,29 @@ def api_cv_edit():
         "No <html>, <head>, <body> wrappers. No code fences.\n"
         "- 'description': one short, specific sentence (max 20 words) describing exactly what you changed — e.g. "
         "'Made all section headings bold and centered the name at the top.' "
-        "Be specific to what was actually done, not generic.\n"
-        "- If the document is empty and the user asks to generate a CV, produce a complete well-formatted HTML CV."
+        "Be specific to what was actually done, not generic.\n\n"
+        "DESIGN — when writing or restructuring a CV (not just tweaking a sentence), apply real CV design "
+        "sense, not just correct facts in a wall of text: a clear name/contact header, short bold section "
+        "headings (Experience, Education, Skills, etc.) in a consistent order, reverse-chronological entries "
+        "within each section, bullet points for achievements rather than dense paragraphs, consistent bold "
+        "usage for role titles or employer names (pick one convention and stick to it), and generous <hr>/"
+        "spacing between sections so it's scannable in a 6-second recruiter skim. Keep it ATS-friendly: no "
+        "tables or unusual layouts, plain section headings a parser would recognize, no relying on color or "
+        "font tricks to convey structure.\n\n"
+        "GROUNDING — this is the most important rule, above all others: every fact in the document "
+        "(employer names, job titles, dates, schools, achievements, contact details) must come from "
+        "the user's real profile/documents below, or already be present in the current document HTML. "
+        "NEVER invent a person, career, employer, achievement, or biography that isn't actually theirs "
+        "-- not even a plausible-sounding placeholder one. If the document is empty and the user asks you "
+        "to write or generate a CV, build it FROM the real document content below. If there isn't enough "
+        "real information to do that (no documents uploaded, or nothing usable in them), say so plainly "
+        "in 'description' and return the document unchanged rather than fabricating a fake CV.\n\n"
+        f"This user's real profile:\n"
+        f"- Name: {profile.get('full_name') or 'Unknown'}\n"
+        f"- Location: {profile.get('location') or 'Not specified'}\n"
+        f"- Skills: {', '.join(skill_names) if skill_names else 'None listed.'}\n\n"
+        f"Full content of this user's actual uploaded documents (the ONLY source of truth for any CV "
+        f"content you write):\n{doc_content_block}"
     )
     prompt = f"Current document HTML:\n{cv_html if cv_html else '(empty — generate fresh content)'}\n\nInstruction: {instruction}"
 
@@ -1118,34 +1167,78 @@ def api_cv_edit():
 @app.route("/api/cv-download/docx", methods=["POST"])
 @auth.login_required
 def api_cv_download_docx():
-    """Generate a DOCX file from CV plain text content."""
+    """Generate a DOCX file that reflects the editor's real formatting."""
     from docx import Document
-    from docx.shared import Pt, Inches
+    from docx.shared import Pt, Inches, RGBColor
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
     from flask import send_file
-    import io, re as _re2
+    import io
+    from cv_export import parse_cv_html
+
     data = request.get_json(force=True)
+    cv_html = (data.get("cv_html") or "").strip()
     content = (data.get("content") or "").strip()
-    if not content:
+    blocks = parse_cv_html(cv_html) if cv_html else []
+    if not blocks and not content:
         return jsonify({"error": "No content provided."}), 400
+
+    ALIGN_MAP = {
+        "left": WD_ALIGN_PARAGRAPH.LEFT,
+        "center": WD_ALIGN_PARAGRAPH.CENTER,
+        "right": WD_ALIGN_PARAGRAPH.RIGHT,
+        "justify": WD_ALIGN_PARAGRAPH.JUSTIFY,
+    }
+    HEADING_SIZE = {"h1": 16, "h2": 13, "h3": 12}
+    DOCX_MARGINS = {
+        "narrow": (0.6, 0.6),
+        "normal": (1.0, 1.15),
+        "wide": (1.4, 1.6),
+    }
+    v_in, h_in = DOCX_MARGINS.get(data.get("margins"), DOCX_MARGINS["normal"])
 
     doc = Document()
     for section in doc.sections:
-        section.top_margin = Inches(1)
-        section.bottom_margin = Inches(1)
-        section.left_margin = Inches(1.15)
-        section.right_margin = Inches(1.15)
+        section.top_margin = Inches(v_in)
+        section.bottom_margin = Inches(v_in)
+        section.left_margin = Inches(h_in)
+        section.right_margin = Inches(h_in)
 
-    for line in content.split("\n"):
-        stripped = line.strip()
-        p = doc.add_paragraph()
-        p.paragraph_format.space_after = Pt(2)
-        run = p.add_run(stripped)
-        run.font.name = "Arial"
-        run.font.size = Pt(11)
-        # Detect headings: short all-caps lines
-        if stripped and len(stripped) < 60 and stripped.isupper():
-            run.bold = True
-            run.font.size = Pt(12)
+    if blocks:
+        for block in blocks:
+            if block["kind"] == "hr":
+                p = doc.add_paragraph("─" * 40)
+                p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                continue
+
+            p = doc.add_paragraph(style="List Bullet" if (block["kind"] == "li" and not block["ordered"]) else
+                                         "List Number" if (block["kind"] == "li" and block["ordered"]) else None)
+            p.paragraph_format.space_after = Pt(2)
+            p.alignment = ALIGN_MAP.get(block["align"], WD_ALIGN_PARAGRAPH.LEFT)
+            is_heading = block["kind"] in HEADING_SIZE
+            for text, fmt in block["runs"]:
+                run = p.add_run(text)
+                run.font.name = "Arial"
+                run.font.size = Pt(HEADING_SIZE.get(block["kind"], 11))
+                run.bold = is_heading or fmt.get("bold", False)
+                run.italic = fmt.get("italic", False)
+                run.underline = fmt.get("underline", False)
+                if fmt.get("color"):
+                    try:
+                        run.font.color.rgb = RGBColor.from_string(fmt["color"].lstrip("#"))
+                    except Exception:
+                        pass
+    else:
+        # Fallback for any caller still sending plain text.
+        for line in content.split("\n"):
+            stripped = line.strip()
+            p = doc.add_paragraph()
+            p.paragraph_format.space_after = Pt(2)
+            run = p.add_run(stripped)
+            run.font.name = "Arial"
+            run.font.size = Pt(11)
+            if stripped and len(stripped) < 60 and stripped.isupper():
+                run.bold = True
+                run.font.size = Pt(12)
 
     buf = io.BytesIO()
     doc.save(buf)
@@ -1157,37 +1250,91 @@ def api_cv_download_docx():
 @app.route("/api/cv-download/pdf", methods=["POST"])
 @auth.login_required
 def api_cv_download_pdf():
-    """Generate a PDF from CV plain text using reportlab."""
+    """Generate a PDF that reflects the editor's real formatting -- also
+    used, unmodified, as the "print preview" (see cv-preview handling in
+    dashboard.js: it fetches this same endpoint and opens the resulting
+    blob in a new tab instead of downloading it, since a mobile browser's
+    native PDF viewer only ever kicks in on direct navigation, not when
+    a PDF is embedded in an iframe)."""
     from reportlab.lib.pagesizes import A4
-    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.styles import ParagraphStyle
     from reportlab.lib.units import cm
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-    from reportlab.lib.enums import TA_LEFT
+    from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT, TA_JUSTIFY
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, HRFlowable
     from flask import send_file
     import io
+    from cv_export import parse_cv_html
+
     data = request.get_json(force=True)
+    cv_html = (data.get("cv_html") or "").strip()
     content = (data.get("content") or "").strip()
-    if not content:
+    blocks = parse_cv_html(cv_html) if cv_html else []
+    if not blocks and not content:
         return jsonify({"error": "No content provided."}), 400
+
+    ALIGN_MAP = {"left": TA_LEFT, "center": TA_CENTER, "right": TA_RIGHT, "justify": TA_JUSTIFY}
+    FONT_SIZE = {"h1": 18, "h2": 13, "h3": 12}
+    LEADING = {"h1": 24, "h2": 18, "h3": 17}
+    PDF_MARGINS = {
+        "narrow": (1.5, 1.5),
+        "normal": (2.5, 2.8),
+        "wide": (3.5, 4.0),
+    }
+    v_cm, h_cm = PDF_MARGINS.get(data.get("margins"), PDF_MARGINS["normal"])
 
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4,
-                            topMargin=2.5*cm, bottomMargin=2.5*cm,
-                            leftMargin=2.8*cm, rightMargin=2.8*cm)
-    styles = getSampleStyleSheet()
-    normal = ParagraphStyle("cv_normal", fontName="Helvetica", fontSize=11, leading=16, spaceAfter=2)
-    heading = ParagraphStyle("cv_heading", fontName="Helvetica-Bold", fontSize=12, leading=17, spaceAfter=4)
+                            topMargin=v_cm*cm, bottomMargin=v_cm*cm,
+                            leftMargin=h_cm*cm, rightMargin=h_cm*cm)
+
+    def style_for(block):
+        is_heading = block["kind"] in FONT_SIZE
+        return ParagraphStyle(
+            f"cv_{block['kind']}_{block['align']}",
+            fontName="Helvetica-Bold" if is_heading else "Helvetica",
+            fontSize=FONT_SIZE.get(block["kind"], 11),
+            leading=LEADING.get(block["kind"], 16),
+            spaceAfter=4 if is_heading else 2,
+            spaceBefore=8 if is_heading else 0,
+            alignment=ALIGN_MAP.get(block["align"], TA_LEFT),
+            leftIndent=14 if block["kind"] == "li" else 0,
+            bulletIndent=0,
+        )
 
     story = []
-    for line in content.split("\n"):
-        stripped = line.strip()
-        if not stripped:
-            story.append(Spacer(1, 6))
-        elif len(stripped) < 60 and stripped.isupper():
-            story.append(Paragraph(stripped, heading))
-        else:
-            safe = stripped.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-            story.append(Paragraph(safe, normal))
+    if blocks:
+        ordered_counter = 0
+        for block in blocks:
+            if block["kind"] != "li" or not block["ordered"]:
+                ordered_counter = 0  # reset whenever an ordered-list run breaks
+
+            if block["kind"] == "hr":
+                story.append(Spacer(1, 6))
+                story.append(HRFlowable(width="100%", thickness=0.6, color="#999999"))
+                story.append(Spacer(1, 6))
+                continue
+            markup = block["markup"]
+            if block["kind"] == "li":
+                if block["ordered"]:
+                    ordered_counter += 1
+                    prefix = f"{ordered_counter}. "
+                else:
+                    prefix = "•  "
+                markup = prefix + markup
+            story.append(Paragraph(markup, style_for(block)))
+    else:
+        # Fallback for any caller still sending plain text.
+        normal = ParagraphStyle("cv_normal", fontName="Helvetica", fontSize=11, leading=16, spaceAfter=2)
+        heading = ParagraphStyle("cv_heading", fontName="Helvetica-Bold", fontSize=12, leading=17, spaceAfter=4)
+        for line in content.split("\n"):
+            stripped = line.strip()
+            if not stripped:
+                story.append(Spacer(1, 6))
+            elif len(stripped) < 60 and stripped.isupper():
+                story.append(Paragraph(stripped, heading))
+            else:
+                safe = stripped.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                story.append(Paragraph(safe, normal))
 
     doc.build(story)
     buf.seek(0)
