@@ -793,7 +793,13 @@ a {
    ========================================================================== */
 
 .dash-shell {
-  height: 100dvh;
+  /* Pinned to the viewport itself (not just sized to it) so the tab bar
+     at the bottom of this flex column can never be carried off-screen
+     by page-level rubber-band/overscroll -- a real risk here since,
+     unlike the auth/onboarding shells, this one is meant to fully
+     occupy the screen with no outer page scroll at all. */
+  position: fixed;
+  inset: 0;
   background: var(--bg);
   display: flex;
   flex-direction: column;
