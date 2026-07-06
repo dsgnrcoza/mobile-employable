@@ -52,3 +52,20 @@ dependencies {
     implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.5.0'
     implementation 'androidx.appcompat:appcompat:1.7.0'
 }
+
+// androidbrowserhelper (an older library) transitively pulls Kotlin
+// stdlib 1.6.21's separate kotlin-stdlib-jdk7/jdk8 artifacts, while
+// appcompat pulls plain kotlin-stdlib 1.8.22 -- since Kotlin 1.8, the
+// jdk7/jdk8 content was merged into the main stdlib artifact, so having
+// both an old jdk7/jdk8 jar and a newer plain stdlib jar on the
+// classpath means the same classes exist in two jars at once. Forcing
+// every kotlin-stdlib* module to one single, newer version resolves it:
+// the jdk7/jdk8 artifacts at that version are empty compatibility
+// stubs, so there's nothing left to duplicate.
+configurations.all {
+    resolutionStrategy {
+        force 'org.jetbrains.kotlin:kotlin-stdlib:1.9.24'
+        force 'org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.24'
+        force 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.24'
+    }
+}
