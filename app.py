@@ -254,11 +254,13 @@ def login_page():
         return redirect(url_for("dashboard"))
 
     if request.method == "POST":
+        remember = bool(request.form.get("remember"))
         try:
-            result = auth.login(request.form.get("email", ""), request.form.get("password", ""))
+            result = auth.login(request.form.get("email", ""), request.form.get("password", ""), remember=remember)
             if result["status"] == "2fa_required":
                 session["pending_2fa_user_id"] = result["user_id"]
                 session["pending_code_purpose"] = "2fa_login"
+                session["pending_2fa_remember"] = remember
                 return redirect(url_for("verify_code_page"))
             return redirect(url_for("dashboard"))
         except auth.AuthError as e:
@@ -326,9 +328,10 @@ def verify_code_page():
             return render_template("verify_code.html", purpose=purpose)
 
         if purpose == "2fa_login":
+            remember = session.pop("pending_2fa_remember", True)
             session.pop("pending_2fa_user_id", None)
             session.pop("pending_code_purpose", None)
-            auth.log_in_user(user_id)
+            auth.log_in_user(user_id, remember=remember)
             return redirect(url_for("dashboard"))
 
         session.pop("pending_reset_user_id", None)

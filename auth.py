@@ -132,12 +132,17 @@ def signup(full_name, email, password, confirm_password):
     return user_id
 
 
-def login(email, password):
+def login(email, password, remember=True):
     """
     Verifies credentials. Raises AuthError with a generic message on
     failure -- deliberately not saying WHICH part was wrong (unknown
     email vs wrong password), since that distinction would let an
     attacker enumerate which emails have accounts here.
+
+    `remember` controls how long the session lasts once logged in --
+    see log_in_user(). When 2FA is required, log_in_user() doesn't run
+    yet, so the caller is responsible for remembering `remember` itself
+    (e.g. in the session) until verify_code() succeeds.
 
     Returns a dict: either {"status": "ok", "user_id": ...} (already
     logged in) or {"status": "2fa_required", "user_id": ...} (correct
@@ -155,7 +160,7 @@ def login(email, password):
         email_sender.send_code_email(user["email"], code, "2fa_login")
         return {"status": "2fa_required", "user_id": user["id"]}
 
-    log_in_user(user["id"])
+    log_in_user(user["id"], remember=remember)
     return {"status": "ok", "user_id": user["id"]}
 
 
@@ -240,10 +245,15 @@ def set_two_factor_enabled(user_id, enabled: bool, current_password: str):
     db.set_two_factor_enabled(user_id, enabled)
 
 
-def log_in_user(user_id):
+def log_in_user(user_id, remember=True):
+    # remember=True keeps the session past the browser closing (Flask's
+    # configured PERMANENT_SESSION_LIFETIME, 31 days by default);
+    # remember=False makes it a plain session-only cookie that goes
+    # away when the browser does -- the actual "Remember me" checkbox
+    # on the login form controls which one happens.
     session.clear()
     session["user_id"] = user_id
-    session.permanent = True
+    session.permanent = remember
 
 
 def log_out_user():

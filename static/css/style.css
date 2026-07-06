@@ -115,102 +115,14 @@ a {
 /* ---------- Auth shell (login / signup / forgot password / verify / reset) ---------- */
 
 .auth-shell {
-  position: relative;
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
   background: var(--bg);
   padding: 0 20px;
-  overflow: hidden;
-}
-
-/* Smooth, non-directional "aurora" backdrop: a handful of large,
-   heavily-blurred blobs in the wordmark's own colors, each drifting on
-   its own slow independent loop so the overall shape never repeats in
-   an obviously mechanical way -- deliberately not a single linear
-   gradient sweeping one direction. Fixed color count keeps this cheap
-   (no per-frame JS/canvas), and blur+opacity are the only properties
-   ever animated so it composites well even on a mid-range phone. */
-.auth-aurora {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  z-index: 0;
-  pointer-events: none;
-}
-
-.auth-aurora-blob {
-  position: absolute;
-  width: 70vmax;
-  height: 70vmax;
-  border-radius: 50%;
-  filter: blur(60px);
-  opacity: 0.65;
-  mix-blend-mode: screen;
-  will-change: transform;
-}
-
-.auth-aurora-blob:nth-child(1) {
-  background: #8b5cf6;
-  top: -30%;
-  left: -25%;
-  animation: auth-aurora-drift-1 24s ease-in-out infinite;
-}
-
-.auth-aurora-blob:nth-child(2) {
-  background: #ec4899;
-  top: -10%;
-  right: -35%;
-  animation: auth-aurora-drift-2 29s ease-in-out infinite;
-}
-
-.auth-aurora-blob:nth-child(3) {
-  background: #1e3a8a;
-  bottom: -35%;
-  left: -15%;
-  animation: auth-aurora-drift-3 33s ease-in-out infinite;
-}
-
-.auth-aurora-blob:nth-child(4) {
-  background: #2dd4bf;
-  bottom: -25%;
-  right: -20%;
-  animation: auth-aurora-drift-4 27s ease-in-out infinite;
-}
-
-@keyframes auth-aurora-drift-1 {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  33% { transform: translate(12%, 10%) scale(1.12); }
-  66% { transform: translate(-6%, 14%) scale(0.94); }
-}
-
-@keyframes auth-aurora-drift-2 {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  33% { transform: translate(-14%, 8%) scale(0.9); }
-  66% { transform: translate(-4%, -10%) scale(1.15); }
-}
-
-@keyframes auth-aurora-drift-3 {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  33% { transform: translate(10%, -12%) scale(1.1); }
-  66% { transform: translate(16%, 4%) scale(0.92); }
-}
-
-@keyframes auth-aurora-drift-4 {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  33% { transform: translate(-10%, -8%) scale(0.95); }
-  66% { transform: translate(-16%, 6%) scale(1.1); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .auth-aurora-blob {
-    animation: none;
-  }
 }
 
 .auth-card {
-  position: relative;
-  z-index: 1;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -250,7 +162,7 @@ a {
 
 .auth-visual {
   padding: 0 4px 22px;
-  text-align: center;
+  text-align: left;
 }
 
 .auth-wordmark {
@@ -291,10 +203,21 @@ a {
   }
 }
 
-.auth-visual-inner,
-.auth-visual-foot,
+/* Headline + subtext sit in the dark area above the card (not inside
+   it), matching the reference layout. */
 .auth-headline {
-  display: none;
+  display: block;
+  font-size: 25px;
+  font-weight: 700;
+  line-height: 1.3;
+  margin: 16px 0 6px;
+}
+
+.auth-headline-sub {
+  display: block;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
 }
 
 .auth-form-side {
@@ -302,25 +225,15 @@ a {
   padding: 0;
 }
 
-/* The rounded "sheet" every auth screen's form sits on -- the concept
-   pulled from the reference design (a big soft card floating on a
-   plain background, pill inputs, pill buttons) rebuilt in this app's
-   own monochrome palette rather than copying its color scheme. */
+/* The rounded "sheet" every auth screen's form sits on. */
 .auth-form-box {
   width: 100%;
   max-width: none;
   margin: 0;
-  /* Opaque enough to stay readable over the animated aurora blobs
-     behind it, with a frosted-glass blur so the backdrop still reads
-     through faintly at the card's edges rather than just hard-cutting
-     to a flat black box. */
-  background: rgba(8, 8, 10, 0.78);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #0a0a0a;
+  border: 1px solid var(--line);
   border-radius: 28px;
-  padding: 30px 24px 26px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+  padding: 26px 24px;
 }
 
 .auth-form-box h1 {
@@ -518,6 +431,93 @@ a {
 .auth-switch a {
   color: var(--fg);
   text-decoration: underline;
+}
+
+/* ---------- Remember me / Forgot password row ---------- */
+
+.auth-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: -6px 0 20px;
+  font-size: 13px;
+}
+
+.auth-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.auth-checkbox input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--fg);
+  cursor: pointer;
+}
+
+.auth-row a {
+  color: var(--fg);
+  text-decoration: underline;
+}
+
+/* ---------- Social login ---------- */
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 22px 0 16px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+.auth-social-row {
+  display: flex;
+  gap: 10px;
+}
+
+.auth-social-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 0;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--fg);
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.auth-social-btn:hover {
+  background: var(--surface);
+}
+
+.auth-social-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.auth-social-note {
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 14px;
 }
 
 /* ---------- 6-digit code entry ---------- */
