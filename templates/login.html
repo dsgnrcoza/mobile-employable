@@ -46,4 +46,20 @@
 
   </div>
 </div>
+
+<!-- First-visit choice: get the real app, or just continue in the browser -->
+<div class="celebrate-overlay" id="install-choice-overlay" hidden>
+  <div class="celebrate-modal">
+    <h2>Get Employable</h2>
+    <p>Install the app on your phone for the full experience, or just continue right here in your browser.</p>
+    <button type="button" class="btn btn-gold btn-block" id="install-choice-download-btn">Download for Mobile</button>
+    <div style="height:10px"></div>
+    <button type="button" class="btn btn-ghost btn-block" id="install-choice-web-btn">Continue on Web</button>
+    <div id="install-choice-note" class="uploads-modal-sub" style="text-align:center;margin-top:14px;" hidden></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/install-prompt.js') }}"></script>
 {% endblock %}

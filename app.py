@@ -28,7 +28,7 @@ import os
 import uuid
 import json
 from dotenv import load_dotenv
-from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, Response
 
 import db
 import auth
@@ -186,6 +186,37 @@ def android_asset_links():
             },
         }
     ])
+
+
+_ANDROID_APK_RELEASE_URL = "https://github.com/dsgnrcoza/mobile-employable/releases/download/android-latest/employable.apk"
+
+
+@app.route("/download/android")
+def download_android():
+    # Proxies the built APK through our own domain instead of pointing
+    # the browser straight at a github.com URL. Clicking a raw GitHub
+    # link from inside the installed TWA (or this site running as an
+    # installed PWA) means navigating outside the app's verified
+    # origin, which hands the whole flow off to an external browser tab
+    # instead of just downloading in place -- from the user's
+    # perspective that looks exactly like "it redirects to GitHub"
+    # instead of downloading. Keeping the entire request on our own
+    # domain avoids that hand-off.
+    import urllib.request
+    import urllib.error
+
+    try:
+        req = urllib.request.Request(_ANDROID_APK_RELEASE_URL, headers={"User-Agent": "Employable-App"})
+        with urllib.request.urlopen(req, timeout=25) as resp:
+            data = resp.read()
+    except (urllib.error.URLError, urllib.error.HTTPError):
+        return jsonify({"error": "Couldn't fetch the Android app right now. Please try again shortly."}), 502
+
+    return Response(
+        data,
+        mimetype="application/vnd.android.package-archive",
+        headers={"Content-Disposition": 'attachment; filename="employable.apk"'},
+    )
 
 
 @app.route("/")

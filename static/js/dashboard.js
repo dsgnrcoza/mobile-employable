@@ -1662,7 +1662,14 @@
   // standards-based browser install flow (no desktop .exe build
   // pipeline exists, and the PWA install prompt is the correct native
   // equivalent there).
-  var ANDROID_APK_URL = "https://github.com/dsgnrcoza/mobile-employable/releases/download/android-latest/employable.apk";
+  //
+  // Downloaded through our own domain (/download/android, which
+  // proxies the GitHub release asset server-side) rather than linking
+  // straight to github.com — a direct github.com link, clicked from
+  // inside the installed app, counts as navigating outside the app's
+  // verified origin, which hands the whole flow off to an external
+  // browser tab instead of just downloading in place.
+  var ANDROID_APK_URL = "/download/android";
 
   function isStandaloneApp() {
     return window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
@@ -1683,7 +1690,12 @@
       return;
     }
     window.location.href = ANDROID_APK_URL;
-    note.textContent = "Downloading the Android app… once it's done, open the file and allow installs from this browser if prompted.";
+    // Android shows an "Unknown apps"/Play Protect warning for any APK
+    // that isn't from the Play Store, regardless of the app itself —
+    // that's a real, unremovable OS security check, not a bug. Telling
+    // people upfront that it's expected turns a scary-looking dead end
+    // into an anticipated extra tap.
+    note.textContent = "Downloading the Android app… Android will warn that it's from outside the Play Store — that's expected for any app installed this way. Open the file, then tap \"Install anyway\" / \"Install without scanning\" to continue.";
     note.hidden = false;
   }
 
