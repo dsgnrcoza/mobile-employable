@@ -831,7 +831,15 @@ def _run_one_scoring_attempt(client, base_messages: list, verified_achievement_c
                 messages=messages,
             )
         except Exception as e:
-            raise CVAnalyzerError(f"OpenAI API request failed: {e}") from e
+            # openai's own APIConnectionError collapses every underlying
+            # httpx/socket/SSL failure into the same flat "Connection
+            # error." string, which is useless for telling a slow timeout
+            # apart from a DNS failure, a certificate problem, or a hard
+            # network block. e.__cause__ still holds the original
+            # exception the SDK wrapped (via "raise ... from err"), so
+            # surface that too rather than only the generic message.
+            cause = f" | underlying: {e.__cause__!r}" if e.__cause__ else ""
+            raise CVAnalyzerError(f"OpenAI API request failed: {e}{cause}") from e
 
         raw = response.choices[0].message.content
 
