@@ -1,24 +1,16 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "app.py",
-      "use": "@vercel/python",
-      "config": {
-        "includeFiles": [
-          "templates/**",
-          "static/**",
-          "*.py"
-        ]
-      }
-    }
-  ],
-  "routes": [
-    { "src": "/(.*)", "dest": "app.py" }
-  ],
   "functions": {
     "app.py": {
-      "maxDuration": 45
+      "maxDuration": 45,
+      "includeFiles": [
+        "templates/**",
+        "static/**",
+        "*.py"
+      ]
     }
-  }
+  },
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/app.py" }
+  ]
 }
