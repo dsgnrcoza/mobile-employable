@@ -50,6 +50,7 @@
       <div class="ob-error" id="cv-error" hidden></div>
 
       <button type="button" class="btn btn-gold btn-block ob-next-btn" id="cv-next-btn" disabled>Next</button>
+      <div class="auth-switch">Wrong account? <a href="{{ url_for('logout_page') }}">Log out</a></div>
     </section>
 
     <!-- Step 2: Supporting documents -->
@@ -95,6 +96,7 @@
       <div class="ob-error" id="supporting-error" hidden></div>
 
       <button type="button" class="btn btn-gold btn-block ob-next-btn" id="supporting-next-btn">Next</button>
+      <div class="auth-switch">Wrong account? <a href="{{ url_for('logout_page') }}">Log out</a></div>
     </section>
 
   </div>
