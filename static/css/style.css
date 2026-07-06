@@ -115,14 +115,102 @@ a {
 /* ---------- Auth shell (login / signup / forgot password / verify / reset) ---------- */
 
 .auth-shell {
+  position: relative;
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
   background: var(--bg);
   padding: 0 20px;
+  overflow: hidden;
+}
+
+/* Smooth, non-directional "aurora" backdrop: a handful of large,
+   heavily-blurred blobs in the wordmark's own colors, each drifting on
+   its own slow independent loop so the overall shape never repeats in
+   an obviously mechanical way -- deliberately not a single linear
+   gradient sweeping one direction. Fixed color count keeps this cheap
+   (no per-frame JS/canvas), and blur+opacity are the only properties
+   ever animated so it composites well even on a mid-range phone. */
+.auth-aurora {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.auth-aurora-blob {
+  position: absolute;
+  width: 70vmax;
+  height: 70vmax;
+  border-radius: 50%;
+  filter: blur(60px);
+  opacity: 0.65;
+  mix-blend-mode: screen;
+  will-change: transform;
+}
+
+.auth-aurora-blob:nth-child(1) {
+  background: #8b5cf6;
+  top: -30%;
+  left: -25%;
+  animation: auth-aurora-drift-1 24s ease-in-out infinite;
+}
+
+.auth-aurora-blob:nth-child(2) {
+  background: #ec4899;
+  top: -10%;
+  right: -35%;
+  animation: auth-aurora-drift-2 29s ease-in-out infinite;
+}
+
+.auth-aurora-blob:nth-child(3) {
+  background: #1e3a8a;
+  bottom: -35%;
+  left: -15%;
+  animation: auth-aurora-drift-3 33s ease-in-out infinite;
+}
+
+.auth-aurora-blob:nth-child(4) {
+  background: #2dd4bf;
+  bottom: -25%;
+  right: -20%;
+  animation: auth-aurora-drift-4 27s ease-in-out infinite;
+}
+
+@keyframes auth-aurora-drift-1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(12%, 10%) scale(1.12); }
+  66% { transform: translate(-6%, 14%) scale(0.94); }
+}
+
+@keyframes auth-aurora-drift-2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(-14%, 8%) scale(0.9); }
+  66% { transform: translate(-4%, -10%) scale(1.15); }
+}
+
+@keyframes auth-aurora-drift-3 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(10%, -12%) scale(1.1); }
+  66% { transform: translate(16%, 4%) scale(0.92); }
+}
+
+@keyframes auth-aurora-drift-4 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(-10%, -8%) scale(0.95); }
+  66% { transform: translate(-16%, 6%) scale(1.1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-aurora-blob {
+    animation: none;
+  }
 }
 
 .auth-card {
+  position: relative;
+  z-index: 1;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -131,6 +219,33 @@ a {
   max-width: 440px;
   margin: 0 auto;
   padding: 32px 0;
+}
+
+/* ---------- Login / Register tab switcher ---------- */
+
+.auth-tabs {
+  display: flex;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 4px;
+  margin-bottom: 22px;
+}
+
+.auth-tab {
+  flex: 1;
+  text-align: center;
+  padding: 10px 0;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.auth-tab.active {
+  background: var(--fg);
+  color: #000;
 }
 
 .auth-visual {
@@ -195,10 +310,17 @@ a {
   width: 100%;
   max-width: none;
   margin: 0;
-  background: var(--surface);
-  border: 1px solid var(--line);
+  /* Opaque enough to stay readable over the animated aurora blobs
+     behind it, with a frosted-glass blur so the backdrop still reads
+     through faintly at the card's edges rather than just hard-cutting
+     to a flat black box. */
+  background: rgba(8, 8, 10, 0.78);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 28px;
   padding: 30px 24px 26px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
 }
 
 .auth-form-box h1 {
