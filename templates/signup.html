@@ -5,7 +5,7 @@
   <div class="auth-card">
 
     <div class="auth-visual">
-      <div class="auth-badge">E</div>
+      <img class="auth-badge" src="{{ url_for('static', filename='icons/icon-192.png') }}" alt="Employable">
       <span class="auth-heading">Create your account</span>
       <span class="auth-subheading">Sign up to enjoy the best employability experience.</span>
     </div>
@@ -80,4 +80,5 @@
 {% block extra_scripts %}
 <script src="{{ url_for('static', filename='js/signup.js') }}"></script>
 <script src="{{ url_for('static', filename='js/download-app.js') }}"></script>
+<script src="{{ url_for('static', filename='js/auth-transition.js') }}"></script>
 {% endblock %}
