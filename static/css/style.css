@@ -983,10 +983,24 @@ button.auth-tab.active {
   justify-content: center;
   z-index: 9998;
   padding: 24px;
+  /* Fades in/out instead of popping instantly -- `display` is a
+     discrete (non-interpolable) property, so `allow-discrete` plus a
+     matching @starting-style block below is what lets the browser
+     animate the display:none <-> display:flex swap at all. */
+  opacity: 1;
+  transition: opacity 0.22s ease, display 0.22s allow-discrete;
 }
 
 .celebrate-overlay[hidden] {
   display: none;
+  opacity: 0;
+  transition: opacity 0.22s ease, display 0.22s allow-discrete;
+}
+
+@starting-style {
+  .celebrate-overlay:not([hidden]) {
+    opacity: 0;
+  }
 }
 
 .celebrate-modal {
@@ -997,6 +1011,14 @@ button.auth-tab.active {
   text-align: center;
   max-width: 340px;
   width: 100%;
+  transform: scale(1);
+  transition: transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@starting-style {
+  .celebrate-overlay:not([hidden]) .celebrate-modal {
+    transform: scale(0.94);
+  }
 }
 
 .celebrate-icon {
@@ -1079,10 +1101,20 @@ button.auth-tab.active {
   justify-content: center;
   z-index: 9998;
   padding: 20px;
+  opacity: 1;
+  transition: opacity 0.22s ease, display 0.22s allow-discrete;
 }
 
 .ob-preview-overlay[hidden] {
   display: none;
+  opacity: 0;
+  transition: opacity 0.22s ease, display 0.22s allow-discrete;
+}
+
+@starting-style {
+  .ob-preview-overlay:not([hidden]) {
+    opacity: 0;
+  }
 }
 
 .ob-preview-modal {
@@ -1095,6 +1127,14 @@ button.auth-tab.active {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  transform: scale(1);
+  transition: transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@starting-style {
+  .ob-preview-overlay:not([hidden]) .ob-preview-modal {
+    transform: scale(0.94);
+  }
 }
 
 .ob-preview-header {
@@ -1233,6 +1273,7 @@ button.auth-tab.active {
   cursor: pointer;
   font-family: inherit;
   white-space: nowrap;
+  transition: transform 0.1s ease;
 }
 
 .friend-request-accept {
@@ -1375,6 +1416,30 @@ button.auth-tab.active {
 
 @media (prefers-reduced-motion: reduce) {
   .dash-sheet {
+    transition: none;
+  }
+}
+
+/* Same opt-out for every fade/scale entrance transition added below --
+   with transition: none, [hidden] just flips display instantly again,
+   identical to how it behaved before any of these were added. */
+@media (prefers-reduced-motion: reduce) {
+  .celebrate-overlay,
+  .celebrate-overlay[hidden],
+  .celebrate-modal,
+  .ob-preview-overlay,
+  .ob-preview-overlay[hidden],
+  .ob-preview-modal,
+  .chat-history-overlay,
+  .chat-history-overlay[hidden],
+  .crop-overlay,
+  .crop-overlay[hidden],
+  .download-app-menu,
+  .download-app-menu[hidden],
+  .cv-download-menu,
+  .cv-download-menu[hidden],
+  .cv-dd-menu,
+  .cv-dd-menu[hidden] {
     transition: none;
   }
 }
@@ -2405,10 +2470,20 @@ button.auth-tab.active {
   z-index: 9999;
   display: flex;
   flex-direction: column;
+  opacity: 1;
+  transition: opacity 0.2s ease, display 0.2s allow-discrete;
 }
 
 .chat-history-overlay[hidden] {
   display: none;
+  opacity: 0;
+  transition: opacity 0.2s ease, display 0.2s allow-discrete;
+}
+
+@starting-style {
+  .chat-history-overlay:not([hidden]) {
+    opacity: 0;
+  }
 }
 
 .chat-history-header {
@@ -2582,7 +2657,7 @@ button.auth-tab.active {
   position: absolute;
   bottom: 100%;
   left: 50%;
-  transform: translateX(-50%);
+  transform: translateX(-50%) scale(1);
   margin-bottom: 8px;
   background: #0a0a0a;
   border: 1px solid var(--line-strong);
@@ -2594,10 +2669,22 @@ button.auth-tab.active {
   max-width: calc(100vw - 32px);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
   z-index: 501;
+  opacity: 1;
+  transform-origin: bottom center;
+  transition: opacity 0.15s ease, transform 0.15s ease, display 0.15s allow-discrete;
 }
 
 .download-app-menu[hidden] {
   display: none;
+  opacity: 0;
+  transition: opacity 0.15s ease, transform 0.15s ease, display 0.15s allow-discrete;
+}
+
+@starting-style {
+  .download-app-menu:not([hidden]) {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.94);
+  }
 }
 
 .download-app-menu button {
@@ -2797,10 +2884,23 @@ button.auth-tab.active {
   margin-bottom: 8px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
   z-index: 10;
+  opacity: 1;
+  transform: scale(1);
+  transform-origin: bottom left;
+  transition: opacity 0.15s ease, transform 0.15s ease, display 0.15s allow-discrete;
 }
 
 .cv-download-menu[hidden] {
   display: none;
+  opacity: 0;
+  transition: opacity 0.15s ease, transform 0.15s ease, display 0.15s allow-discrete;
+}
+
+@starting-style {
+  .cv-download-menu:not([hidden]) {
+    opacity: 0;
+    transform: scale(0.94);
+  }
 }
 
 .cv-download-menu button {
@@ -2890,10 +2990,22 @@ button.auth-tab.active {
   overflow-y: auto;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
   z-index: 9999;
+  opacity: 1;
+  transform: scale(1);
+  transition: opacity 0.15s ease, transform 0.15s ease, display 0.15s allow-discrete;
 }
 
 .cv-dd-menu[hidden] {
   display: none;
+  opacity: 0;
+  transition: opacity 0.15s ease, transform 0.15s ease, display 0.15s allow-discrete;
+}
+
+@starting-style {
+  .cv-dd-menu:not([hidden]) {
+    opacity: 0;
+    transform: scale(0.94);
+  }
 }
 
 .cv-dd-menu button {
@@ -3407,10 +3519,20 @@ button.auth-tab.active {
   display: flex;
   flex-direction: column;
   padding: 16px;
+  opacity: 1;
+  transition: opacity 0.2s ease, display 0.2s allow-discrete;
 }
 
 .crop-overlay[hidden] {
   display: none;
+  opacity: 0;
+  transition: opacity 0.2s ease, display 0.2s allow-discrete;
+}
+
+@starting-style {
+  .crop-overlay:not([hidden]) {
+    opacity: 0;
+  }
 }
 
 .crop-header {

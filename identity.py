@@ -102,7 +102,7 @@ def _ai_guess_name(text: str) -> str | None:
         api_key = analyzer.get_openai_api_key()
         if not api_key:
             return None
-        client = OpenAI(api_key=api_key, timeout=analyzer.CLIENT_TIMEOUT, max_retries=analyzer.CLIENT_MAX_RETRIES)
+        client = OpenAI(api_key=api_key, timeout=analyzer.get_client_timeout(), max_retries=analyzer.CLIENT_MAX_RETRIES)
         snippet = (text or "")[:3000]
         if not snippet.strip():
             return None
@@ -201,7 +201,7 @@ def _ai_classify_cv(text: str) -> bool:
         api_key = analyzer.get_openai_api_key()
         if not api_key:
             return False
-        client = OpenAI(api_key=api_key, timeout=analyzer.CLIENT_TIMEOUT, max_retries=analyzer.CLIENT_MAX_RETRIES)
+        client = OpenAI(api_key=api_key, timeout=analyzer.get_client_timeout(), max_retries=analyzer.CLIENT_MAX_RETRIES)
         snippet = (text or "")[:3000]
         if not snippet.strip():
             return False
