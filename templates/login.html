@@ -6,8 +6,7 @@
 
     <div class="auth-visual">
       <div class="auth-wordmark">Employable<span class="dot">.</span></div>
-      <span class="auth-headline">Go ahead and set up your account</span>
-      <span class="auth-headline-sub">Sign in to enjoy the best employability experience.</span>
+      <span class="auth-page-title">Login</span>
     </div>
 
     <div class="auth-form-side">
@@ -49,6 +48,8 @@
     </div>
 
   </div>
+
+  {% include "_download_app_button.html" %}
 </div>
 
 <!-- First-visit choice: get the real app, or just continue in the browser -->
@@ -62,8 +63,6 @@
     <div id="install-choice-note" class="uploads-modal-sub" style="text-align:center;margin-top:14px;" hidden></div>
   </div>
 </div>
-
-{% include "_download_app_button.html" %}
 {% endblock %}
 
 {% block extra_scripts %}

@@ -161,8 +161,9 @@ a {
 
 .auth-visual {
   flex-shrink: 0;
-  padding: 20px 24px 16px;
+  padding: 20px 24px 18px;
   text-align: left;
+  background: #fff;
 }
 
 .auth-wordmark {
@@ -174,17 +175,18 @@ a {
 /* Brand wordmark treatment: applies to every "Employable" heading on the
    splash screen and the top of the auth screens. Animated gradient text
    that cycles continuously with no visible seam: the stop list repeats
-   the same 4 colors twice, background-size is exactly 2x, so sliding
+   the same 3 colors twice, background-size is exactly 2x, so sliding
    background-position from 0% to 100% moves exactly one full period —
    the frame at 100% is pixel-identical to the frame at 0%, so looping
    back never glitches. Linear timing (not ease) keeps the speed constant
-   through that loop point too. */
+   through that loop point too. Pink/purple/turquoise only -- an earlier
+   navy stop was too close to black to read against dark backgrounds. */
 .splash-logo,
 .auth-wordmark {
   background: linear-gradient(
     90deg,
-    #8b5cf6, #ec4899, #1e3a8a, #2dd4bf,
-    #8b5cf6, #ec4899, #1e3a8a, #2dd4bf
+    #ff3ea5, #a855f7, #2dd4bf,
+    #ff3ea5, #a855f7, #2dd4bf
   );
   background-size: 200% auto;
   -webkit-background-clip: text;
@@ -203,21 +205,15 @@ a {
   }
 }
 
-/* Headline + subtext sit in the dark area above the card (not inside
-   it), matching the reference layout. */
-.auth-headline {
+/* Page title (Login / Sign Up) sits centered in the white area above
+   the card, in place of the old left-aligned headline + subtext. */
+.auth-page-title {
   display: block;
-  font-size: 22px;
+  text-align: center;
+  font-size: 26px;
   font-weight: 700;
-  line-height: 1.25;
-  margin: 12px 0 4px;
-}
-
-.auth-headline-sub {
-  display: block;
-  color: var(--muted);
-  font-size: 13px;
-  line-height: 1.4;
+  color: #0a0a0a;
+  margin-top: 14px;
 }
 
 .auth-form-side {
@@ -1908,13 +1904,22 @@ a {
   height: 16px;
 }
 
-/* ---------- Auth pages: small centered "Download App" button ---------- */
+/* ---------- Auth pages: small centered "Download App" button ----------
+   Lives in normal document flow as the last child of .auth-shell (flex,
+   shrink 0) below the card, rather than position:fixed floating over
+   the page -- a fixed pill would sit on top of whatever content is
+   underneath it, which is exactly the overlap this avoids now that the
+   card can extend all the way to the bottom of the screen. */
+
+.auth-download-wrap {
+  flex-shrink: 0;
+  position: relative;
+  display: flex;
+  justify-content: center;
+  padding: 14px 0 calc(14px + env(safe-area-inset-bottom));
+}
 
 .download-app-btn {
-  position: fixed;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -1928,7 +1933,6 @@ a {
   font-family: inherit;
   cursor: pointer;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
-  z-index: 500;
 }
 
 .download-app-btn[hidden] {
@@ -1952,10 +1956,11 @@ a {
 }
 
 .download-app-menu {
-  position: fixed;
-  bottom: 66px;
+  position: absolute;
+  bottom: 100%;
   left: 50%;
   transform: translateX(-50%);
+  margin-bottom: 8px;
   background: #0a0a0a;
   border: 1px solid var(--line-strong);
   border-radius: 16px;

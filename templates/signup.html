@@ -6,8 +6,7 @@
 
     <div class="auth-visual">
       <div class="auth-wordmark">Employable<span class="dot">.</span></div>
-      <span class="auth-headline">Create your account</span>
-      <span class="auth-headline-sub">Sign up to enjoy the best employability experience.</span>
+      <span class="auth-page-title">Sign Up</span>
     </div>
 
     <div class="auth-form-side">
@@ -64,6 +63,8 @@
     </div>
 
   </div>
+
+  {% include "_download_app_button.html" %}
 </div>
 
 <div class="celebrate-overlay" id="celebrate-overlay" hidden>
@@ -74,8 +75,6 @@
     <button type="button" class="btn btn-gold btn-block" id="celebrate-continue-btn">Continue</button>
   </div>
 </div>
-
-{% include "_download_app_button.html" %}
 {% endblock %}
 {% block extra_scripts %}
 <script src="{{ url_for('static', filename='js/signup.js') }}"></script>
