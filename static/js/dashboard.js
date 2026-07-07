@@ -478,11 +478,13 @@
   });
 
   // ---------- Action sheet: Profile / Notifications / Store / More ----------
-  // One shared sliding sheet, styled and animated exactly like the
-  // dashboard's own bottom sheet (same collapsed resting position,
-  // same drag-to-expand, same tab bar fade), so tapping any of the 4
-  // header buttons feels like that same physical sheet sliding up
-  // with different content -- not four different UI patterns.
+  // One shared sliding sheet, styled and animated like the dashboard's
+  // own bottom sheet (same drag-to-expand, same tab bar fade), so
+  // tapping any of the 4 header buttons feels like the same sheet
+  // sliding up with different content -- not four different UI
+  // patterns. Its resting position is higher than the dashboard
+  // sheet's own, though: just below the header, covering the gauge
+  // and "Employability Rating" entirely rather than sitting under it.
 
   var actionSheet = document.getElementById("action-sheet");
   var actionHandle = document.getElementById("action-sheet-handle");
@@ -507,12 +509,14 @@
   var actionStartOffset = 0;
   var actionLastOffset = 0;
 
-  // Reuses the dashboard sheet's own measured collapsed offset (set
-  // in the drag-sheet IIFE below) so both sheets rest at the exact
-  // same pixel position -- opening one over the other reads as the
-  // same sheet, not a same-sized coincidence.
+  // Rests just below the header itself (not the dashboard sheet's own
+  // lower collapsed offset) -- rising past the gauge to cover
+  // "Employability Rating" entirely, so only the header row (with its
+  // back arrow/icons) stays visible above it.
   function getCollapsedOffset() {
-    return window.__dashSheetCollapsedOffset || Math.round(window.innerHeight * 0.47);
+    var header = document.querySelector(".dash-header");
+    if (header) return header.getBoundingClientRect().bottom;
+    return Math.round(window.innerHeight * 0.12);
   }
 
   function getClosedOffset() {
@@ -2238,10 +2242,6 @@
 
     function measure() {
       collapsedOffset = scoreHeader.getBoundingClientRect().bottom;
-      // Shared with the action-sheet controller above so Profile/
-      // Notifications/Store/More rest at this exact same pixel
-      // position when opened.
-      window.__dashSheetCollapsedOffset = collapsedOffset;
     }
 
     function applyOffset(offset) {
