@@ -148,10 +148,6 @@
   var GAUGE_CIRCUMFERENCE = 2 * Math.PI * GAUGE_RADIUS;
   var GAUGE_SEG_GAP = 4; // px of arc length left as a visible gap between segments
 
-  gaugeSegEls.forEach(function (el, i) {
-    if (el && PRIMARY_METRICS[i]) el.style.stroke = PRIMARY_METRICS[i].color;
-  });
-
   function setGaugeSegments(scores) {
     var sum = scores.reduce(function (a, b) { return a + b; }, 0);
     var cumulative = 0;
@@ -168,6 +164,19 @@
       el.style.strokeDashoffset = (-startOffset).toFixed(2);
     });
   }
+
+  // Reuses 3 of the app's existing accent colors to turn the rating
+  // label into an at-a-glance signal, not just text -- green/teal for
+  // the 2 strong tiers, purple for the middle tier, red for the 3
+  // tiers that mean real gaps remain.
+  var LABEL_TIER_COLOR = {
+    "Highly Employable": "#2dd4bf",
+    "Job Ready": "#2dd4bf",
+    "Competitive": "#8b5cf6",
+    "Needs Work": "#ff3b5c",
+    "Highly Hindered": "#ff3b5c",
+    "Critical Gaps": "#ff3b5c",
+  };
 
   var LABEL_EXPLANATIONS = {
     "Highly Employable": {
@@ -215,6 +224,95 @@
     if (e.target === labelInfoOverlay) labelInfoOverlay.hidden = true;
   });
 
+  // ---------- Full stat radar chart: tap the main score to open ----------
+  // All 8 dimensions the backend already computes (not just the 3
+  // primary ones), plotted as a web/radar chart -- reuses the exact
+  // same dimension scores everything else on this page already has,
+  // just visualized differently.
+
+  var RADAR_CENTER = 150;
+  var RADAR_MAX_R = 100;
+  var RADAR_AXES = [
+    { short: "DOC", label: "Documentation Strength" },
+    { short: "EXP", label: "Experience Strength" },
+    { short: "QUAL", label: "Qualification Strength" },
+    { short: "SKL", label: "Skill Strength" },
+    { short: "MKT", label: "Market Competitiveness" },
+    { short: "CRED", label: "Evidence Credibility" },
+    { short: "ATS", label: "ATS Compatibility" },
+    { short: "PROG", label: "Career Progression" },
+  ];
+
+  function radarPoint(i, r) {
+    var angle = (-90 + i * (360 / RADAR_AXES.length)) * Math.PI / 180;
+    return { x: RADAR_CENTER + r * Math.cos(angle), y: RADAR_CENTER + r * Math.sin(angle) };
+  }
+
+  function radarAnchorFor(x) {
+    if (Math.abs(x - RADAR_CENTER) < 4) return "middle";
+    return x > RADAR_CENTER ? "start" : "end";
+  }
+
+  var radarChartEl = document.getElementById("radar-chart");
+
+  function buildRadarChart() {
+    var dimByLabel = {};
+    if (analysis) (analysis.dimensions || []).forEach(function (d) { dimByLabel[d.label] = d; });
+
+    var parts = [];
+    [2, 4, 6, 8, 10].forEach(function (level) {
+      var r = (level / 10) * RADAR_MAX_R;
+      var pts = RADAR_AXES.map(function (_, i) {
+        var p = radarPoint(i, r);
+        return p.x.toFixed(1) + "," + p.y.toFixed(1);
+      }).join(" ");
+      parts.push('<polygon class="radar-grid-ring" points="' + pts + '"></polygon>');
+    });
+
+    RADAR_AXES.forEach(function (axis, i) {
+      var outer = radarPoint(i, RADAR_MAX_R);
+      parts.push(
+        '<line class="radar-axis-line" x1="' + RADAR_CENTER + '" y1="' + RADAR_CENTER +
+        '" x2="' + outer.x.toFixed(1) + '" y2="' + outer.y.toFixed(1) + '"></line>'
+      );
+      var labelPt = radarPoint(i, RADAR_MAX_R + 18);
+      parts.push(
+        '<text class="radar-axis-label" x="' + labelPt.x.toFixed(1) + '" y="' + labelPt.y.toFixed(1) +
+        '" text-anchor="' + radarAnchorFor(labelPt.x) + '" dominant-baseline="middle">' + axis.short + '</text>'
+      );
+    });
+
+    var dataPts = RADAR_AXES.map(function (axis, i) {
+      var dim = dimByLabel[axis.label];
+      var score = dim ? dim.score : 0;
+      var r = Math.max(0, Math.min(1, score / 10)) * RADAR_MAX_R;
+      return radarPoint(i, r);
+    });
+    var dataPtsStr = dataPts.map(function (p) { return p.x.toFixed(1) + "," + p.y.toFixed(1); }).join(" ");
+    parts.push('<polygon class="radar-data-polygon" points="' + dataPtsStr + '"></polygon>');
+    dataPts.forEach(function (p) {
+      parts.push('<circle class="radar-data-point" cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="3"></circle>');
+    });
+
+    radarChartEl.innerHTML = parts.join("");
+  }
+
+  var radarOverlay = document.getElementById("radar-overlay");
+  var radarCloseBtn = document.getElementById("radar-close-btn");
+  var gaugeCard = document.querySelector(".dash-gauge-card");
+
+  if (gaugeCard) {
+    gaugeCard.addEventListener("click", function () {
+      if (!analysis) return; // nothing to plot yet
+      buildRadarChart();
+      radarOverlay.hidden = false;
+    });
+  }
+  radarCloseBtn.addEventListener("click", function () { radarOverlay.hidden = true; });
+  radarOverlay.addEventListener("click", function (e) {
+    if (e.target === radarOverlay) radarOverlay.hidden = true;
+  });
+
   var metricOverlay = document.getElementById("dash-metric-overlay");
   var metricTitle = document.getElementById("dash-metric-title");
   var metricScore = document.getElementById("dash-metric-score");
@@ -258,13 +356,24 @@
   });
 
   // ---------- 3 primary legend rows: color + name + % share of the ring ----------
-  // Built once, updated in place on every re-render. The ring itself
-  // (setGaugeSegments above) is the primary visual; each row here is a
-  // compact color-matched legend entry, not its own mini scorecard.
-  // Tapping a row opens the same detail modal the 5 secondary metrics
-  // already use below, rather than a separate expand-in-place panel.
+  // Built once, updated in place (and reordered, not rebuilt) on every
+  // re-render so they can re-sort by percentage without losing their
+  // event listeners or transitions. The ring itself (setGaugeSegments
+  // above) is the primary visual; each row here is a compact
+  // color-matched legend entry, not its own mini scorecard. Tapping a
+  // row opens the same detail modal the 5 secondary metrics already
+  // use below, rather than a separate expand-in-place panel.
 
-  var legendRowRefs = {}; // label -> { valueEl, dim }
+  // A short, plain-English "what this actually measures" line -- not
+  // pulled from the user's own data (that's what the detail modal is
+  // for), just a one-line translation of the metric name itself.
+  var LEGEND_PREVIEW = {
+    "ATS Compatibility": "Gets you past the resume-scanning robots.",
+    "Skill Strength": "What makes you valuable to a company.",
+    "Experience Strength": "Proof you can actually do the job.",
+  };
+
+  var legendRowRefs = {}; // label -> { rowEl, valueEl, dim }
 
   function buildLegendRow(m) {
     var row = document.createElement("button");
@@ -273,12 +382,15 @@
     row.innerHTML =
       '<span class="dash-legend-dot" style="background:' + m.color + '"></span>' +
       '<span class="dash-legend-info">' +
-        '<span class="dash-legend-name">' + m.short + '</span>' +
-        '<span class="dash-legend-value">–</span>' +
+        '<span class="dash-legend-top-row">' +
+          '<span class="dash-legend-name">' + m.short + '</span>' +
+          '<span class="dash-legend-value">–</span>' +
+        '</span>' +
+        '<span class="dash-legend-preview">' + (LEGEND_PREVIEW[m.label] || "") + '</span>' +
       '</span>';
     primaryMetricsEl.appendChild(row);
 
-    var refs = { valueEl: row.querySelector(".dash-legend-value"), dim: null };
+    var refs = { rowEl: row, valueEl: row.querySelector(".dash-legend-value"), dim: null };
     legendRowRefs[m.label] = refs;
 
     row.addEventListener("click", function () {
@@ -351,6 +463,7 @@
       setGaugeSegments([0, 0, 0]);
       gaugeScore.textContent = "–";
       gaugeLabel.textContent = "Awaiting analysis";
+      gaugeLabel.style.color = "";
       labelInfoBtn.hidden = true;
       breakdownToggle.hidden = true;
       metricsEl.hidden = true;
@@ -368,19 +481,31 @@
 
     var overall = analysis.employability_score || 0;
     gaugeScore.textContent = overall.toFixed(1);
-    gaugeLabel.textContent = analysis.employability_score_label || "Unrated";
+    var ratingLabel = analysis.employability_score_label || "Unrated";
+    gaugeLabel.textContent = ratingLabel;
+    gaugeLabel.style.color = LABEL_TIER_COLOR[ratingLabel] || "";
     labelInfoBtn.hidden = false;
 
-    var primaryScores = PRIMARY_METRICS.map(function (m) {
+    // Sorted highest-to-lowest so both the legend rows and the ring's
+    // own segments (re-colored to match, in draw order starting at 12
+    // o'clock) always lead with whichever metric is pulling the most
+    // weight -- re-sorted on every render, not just set once.
+    var primaryData = PRIMARY_METRICS.map(function (m) {
       var dim = dimByLabel[m.label];
-      return dim ? dim.score : 0;
+      return { m: m, dim: dim, score: dim ? dim.score : 0 };
     });
-    setGaugeSegments(primaryScores);
-    var primarySum = primaryScores.reduce(function (a, b) { return a + b; }, 0);
-    PRIMARY_METRICS.forEach(function (m, i) {
-      var dim = dimByLabel[m.label];
-      var pct = primarySum > 0 ? primaryScores[i] / primarySum : 0;
-      updateLegendRow(m, dim, pct);
+    var primarySum = primaryData.reduce(function (s, d) { return s + d.score; }, 0);
+    primaryData.sort(function (a, b) { return b.score - a.score; });
+
+    setGaugeSegments(primaryData.map(function (d) { return d.score; }));
+    primaryData.forEach(function (d, i) {
+      var pct = primarySum > 0 ? d.score / primarySum : 0;
+      updateLegendRow(d.m, d.dim, pct);
+      if (gaugeSegEls[i]) gaugeSegEls[i].style.stroke = d.m.color;
+      // appendChild on a node already in the DOM moves it -- appending
+      // in sorted order re-sequences all 3 rows without recreating any
+      // of them (their click handlers and refs stay intact).
+      primaryMetricsEl.appendChild(legendRowRefs[d.m.label].rowEl);
     });
 
     renderSecondaryMetrics(dimByLabel);
@@ -410,14 +535,17 @@
     });
   }
 
-  function renderRoadmap(roadmap) {
+  var roadmapPotentialEl = document.getElementById("dash-roadmap-potential");
+
+  function renderRoadmap(roadmap, currentScore) {
     roadmapListEl.innerHTML = "";
-    (roadmap || []).forEach(function (item) {
+    (roadmap || []).forEach(function (item, i) {
       var done = !!completedItemLabels[item.what];
       var card = document.createElement("button");
       card.type = "button";
       card.className = "dash-roadmap-card" + (done ? " completed" : "");
       card.innerHTML =
+        '<span class="dash-roadmap-rank">' + (i + 1) + '</span>' +
         '<span class="dash-roadmap-main">' +
           '<span class="dash-roadmap-what">' + (done ? "✓ " : "") + item.what + '</span>' +
           '<span class="dash-roadmap-dim">' + (item.dimension || "") + '</span>' +
@@ -426,6 +554,24 @@
       card.addEventListener("click", function () { openRoadmapDetail(item, done); });
       roadmapListEl.appendChild(card);
     });
+
+    // Only items tagged to one of the 3 PRIMARY_LABELS actually move
+    // the Employability Score (a simple average of just those 3) --
+    // each point gained in one of them moves the average by 1/3 of
+    // that, so a roadmap item on a secondary dimension (Documentation,
+    // Market Fit, etc.) contributes 0 here even though it still raises
+    // that dimension's own score in the Full Breakdown.
+    var remainingGain = (roadmap || [])
+      .filter(function (item) { return !completedItemLabels[item.what] && PRIMARY_LABELS.indexOf(item.dimension) !== -1; })
+      .reduce(function (sum, item) { return sum + (item.projected_score_gain || 0); }, 0) / 3;
+
+    if (remainingGain > 0.05 && typeof currentScore === "number") {
+      var potential = Math.min(10, currentScore + remainingGain);
+      roadmapPotentialEl.textContent = "Complete everything below to reach an estimated " + potential.toFixed(1) + " / 10.";
+      roadmapPotentialEl.hidden = false;
+    } else {
+      roadmapPotentialEl.hidden = true;
+    }
   }
 
   var currentRoadmapItem = null;
@@ -440,9 +586,9 @@
       .then(function (data) {
         completedItemLabels = {};
         (data.completions || []).forEach(function (c) { completedItemLabels[c.item_label] = true; });
-        renderRoadmap(analysis.improvement_roadmap);
+        renderRoadmap(analysis.improvement_roadmap, analysis.employability_score);
       })
-      .catch(function () { renderRoadmap(analysis.improvement_roadmap); });
+      .catch(function () { renderRoadmap(analysis.improvement_roadmap, analysis.employability_score); });
 
     insightsEl.hidden = false;
   }

@@ -123,6 +123,7 @@
           <div class="dash-insight-block">
             <h3>Your Roadmap</h3>
             <p class="dash-insight-intro">Built from your actual documents and nothing else. Complete these to raise your score.</p>
+            <p class="dash-roadmap-potential" id="dash-roadmap-potential" hidden></p>
             <div class="dash-roadmap-list" id="dash-roadmap-list"></div>
           </div>
         </div>
@@ -571,6 +572,20 @@
     <p id="dash-label-info-desc"></p>
     <p id="dash-label-info-simple"></p>
     <button type="button" class="btn btn-gold btn-block" id="dash-label-info-close-btn">Got it</button>
+  </div>
+</div>
+
+<!-- Full 8-stat radar chart -- slides up from tapping the main score -->
+<div class="radar-overlay" id="radar-overlay" hidden>
+  <div class="radar-sheet">
+    <div class="radar-handle"></div>
+    <div class="radar-header">
+      <h2>Full Stat Sheet</h2>
+      <button type="button" class="chat-close-btn" id="radar-close-btn" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <svg class="radar-chart" id="radar-chart" viewBox="0 0 300 300"></svg>
   </div>
 </div>
 
