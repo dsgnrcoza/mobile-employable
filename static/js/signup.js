@@ -1,6 +1,13 @@
 (function () {
   "use strict";
 
+  // Exposed as a named function (rather than just running once at
+  // parse time) so auth-transition.js can re-invoke it after swapping
+  // a fresh signup form into the DOM client-side -- the elements this
+  // closure originally captured no longer exist once that happens, so
+  // without a re-run the new form's submit/password-checklist would
+  // have no listeners at all.
+  window.initSignupPage = function () {
   var form = document.getElementById("signup-form");
   if (!form) return;
 
@@ -105,4 +112,7 @@
         alert("Something went wrong. Please try again.");
       });
   });
+  };
+
+  window.initSignupPage();
 })();
