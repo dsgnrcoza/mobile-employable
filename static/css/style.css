@@ -115,22 +115,20 @@ a {
 /* ---------- Auth shell (login / signup / forgot password / verify / reset) ---------- */
 
 .auth-shell {
+  height: 100dvh;
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
   background: var(--bg);
-  padding: 0 20px;
+  overflow: hidden;
 }
 
 .auth-card {
   flex: 1;
   display: flex;
   flex-direction: column;
-  justify-content: center;
   width: 100%;
-  max-width: 440px;
-  margin: 0 auto;
-  padding: 32px 0;
+  min-height: 0;
 }
 
 /* ---------- Login / Register tab switcher ---------- */
@@ -141,18 +139,19 @@ a {
   border: 1px solid var(--line);
   border-radius: 999px;
   padding: 4px;
-  margin-bottom: 22px;
+  margin-bottom: 16px;
 }
 
 .auth-tab {
   flex: 1;
   text-align: center;
-  padding: 10px 0;
+  padding: 9px 0;
   border-radius: 999px;
   font-size: 14px;
   font-weight: 600;
   color: var(--muted);
   text-decoration: none;
+  transition: background 0.18s ease, color 0.18s ease;
 }
 
 .auth-tab.active {
@@ -161,8 +160,10 @@ a {
 }
 
 .auth-visual {
-  padding: 0 4px 22px;
+  flex-shrink: 0;
+  padding: 20px 24px 18px;
   text-align: left;
+  background: #fff;
 }
 
 .auth-wordmark {
@@ -174,17 +175,18 @@ a {
 /* Brand wordmark treatment: applies to every "Employable" heading on the
    splash screen and the top of the auth screens. Animated gradient text
    that cycles continuously with no visible seam: the stop list repeats
-   the same 4 colors twice, background-size is exactly 2x, so sliding
+   the same 3 colors twice, background-size is exactly 2x, so sliding
    background-position from 0% to 100% moves exactly one full period —
    the frame at 100% is pixel-identical to the frame at 0%, so looping
    back never glitches. Linear timing (not ease) keeps the speed constant
-   through that loop point too. */
+   through that loop point too. Pink/purple/turquoise only -- an earlier
+   navy stop was too close to black to read against dark backgrounds. */
 .splash-logo,
 .auth-wordmark {
   background: linear-gradient(
     90deg,
-    #8b5cf6, #ec4899, #1e3a8a, #2dd4bf,
-    #8b5cf6, #ec4899, #1e3a8a, #2dd4bf
+    #ff3ea5, #a855f7, #2dd4bf,
+    #ff3ea5, #a855f7, #2dd4bf
   );
   background-size: 200% auto;
   -webkit-background-clip: text;
@@ -203,51 +205,75 @@ a {
   }
 }
 
-/* Headline + subtext sit in the dark area above the card (not inside
-   it), matching the reference layout. */
-.auth-headline {
+/* Page title (Login / Sign Up) sits centered in the white area above
+   the card, in place of the old left-aligned headline + subtext. */
+.auth-page-title {
   display: block;
-  font-size: 25px;
+  text-align: center;
+  font-size: 26px;
   font-weight: 700;
-  line-height: 1.3;
-  margin: 16px 0 6px;
-}
-
-.auth-headline-sub {
-  display: block;
-  color: var(--muted);
-  font-size: 14px;
-  line-height: 1.5;
+  color: #0a0a0a;
+  margin-top: 14px;
 }
 
 .auth-form-side {
-  flex: none;
-  padding: 0;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
-/* The rounded "sheet" every auth screen's form sits on. */
+/* The rounded "sheet" every auth screen's form sits on -- full-bleed
+   left/right (no side margin), rounded only at the top so it reads as
+   anchored to the bottom of the screen. Fills whatever vertical space
+   is left below the headline (flex: 1) rather than being centered
+   with space around it, and everything inside is sized to fit that
+   space without needing to scroll; overflow-y is a safety net only,
+   for content that's still too tall on an unusually short screen. */
 .auth-form-box {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   width: 100%;
   max-width: none;
   margin: 0;
   background: #0a0a0a;
   border: 1px solid var(--line);
-  border-radius: 28px;
-  padding: 26px 24px;
+  border-bottom: none;
+  border-radius: 28px 28px 0 0;
+  padding: 22px 20px calc(18px + env(safe-area-inset-bottom));
+  animation: auth-card-in 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes auth-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-form-box {
+    animation: none;
+  }
 }
 
 .auth-form-box h1 {
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 700;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
 .auth-form-box .sub {
   display: block;
   color: var(--muted);
-  font-size: 14px;
-  line-height: 1.5;
-  margin-bottom: 26px;
+  font-size: 13px;
+  line-height: 1.4;
+  margin-bottom: 18px;
 }
 
 /* ---------- Form fields ---------- */
@@ -256,7 +282,7 @@ a {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-bottom: 18px;
+  margin-bottom: 14px;
 }
 
 .field label {
@@ -289,11 +315,12 @@ a {
   border: 1px solid var(--line);
   color: var(--fg);
   font-size: 15px;
-  padding: 14px 16px;
+  padding: 13px 16px;
   outline: none;
   border-radius: 16px;
   font-family: inherit;
   width: 100%;
+  transition: border-color 0.15s ease, background 0.15s ease;
 }
 
 /* Must come after the shared .field input rule above (equal
@@ -334,9 +361,9 @@ a {
   list-style: none;
   margin: 4px 0 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 10px;
 }
 
 .password-reqs li {
@@ -382,8 +409,12 @@ a {
   text-decoration: none;
   cursor: pointer;
   border: 1px solid transparent;
-  transition: opacity 0.15s ease, background 0.15s ease;
+  transition: opacity 0.15s ease, background 0.15s ease, transform 0.1s ease;
   font-family: inherit;
+}
+
+.btn:active {
+  transform: scale(0.97);
 }
 
 .btn-block {
@@ -431,93 +462,6 @@ a {
 .auth-switch a {
   color: var(--fg);
   text-decoration: underline;
-}
-
-/* ---------- Remember me / Forgot password row ---------- */
-
-.auth-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin: -6px 0 20px;
-  font-size: 13px;
-}
-
-.auth-checkbox {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--muted);
-  cursor: pointer;
-}
-
-.auth-checkbox input {
-  width: 16px;
-  height: 16px;
-  accent-color: var(--fg);
-  cursor: pointer;
-}
-
-.auth-row a {
-  color: var(--fg);
-  text-decoration: underline;
-}
-
-/* ---------- Social login ---------- */
-
-.auth-divider {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 22px 0 16px;
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.auth-divider::before,
-.auth-divider::after {
-  content: "";
-  flex: 1;
-  height: 1px;
-  background: var(--line);
-}
-
-.auth-social-row {
-  display: flex;
-  gap: 10px;
-}
-
-.auth-social-btn {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 12px 0;
-  border-radius: 999px;
-  border: 1px solid var(--line-strong);
-  background: transparent;
-  color: var(--fg);
-  font-size: 14px;
-  font-weight: 600;
-  font-family: inherit;
-  cursor: pointer;
-}
-
-.auth-social-btn:hover {
-  background: var(--surface);
-}
-
-.auth-social-btn svg {
-  width: 18px;
-  height: 18px;
-}
-
-.auth-social-note {
-  text-align: center;
-  font-size: 12px;
-  color: var(--muted);
-  margin-top: 14px;
 }
 
 /* ---------- 6-digit code entry ---------- */
@@ -1960,13 +1904,22 @@ a {
   height: 16px;
 }
 
-/* ---------- Auth pages: small centered "Download App" button ---------- */
+/* ---------- Auth pages: small centered "Download App" button ----------
+   Lives in normal document flow as the last child of .auth-shell (flex,
+   shrink 0) below the card, rather than position:fixed floating over
+   the page -- a fixed pill would sit on top of whatever content is
+   underneath it, which is exactly the overlap this avoids now that the
+   card can extend all the way to the bottom of the screen. */
+
+.auth-download-wrap {
+  flex-shrink: 0;
+  position: relative;
+  display: flex;
+  justify-content: center;
+  padding: 14px 0 calc(14px + env(safe-area-inset-bottom));
+}
 
 .download-app-btn {
-  position: fixed;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -1980,7 +1933,6 @@ a {
   font-family: inherit;
   cursor: pointer;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
-  z-index: 500;
 }
 
 .download-app-btn[hidden] {
@@ -2004,10 +1956,11 @@ a {
 }
 
 .download-app-menu {
-  position: fixed;
-  bottom: 66px;
+  position: absolute;
+  bottom: 100%;
   left: 50%;
   transform: translateX(-50%);
+  margin-bottom: 8px;
   background: #0a0a0a;
   border: 1px solid var(--line-strong);
   border-radius: 16px;
