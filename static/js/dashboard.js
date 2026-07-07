@@ -1745,4 +1745,103 @@
       shopComingSoonOverlay.hidden = true;
     });
   }
+
+  // ---------- Draggable bottom sheet (dashboard home view) ----------
+  // Collapsed rest position is measured from .dash-score-header's real
+  // rendered height rather than a hardcoded number, so it stays correct
+  // regardless of font size, safe-area insets, or content changes.
+  // Dragging is only wired up on the handle -- everything else in the
+  // sheet keeps its normal scroll behavior with no gesture conflict.
+  (function () {
+    var sheet = document.getElementById("dash-sheet");
+    var handle = document.getElementById("dash-sheet-handle");
+    var scoreHeader = document.querySelector(".dash-score-header");
+    var tabbar = document.getElementById("tabbar");
+    if (!sheet || !handle || !scoreHeader) return;
+
+    var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var collapsedTop = 0;
+    var expandedTop = 0;
+    var expanded = false;
+    var dragging = false;
+    var startY = 0;
+    var startTop = 0;
+
+    function measure() {
+      collapsedTop = scoreHeader.getBoundingClientRect().bottom;
+      expandedTop = 0;
+    }
+
+    function applyTop(top) {
+      sheet.style.top = top + "px";
+      var span = collapsedTop - expandedTop || 1;
+      var progress = 1 - Math.max(0, Math.min(1, (top - expandedTop) / span));
+      if (tabbar) {
+        tabbar.style.opacity = String(1 - progress);
+        tabbar.style.pointerEvents = progress > 0.5 ? "none" : "";
+      }
+    }
+
+    function snapTo(isExpanded) {
+      expanded = isExpanded;
+      applyTop(isExpanded ? expandedTop : collapsedTop);
+    }
+
+    // Placed instantly (no transition) on first load -- only snaps
+    // triggered by an actual drag afterward should animate.
+    measure();
+    sheet.style.transition = "none";
+    snapTo(false);
+    void sheet.offsetHeight; // force the "none" transition to commit first
+    sheet.style.transition = reduceMotion ? "none" : "";
+
+    window.addEventListener("resize", function () {
+      if (dragging) return;
+      measure();
+      snapTo(expanded);
+    });
+
+    function pointerY(e) {
+      return e.touches ? e.touches[0].clientY : e.clientY;
+    }
+
+    function onDragStart(e) {
+      dragging = true;
+      sheet.classList.add("is-dragging");
+      startY = pointerY(e);
+      measure();
+      startTop = sheet.getBoundingClientRect().top;
+      if (e.cancelable) e.preventDefault();
+    }
+
+    function onDragMove(e) {
+      if (!dragging) return;
+      var delta = pointerY(e) - startY;
+      var next = Math.max(expandedTop, Math.min(collapsedTop, startTop + delta));
+      applyTop(next);
+    }
+
+    function onDragEnd() {
+      if (!dragging) return;
+      dragging = false;
+      sheet.classList.remove("is-dragging");
+      var currentTop = sheet.getBoundingClientRect().top;
+      var moved = Math.abs(currentTop - startTop);
+      if (moved < 6) {
+        // Barely moved -- treat as a tap on the handle, toggle instead.
+        snapTo(!expanded);
+        return;
+      }
+      var span = collapsedTop - expandedTop || 1;
+      var progress = 1 - (currentTop - expandedTop) / span;
+      snapTo(progress > 0.4);
+    }
+
+    handle.addEventListener("touchstart", onDragStart, { passive: false });
+    handle.addEventListener("touchmove", onDragMove, { passive: false });
+    handle.addEventListener("touchend", onDragEnd);
+    handle.addEventListener("mousedown", onDragStart);
+    window.addEventListener("mousemove", onDragMove);
+    window.addEventListener("mouseup", onDragEnd);
+  })();
 })();

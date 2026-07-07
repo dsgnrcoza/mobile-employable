@@ -1149,6 +1149,14 @@ a {
 }
 
 .dash-header {
+  /* Same white-on-dark-text flip as .dash-score-header below it, so
+     the two read as one continuous white area with only the sheet
+     staying black. */
+  --fg: #0a0a0a;
+  --muted: rgba(10, 10, 10, 0.55);
+  --line: rgba(10, 10, 10, 0.15);
+  --line-strong: rgba(10, 10, 10, 0.4);
+  background: #fff;
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -1167,6 +1175,7 @@ a {
 }
 
 .dash-username {
+  color: var(--fg);
   font-size: 19px;
   font-weight: 700;
 }
@@ -1238,6 +1247,16 @@ a {
   background: #fff;
 }
 
+/* An id selector setting display:flex above beats the UA stylesheet's
+   plain [hidden] { display: none } (author styles win over UA styles
+   regardless of specificity) -- without this, switching to another
+   tab left this view's own display:flex in effect, so its fixed-
+   position .dash-sheet child kept rendering on top of every other
+   tab. Matching the id's specificity here is what makes hidden win. */
+#dash-view-dashboard[hidden] {
+  display: none;
+}
+
 .dash-score-header {
   /* Flips the shared --fg/--muted/--line variables to their
      dark-on-white equivalents for this subtree only -- every rule
@@ -1255,13 +1274,61 @@ a {
   text-align: center;
 }
 
-.dash-score-card {
+/* Draggable bottom sheet -- positioned relative to the viewport
+   (not a flex child) so it can slide up over the white header and
+   tab bar when expanded. Resting "top" (collapsed) and "0" (expanded)
+   are both set by dashboard.js, which measures .dash-score-header's
+   real rendered height rather than hardcoding a value here. */
+.dash-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--bg);
+  border-radius: 28px 28px 0 0;
+  display: flex;
+  flex-direction: column;
+  z-index: 30;
+  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.4);
+  transition: top 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.dash-sheet.is-dragging {
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dash-sheet {
+    transition: none;
+  }
+}
+
+.dash-sheet-handle-wrap {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: center;
+  padding: 10px 0 6px;
+  touch-action: none;
+  cursor: grab;
+}
+
+.dash-sheet-handle-wrap:active {
+  cursor: grabbing;
+}
+
+.dash-sheet-handle {
+  width: 36px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--line-strong);
+}
+
+.dash-sheet-body {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  background: var(--bg);
-  border-radius: 28px 28px 0 0;
-  padding: 24px 20px 24px;
+  -webkit-overflow-scrolling: touch;
+  padding: 8px 20px 24px;
 }
 
 /* Full-bleed views (AI chat, CV editor) — no card/container, no max-width,
@@ -1714,12 +1781,22 @@ a {
    ========================================================================== */
 
 .tabbar {
+  /* Above .dash-sheet (z-index: 30) -- the sheet's "bottom: 0" means
+     it always reaches the true viewport bottom, underneath where the
+     tab bar sits, even while collapsed. Without this the tab bar
+     would be invisible and unclickable at rest, not just when the
+     sheet is dragged open. */
+  position: relative;
+  z-index: 40;
   flex-shrink: 0;
   display: flex;
   width: 100%;
   justify-content: space-evenly;
   align-items: center;
   padding: 10px 28px calc(10px + env(safe-area-inset-bottom));
+  /* Faded out by dashboard.js as the bottom sheet is dragged toward
+     fullscreen, so it doesn't show through underneath. */
+  transition: opacity 0.2s ease;
 }
 
 .tabbar-btn {
