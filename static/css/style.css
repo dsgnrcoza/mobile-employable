@@ -20,6 +20,22 @@
   --line: rgba(255, 255, 255, 0.22);
   --line-strong: rgba(255, 255, 255, 0.6);
   --surface: rgba(255, 255, 255, 0.06);
+  --card-bg: #0a0a0a;
+}
+
+/* Light mode -- toggled by dashboard.js (Settings > Dark Mode) via a
+   data-theme attribute on <html>, persisted in localStorage. Only the
+   authenticated app shell (dashboard/CV workshop/chat/settings) reads
+   these; the auth/onboarding screens keep their own fixed light-header
+   design untouched either way. */
+:root[data-theme="light"] {
+  --bg: #ffffff;
+  --fg: #0a0a0a;
+  --muted: rgba(10, 10, 10, 0.55);
+  --line: rgba(10, 10, 10, 0.14);
+  --line-strong: rgba(10, 10, 10, 0.4);
+  --surface: rgba(10, 10, 10, 0.05);
+  --card-bg: #fafafa;
 }
 
 * {
@@ -1312,7 +1328,7 @@ button.auth-tab.active {
   height: 9px;
   border-radius: 50%;
   background: #ff3b5c;
-  border: 1.5px solid #0a0a0a;
+  border: 1.5px solid var(--bg);
 }
 
 .dash-notif-badge[hidden] {
@@ -1398,7 +1414,7 @@ button.auth-tab.active {
   /* Same #0a0a0a + line-strong outline as .auth-form-box, for the same
      reason: against a same-color background, a visible border is what
      marks the card's edge instead of a color change. */
-  background: #0a0a0a;
+  background: var(--card-bg);
   border: 1px solid var(--line-strong);
   border-bottom: none;
   border-radius: 28px 28px 0 0;
@@ -1497,7 +1513,7 @@ button.auth-tab.active {
   right: 0;
   top: 0;
   bottom: 0;
-  background: #0a0a0a;
+  background: var(--card-bg);
   border: 1px solid var(--line-strong);
   border-bottom: none;
   border-radius: 28px 28px 0 0;
@@ -1610,57 +1626,52 @@ button.auth-tab.active {
   height: 15px;
 }
 
+.dash-score-row {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 28px;
+}
+
 .dash-gauge-wrap {
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-bottom: 32px;
+  flex-shrink: 0;
 }
 
 .dash-gauge-card {
   position: relative;
-  width: 180px;
-  height: 180px;
-  border: 1px solid var(--line);
-  border-radius: 50%;
+  width: 132px;
+  height: 132px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-/* Soft ambient glow behind the ring, in the same hues as the fill
-   gradient -- makes the score the clear focal point of the screen
-   instead of just another bordered circle. */
-.dash-gauge-card::before {
-  content: "";
-  position: absolute;
-  inset: -30px;
-  z-index: -1;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #ff3ea5, #a855f7, #2dd4bf);
-  opacity: 0.16;
-  filter: blur(28px);
-}
-
 .dash-gauge {
-  width: 160px;
-  height: 160px;
+  width: 132px;
+  height: 132px;
 }
 
 .dash-gauge-track {
   fill: none;
   stroke: var(--line);
-  stroke-width: 8;
+  stroke-width: 20;
 }
 
-.dash-gauge-fill {
+/* One of these per primary metric (ATS/Skills/Experience) -- each is a
+   solid-color arc whose length is that metric's share of the combined
+   3-metric total, chained end-to-end (via stroke-dashoffset, set by
+   dashboard.js) into one continuous ring instead of 3 overlapping
+   circles. Butt caps (the default) so adjacent segments meet cleanly
+   instead of the rounded overlap .dash-gauge-fill used to have. */
+.dash-gauge-seg {
   fill: none;
-  stroke: url(#gaugeGradient);
-  stroke-width: 8;
-  stroke-linecap: round;
+  stroke-width: 20;
   transform: rotate(-90deg);
   transform-origin: 60px 60px;
-  transition: stroke-dashoffset 0.6s ease;
+  transition: stroke-dashoffset 0.6s ease, stroke-dasharray 0.6s ease;
 }
 
 .dash-gauge-center {
@@ -1671,7 +1682,7 @@ button.auth-tab.active {
 }
 
 .dash-gauge-score {
-  font-size: 32px;
+  font-size: 26px;
   font-weight: 800;
   /* Explicit rather than relying on inherited color -- body's own
      color: var(--fg) resolves against --fg at body's scope, so a
@@ -1682,7 +1693,7 @@ button.auth-tab.active {
 }
 
 .dash-gauge-outof {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -1693,38 +1704,37 @@ button.auth-tab.active {
   align-items: center;
   justify-content: center;
   gap: 5px;
-  margin-top: 14px;
+  margin-top: 10px;
 }
 
 .dash-gauge-label {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--muted);
+  text-align: center;
 }
 
 /* ==========================================================================
-   Primary metric cards (ATS / Skills / Experience) + Full Breakdown
+   Primary metric legend (ATS / Skills / Experience) + Full Breakdown
    ========================================================================== */
 
-.dash-primary-metrics {
+.dash-primary-legend {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
 }
 
-.dash-primary-card {
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  overflow: hidden;
-}
-
-.dash-primary-card-header {
+.dash-legend-row {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
   background: transparent;
   border: none;
-  padding: 14px 16px;
+  border-radius: 8px;
+  padding: 4px;
+  margin: -4px;
   cursor: pointer;
   text-align: left;
   width: 100%;
@@ -1733,99 +1743,33 @@ button.auth-tab.active {
   transition: background 0.15s ease;
 }
 
-.dash-primary-card-header:active {
+.dash-legend-row:active {
   background: var(--surface);
 }
 
-.dash-primary-ring-wrap {
-  position: relative;
+.dash-legend-dot {
   flex-shrink: 0;
-  width: 64px;
-  height: 64px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
 }
 
-.dash-primary-ring {
-  width: 64px;
-  height: 64px;
-}
-
-.dash-primary-ring-track {
-  fill: none;
-  stroke: var(--line);
-  stroke-width: 6;
-}
-
-.dash-primary-ring-fill {
-  fill: none;
-  stroke: url(#gaugeGradient);
-  stroke-width: 6;
-  stroke-linecap: round;
-  transform: rotate(-90deg);
-  transform-origin: 40px 40px;
-  transition: stroke-dashoffset 0.3s ease;
-}
-
-.dash-primary-ring-score {
-  position: absolute;
-  font-size: 16px;
-  font-weight: 800;
-  color: var(--fg);
-}
-
-.dash-primary-info {
+.dash-legend-info {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
 }
 
-.dash-primary-name {
-  font-size: 14px;
+.dash-legend-name {
+  font-size: 13px;
   font-weight: 600;
 }
 
-.dash-primary-finding {
-  font-size: 13px;
+.dash-legend-value {
+  font-size: 12px;
   color: var(--muted);
-  line-height: 1.4;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.dash-primary-chevron {
-  flex-shrink: 0;
-  width: 16px;
-  height: 16px;
-  color: var(--muted);
-  transition: transform 0.2s ease;
-}
-
-.dash-primary-card.is-expanded .dash-primary-chevron {
-  transform: rotate(180deg);
-}
-
-.dash-primary-detail {
-  padding: 0 16px 16px;
-  border-top: 1px solid var(--line);
-  margin-top: -1px;
-  padding-top: 14px;
-}
-
-.dash-primary-detail p {
-  font-size: 13px;
-  line-height: 1.55;
-  color: var(--muted);
-  margin-bottom: 10px;
-}
-
-.dash-primary-detail p:last-child {
-  margin-bottom: 0;
 }
 
 .dash-breakdown-toggle {
@@ -2214,7 +2158,7 @@ button.auth-tab.active {
   width: 100%;
   justify-content: space-evenly;
   align-items: center;
-  background: #0a0a0a;
+  background: var(--card-bg);
   border-top: 1px solid var(--line);
   padding: 14px 28px calc(14px + env(safe-area-inset-bottom));
   /* Faded out by dashboard.js as the bottom sheet is dragged toward
@@ -2659,7 +2603,7 @@ button.auth-tab.active {
   left: 50%;
   transform: translateX(-50%) scale(1);
   margin-bottom: 8px;
-  background: #0a0a0a;
+  background: var(--card-bg);
   border: 1px solid var(--line-strong);
   border-radius: 16px;
   padding: 6px;
@@ -2875,7 +2819,7 @@ button.auth-tab.active {
   position: absolute;
   bottom: 100%;
   left: 16px;
-  background: #0a0a0a;
+  background: var(--card-bg);
   border: 1px solid var(--line-strong);
   border-radius: 12px;
   padding: 6px;
@@ -2978,7 +2922,7 @@ button.auth-tab.active {
      extends below the toolbar. Fixed positioning escapes that
      clipping; JS sets top/left from the toggle button's rect. */
   position: fixed;
-  background: #0a0a0a;
+  background: var(--card-bg);
   border: 1px solid var(--line-strong);
   border-radius: 12px;
   padding: 6px;
@@ -3325,6 +3269,17 @@ button.auth-tab.active {
   border-bottom: none;
 }
 
+/* The Dark Mode row isn't itself a navigation control -- only the
+   switch inside it is interactive -- so it drops the button-like
+   cursor/press feedback the other rows get. */
+.profile-menu-row-static {
+  cursor: default;
+}
+
+.profile-menu-row-static:active {
+  background: none;
+}
+
 .profile-menu-icon {
   flex-shrink: 0;
   display: flex;
@@ -3380,7 +3335,7 @@ button.auth-tab.active {
 
 .toggle-switch.is-on .toggle-switch-knob {
   transform: translateX(18px);
-  background: #000;
+  background: var(--bg);
 }
 
 .profile-legal-links {

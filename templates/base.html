@@ -4,11 +4,24 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Employable{% endblock %}</title>
+  <script>
+    // Applied before the stylesheet renders anything, so a returning
+    // user who chose light mode never sees a flash of the dark
+    // default first. Defaults to dark (the app's original look) for
+    // everyone who hasn't explicitly chosen light.
+    (function () {
+      if (localStorage.getItem("theme") === "light") {
+        document.documentElement.setAttribute("data-theme", "light");
+        var meta = document.getElementById("theme-color-meta");
+        if (meta) meta.setAttribute("content", "#ffffff");
+      }
+    })();
+  </script>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
   <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
   <link rel="icon" href="{{ url_for('static', filename='icons/icon-192.png') }}">
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/icon-192.png') }}">
-  <meta name="theme-color" content="#000000">
+  <meta name="theme-color" content="#000000" id="theme-color-meta">
   {% block extra_head %}{% endblock %}
 </head>
 <body>

@@ -31,6 +31,7 @@
       label: "Experience Strength",
       short: "Experience",
       icon: '<rect x="3" y="8" width="18" height="12" rx="1.5"/><path d="M8 8V6a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
+      color: "#8b5cf6",
     },
     {
       label: "Qualification Strength",
@@ -41,6 +42,7 @@
       label: "Skill Strength",
       short: "Skills",
       icon: '<path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z"/>',
+      color: "#ec4899",
     },
     {
       label: "Market Competitiveness",
@@ -56,6 +58,7 @@
       label: "ATS Compatibility",
       short: "ATS Score",
       icon: '<path d="M12 2 4 5v6c0 5 3.5 8.5 8 11 4.5-2.5 8-6 8-11V5l-8-3z"/><path d="m9 12 2 2 4-4"/>',
+      color: "#2dd4bf",
     },
     {
       label: "Career Progression",
@@ -86,7 +89,11 @@
     document.getElementById("dash-avatar-default").style.display = "none";
   }
 
-  var gaugeFill = document.getElementById("dash-gauge-fill");
+  var gaugeSegEls = [
+    document.getElementById("dash-gauge-seg-0"),
+    document.getElementById("dash-gauge-seg-1"),
+    document.getElementById("dash-gauge-seg-2"),
+  ];
   var gaugeScore = document.getElementById("dash-gauge-score");
   var gaugeLabel = document.getElementById("dash-gauge-label");
   var primaryMetricsEl = document.getElementById("dash-primary-metrics");
@@ -132,18 +139,35 @@
     });
   }
 
-  var CIRCUMFERENCE = 2 * Math.PI * 52;
-  gaugeFill.style.strokeDasharray = CIRCUMFERENCE.toFixed(2);
+  // The ring is 3 solid-color arcs (one per primary metric) chained
+  // end-to-end instead of one gradient fill -- each arc's length is
+  // that metric's share of the combined 3-metric total, so the ring
+  // itself shows which of the 3 is pulling the most weight, not just
+  // the single averaged number in the center.
+  var GAUGE_RADIUS = 50;
+  var GAUGE_CIRCUMFERENCE = 2 * Math.PI * GAUGE_RADIUS;
+  var GAUGE_SEG_GAP = 4; // px of arc length left as a visible gap between segments
 
-  function setGauge(rating) {
-    var pct = Math.max(0, Math.min(1, rating / 10));
-    gaugeFill.style.strokeDashoffset = (CIRCUMFERENCE * (1 - pct)).toFixed(2);
+  gaugeSegEls.forEach(function (el, i) {
+    if (el && PRIMARY_METRICS[i]) el.style.stroke = PRIMARY_METRICS[i].color;
+  });
+
+  function setGaugeSegments(scores) {
+    var sum = scores.reduce(function (a, b) { return a + b; }, 0);
+    var cumulative = 0;
+    scores.forEach(function (score, i) {
+      var el = gaugeSegEls[i];
+      if (!el) return;
+      var fraction = sum > 0 ? score / sum : 0;
+      var rawLen = fraction * GAUGE_CIRCUMFERENCE;
+      var rawStart = cumulative;
+      cumulative += rawLen;
+      var visibleLen = Math.max(0, rawLen - GAUGE_SEG_GAP);
+      var startOffset = rawStart + GAUGE_SEG_GAP / 2;
+      el.style.strokeDasharray = visibleLen.toFixed(2) + " " + (GAUGE_CIRCUMFERENCE - visibleLen).toFixed(2);
+      el.style.strokeDashoffset = (-startOffset).toFixed(2);
+    });
   }
-
-  // Same technique as the main gauge above, at the smaller radius used
-  // by the 3 primary metric cards' rings.
-  var PRIMARY_RING_RADIUS = 34;
-  var PRIMARY_RING_CIRCUMFERENCE = 2 * Math.PI * PRIMARY_RING_RADIUS;
 
   var LABEL_EXPLANATIONS = {
     "Highly Employable": {
@@ -233,96 +257,47 @@
     if (e.target === metricOverlay) metricOverlay.hidden = true;
   });
 
-  // ---------- 3 primary cards: built once, updated (not rebuilt) on ----------
-  // ---------- every re-render so the ring can animate smoothly       ----------
+  // ---------- 3 primary legend rows: color + name + % share of the ring ----------
+  // Built once, updated in place on every re-render. The ring itself
+  // (setGaugeSegments above) is the primary visual; each row here is a
+  // compact color-matched legend entry, not its own mini scorecard.
+  // Tapping a row opens the same detail modal the 5 secondary metrics
+  // already use below, rather than a separate expand-in-place panel.
 
-  var primaryCardRefs = {}; // label -> { ringFill, scoreEl, findingEl, detailDesc, detailSimple, detailWhy }
+  var legendRowRefs = {}; // label -> { valueEl, dim }
 
-  // The one short "most relevant specific finding" line for a primary
-  // card, built entirely from data the backend already computes: the
-  // mechanical ATS findings for ATS Compatibility (most specific and
-  // verifiable), otherwise the top roadmap item already targeting this
-  // dimension, otherwise the dimension's own AI description.
-  function findPrimaryFinding(label, dim, roadmap) {
-    if (label === "ATS Compatibility" && dim && dim.ats_findings && dim.ats_findings.length) {
-      return dim.ats_findings[0];
-    }
-    var topItem = (roadmap || []).filter(function (r) { return r.dimension === label; })[0];
-    if (topItem && topItem.what) return topItem.what;
-    if (dim && dim.description) return dim.description;
-    return "No specific gaps flagged for this yet.";
-  }
+  function buildLegendRow(m) {
+    var row = document.createElement("button");
+    row.type = "button";
+    row.className = "dash-legend-row";
+    row.innerHTML =
+      '<span class="dash-legend-dot" style="background:' + m.color + '"></span>' +
+      '<span class="dash-legend-info">' +
+        '<span class="dash-legend-name">' + m.short + '</span>' +
+        '<span class="dash-legend-value">–</span>' +
+      '</span>';
+    primaryMetricsEl.appendChild(row);
 
-  function buildPrimaryCard(m) {
-    var card = document.createElement("div");
-    card.className = "dash-primary-card";
+    var refs = { valueEl: row.querySelector(".dash-legend-value"), dim: null };
+    legendRowRefs[m.label] = refs;
 
-    var header = document.createElement("button");
-    header.type = "button";
-    header.className = "dash-primary-card-header";
-    header.innerHTML =
-      '<span class="dash-primary-ring-wrap">' +
-        '<svg class="dash-primary-ring" viewBox="0 0 80 80">' +
-          '<circle class="dash-primary-ring-track" cx="40" cy="40" r="' + PRIMARY_RING_RADIUS + '"></circle>' +
-          '<circle class="dash-primary-ring-fill" cx="40" cy="40" r="' + PRIMARY_RING_RADIUS + '"></circle>' +
-        '</svg>' +
-        '<span class="dash-primary-ring-score">–</span>' +
-      '</span>' +
-      '<span class="dash-primary-info">' +
-        '<span class="dash-primary-name">' + m.short + '</span>' +
-        '<span class="dash-primary-finding"></span>' +
-      '</span>' +
-      '<svg class="dash-primary-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
-
-    var detail = document.createElement("div");
-    detail.className = "dash-primary-detail";
-    detail.hidden = true;
-    detail.innerHTML =
-      '<p class="dash-primary-detail-desc"></p>' +
-      '<p class="dash-primary-detail-simple"></p>' +
-      '<p class="dash-primary-detail-why"></p>';
-
-    header.addEventListener("click", function () {
-      var willOpen = detail.hidden;
-      detail.hidden = !willOpen;
-      card.classList.toggle("is-expanded", willOpen);
+    row.addEventListener("click", function () {
+      openMetricModal(
+        m.label,
+        refs.dim ? refs.dim.score : 0,
+        refs.dim ? refs.dim.description : "No details available yet.",
+        refs.dim ? refs.dim.simple_explanation : "",
+        m.short
+      );
     });
-
-    card.appendChild(header);
-    card.appendChild(detail);
-    primaryMetricsEl.appendChild(card);
-
-    var ringFill = header.querySelector(".dash-primary-ring-fill");
-    ringFill.style.strokeDasharray = PRIMARY_RING_CIRCUMFERENCE.toFixed(2);
-    ringFill.style.strokeDashoffset = PRIMARY_RING_CIRCUMFERENCE.toFixed(2);
-
-    primaryCardRefs[m.label] = {
-      ringFill: ringFill,
-      scoreEl: header.querySelector(".dash-primary-ring-score"),
-      findingEl: header.querySelector(".dash-primary-finding"),
-      detailDesc: detail.querySelector(".dash-primary-detail-desc"),
-      detailSimple: detail.querySelector(".dash-primary-detail-simple"),
-      detailWhy: detail.querySelector(".dash-primary-detail-why"),
-    };
   }
 
-  PRIMARY_METRICS.forEach(buildPrimaryCard);
+  PRIMARY_METRICS.forEach(buildLegendRow);
 
-  function updatePrimaryCard(m, dim, roadmap) {
-    var refs = primaryCardRefs[m.label];
-    var score = dim ? dim.score : 0;
-    var pct = Math.max(0, Math.min(1, score / 10));
-    refs.ringFill.style.strokeDashoffset = (PRIMARY_RING_CIRCUMFERENCE * (1 - pct)).toFixed(2);
-    refs.scoreEl.textContent = score.toFixed(1);
-    refs.findingEl.textContent = findPrimaryFinding(m.label, dim, roadmap);
-    refs.detailDesc.textContent = dim ? (dim.description || "") : "No details available yet.";
-    if (dim && dim.simple_explanation) {
-      refs.detailSimple.textContent = dim.simple_explanation;
-      refs.detailSimple.hidden = false;
-    } else {
-      refs.detailSimple.hidden = true;
-    }
-    refs.detailWhy.textContent = WHY_EMPLOYERS_CARE[m.short] || "";
+  function updateLegendRow(m, dim, pct) {
+    var refs = legendRowRefs[m.label];
+    refs.dim = dim;
+    refs.valueEl.textContent = dim ? Math.round(pct * 100) + "%" : "–";
   }
 
   // ---------- Full Breakdown: the other 5 metrics, unchanged rows ----------
@@ -373,7 +348,7 @@
     analysis = analysisArg;
 
     if (!analysis) {
-      setGauge(0);
+      setGaugeSegments([0, 0, 0]);
       gaugeScore.textContent = "–";
       gaugeLabel.textContent = "Awaiting analysis";
       labelInfoBtn.hidden = true;
@@ -381,6 +356,7 @@
       metricsEl.hidden = true;
       emptyEl.hidden = false;
       insightsEl.hidden = true;
+      PRIMARY_METRICS.forEach(function (m) { updateLegendRow(m, null, 0); });
       return;
     }
 
@@ -389,16 +365,22 @@
 
     var dimByLabel = {};
     (analysis.dimensions || []).forEach(function (d) { dimByLabel[d.label] = d; });
-    var roadmap = analysis.improvement_roadmap || [];
 
     var overall = analysis.employability_score || 0;
-    setGauge(overall);
     gaugeScore.textContent = overall.toFixed(1);
     gaugeLabel.textContent = analysis.employability_score_label || "Unrated";
     labelInfoBtn.hidden = false;
 
-    PRIMARY_METRICS.forEach(function (m) {
-      updatePrimaryCard(m, dimByLabel[m.label], roadmap);
+    var primaryScores = PRIMARY_METRICS.map(function (m) {
+      var dim = dimByLabel[m.label];
+      return dim ? dim.score : 0;
+    });
+    setGaugeSegments(primaryScores);
+    var primarySum = primaryScores.reduce(function (a, b) { return a + b; }, 0);
+    PRIMARY_METRICS.forEach(function (m, i) {
+      var dim = dimByLabel[m.label];
+      var pct = primarySum > 0 ? primaryScores[i] / primarySum : 0;
+      updateLegendRow(m, dim, pct);
     });
 
     renderSecondaryMetrics(dimByLabel);
@@ -964,6 +946,33 @@
   if (menuSupportBtn) {
     menuSupportBtn.addEventListener("click", function () {
       window.location.href = "mailto:support@employable.app";
+    });
+  }
+
+  // ---------- Dark / light mode toggle ----------
+  // Only the CSS custom properties change (see :root[data-theme="light"]
+  // in style.css) -- no markup or layout differs between the two, so
+  // flipping this never touches anything functional, just the palette.
+
+  var themeToggleBtn = document.getElementById("theme-toggle-btn");
+  var themeColorMeta = document.getElementById("theme-color-meta");
+
+  function applyTheme(isLight) {
+    document.documentElement.setAttribute("data-theme", isLight ? "light" : "dark");
+    if (themeColorMeta) themeColorMeta.setAttribute("content", isLight ? "#ffffff" : "#000000");
+    if (themeToggleBtn) {
+      // The switch reads "on" for Dark Mode, so it's on when NOT light.
+      themeToggleBtn.classList.toggle("is-on", !isLight);
+      themeToggleBtn.setAttribute("aria-checked", String(!isLight));
+    }
+  }
+
+  if (themeToggleBtn) {
+    applyTheme(document.documentElement.getAttribute("data-theme") === "light");
+    themeToggleBtn.addEventListener("click", function () {
+      var goingLight = document.documentElement.getAttribute("data-theme") !== "light";
+      applyTheme(goingLight);
+      localStorage.setItem("theme", goingLight ? "light" : "dark");
     });
   }
 
