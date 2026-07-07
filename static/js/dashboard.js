@@ -1760,12 +1760,16 @@
   // stays smooth even on slower devices.
   //
   // Two ways to drag:
-  //  1. The handle -- always draggable, regardless of scroll position.
-  //  2. Anywhere in the sheet's body -- but only once its content is
-  //     already scrolled to the very top AND the drag is a clear
-  //     downward pull. Until that threshold is crossed, touches in the
-  //     body are left completely alone for native scrolling; there's
-  //     no way to tell a "scroll" from a "drag" apart until then.
+  //  1. The handle -- always draggable, regardless of state.
+  //  2. Anywhere in the sheet's body -- while collapsed, its scroll is
+  //     disabled entirely (see .is-scroll-locked), so ANY clear drag
+  //     there unambiguously means "move the sheet"; while expanded,
+  //     normal scrolling takes over, and only pulling down once
+  //     already scrolled to the very top collapses it again.
+  //
+  // The snap-to decision at release uses a deliberately low threshold
+  // (SNAP_THRESHOLD) -- a small drag commits fully open or closed
+  // rather than needing to cross halfway, so a tiny swipe is enough.
   (function () {
     var sheet = document.getElementById("dash-sheet");
     var handle = document.getElementById("dash-sheet-handle");
@@ -1775,11 +1779,15 @@
     if (!sheet || !handle || !body || !scoreHeader) return;
 
     var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    var PULL_THRESHOLD = 8; // px of downward movement before a body touch is claimed as a drag
+    var CLAIM_THRESHOLD = 6; // px of movement before a body touch commits to a drag (vs. a tap on a row)
+    // Absolute px, not a fraction of the sheet's range -- a percentage
+    // would need a bigger physical swipe on a taller screen to mean
+    // the same thing, which isn't what "a tiny slide" should feel like.
+    var SNAP_PX = 40;
 
     var collapsedOffset = 0;
     var expanded = false;
-    var dragging = false; // a drag (handle- or pull-driven) is actively moving the sheet
+    var dragging = false; // a drag (handle- or body-driven) is actively moving the sheet
     var pendingPull = false; // touched down inside the body; still deciding if this becomes a drag
     var startY = 0;
     var startOffset = 0;
@@ -1804,6 +1812,7 @@
     function snapTo(isExpanded) {
       expanded = isExpanded;
       applyOffset(isExpanded ? 0 : collapsedOffset);
+      body.classList.toggle("is-scroll-locked", !isExpanded);
     }
 
     // Placed instantly (no transition) on first load -- only snaps
@@ -1839,14 +1848,21 @@
     function finishDrag() {
       dragging = false;
       sheet.classList.remove("is-dragging");
-      var moved = Math.abs(lastOffset - startOffset);
-      if (moved < 6) {
-        // Barely moved -- treat as a tap on the handle, toggle instead.
+      // Negative = moved toward expanded (offset shrinking toward 0);
+      // positive = moved toward collapsed.
+      var moved = lastOffset - startOffset;
+      if (Math.abs(moved) < CLAIM_THRESHOLD) {
+        // Barely moved -- treat as a tap, toggle instead.
         snapTo(!expanded);
         return;
       }
+      if (moved <= -SNAP_PX) { snapTo(true); return; }
+      if (moved >= SNAP_PX) { snapTo(false); return; }
+      // Between the claim and snap thresholds -- not quite "tiny" but
+      // not a full commit either; fall back to whichever side it's
+      // closer to.
       var span = collapsedOffset || 1;
-      snapTo(1 - lastOffset / span > 0.4);
+      snapTo(1 - lastOffset / span > 0.5);
     }
 
     // ---- The handle: a large (44px) touch target, always draggable ----
@@ -1869,7 +1885,18 @@
       startDrag(e.clientY);
     });
 
-    // ---- The body: claims the gesture only once scrolled to the top ----
+    // ---- The body ----
+    // Collapsed: scrolling is locked (see .is-scroll-locked), so any
+    // clear drag in either direction is unambiguous -- it moves the
+    // sheet. Expanded: only a downward pull that's already at
+    // scrollTop 0 claims the gesture; anything else is left alone for
+    // native scrolling.
+    function shouldClaim(delta) {
+      if (!expanded) return Math.abs(delta) > CLAIM_THRESHOLD;
+      if (body.scrollTop > 0) return false;
+      return delta > CLAIM_THRESHOLD;
+    }
+
     body.addEventListener("touchstart", function (e) {
       if (dragging) return;
       pendingPull = true;
@@ -1884,11 +1911,11 @@
       }
       if (!pendingPull) return;
       var y = pointerY(e);
-      if (body.scrollTop > 0) {
-        pendingPull = false; // not at the top -- this is just a normal scroll
+      if (expanded && body.scrollTop > 0) {
+        pendingPull = false; // scrolled away from the top -- normal scroll
         return;
       }
-      if (y - startY > PULL_THRESHOLD) {
+      if (shouldClaim(y - startY)) {
         pendingPull = false;
         startDrag(startY);
         moveDrag(y);
@@ -1908,18 +1935,18 @@
     });
 
     // Shared continuation for whichever gesture (handle- or
-    // body-pull-driven) is currently active via the mouse.
+    // body-driven) is currently active via the mouse.
     window.addEventListener("mousemove", function (e) {
       if (dragging) {
         moveDrag(e.clientY);
         return;
       }
       if (!pendingPull) return;
-      if (body.scrollTop > 0) {
+      if (expanded && body.scrollTop > 0) {
         pendingPull = false;
         return;
       }
-      if (e.clientY - startY > PULL_THRESHOLD) {
+      if (shouldClaim(e.clientY - startY)) {
         pendingPull = false;
         startDrag(startY);
         moveDrag(e.clientY);
