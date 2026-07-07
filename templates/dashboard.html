@@ -47,7 +47,7 @@
 
     <div class="dash-score-header">
       <div class="dash-gauge-title-row">
-        <span class="dash-gauge-title">Employability Rating</span>
+        <span class="dash-gauge-title">Employability Score</span>
         <button type="button" class="dash-info-btn" id="dash-rating-info-btn" aria-label="What is this rating?">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="10"/>
@@ -95,7 +95,13 @@
         <div class="dash-sheet-handle"></div>
       </div>
       <div class="dash-sheet-body">
-        <div class="dash-metrics" id="dash-metrics"></div>
+        <div class="dash-primary-metrics" id="dash-primary-metrics"></div>
+
+        <button type="button" class="dash-breakdown-toggle" id="dash-breakdown-toggle" hidden>
+          <span>Full Breakdown</span>
+          <svg class="dash-breakdown-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="dash-metrics" id="dash-metrics" hidden></div>
 
         <div class="dash-empty" id="dash-empty" hidden>
           <p>Your documents haven't been scored yet — this can happen if the first attempt timed out.</p>
@@ -530,24 +536,27 @@
 
 <div class="celebrate-overlay" id="dash-rating-info-overlay" hidden>
   <div class="celebrate-modal dash-metric-modal">
-    <h2>Your Employability Rating</h2>
+    <h2>Your Employability Score</h2>
     <p>
-      This is a single 0-10 score built from eight areas we check across
-      your CV and documents: Documentation, Experience, Qualifications,
-      Skills, Market Fit, Credibility, ATS Score, and Progression. Some
-      areas count for a bit more than others in the final number — real
-      work experience and how well your claims are actually backed up by
-      evidence matter slightly more than ATS formatting, for example — but
-      every one of them moves the needle. Tap any of the eight below for
-      the specific reasoning behind that score, including exactly what
-      would raise it.
+      This is a single 0-10 score averaging the 3 areas that most directly
+      affect whether you get shortlisted at all: ATS Score (can automated
+      screening software even read your CV), Skills (how in-demand and
+      well-evidenced your skills are), and Experience (your track record
+      and measurable impact). Tap any of the three cards below for the
+      specific reasoning behind that score, including exactly what would
+      raise it.
     </p>
     <p>
-      In really simple terms: think of it like a report card with eight
-      subjects, except a couple of subjects count a little more toward
-      your final grade than the others. We look at your CV and papers and
-      mark each subject based on what we actually see written down, then
-      add it all up into one grade out of 10.
+      We still check 5 other areas — Documentation, Qualifications, Market
+      Fit, Credibility, and Progression — and they're not going anywhere;
+      find them under Full Breakdown below the 3 main cards.
+    </p>
+    <p>
+      In really simple terms: think of it like your 3 most important
+      subjects on a report card, averaged into one grade out of 10. Your
+      other subjects still get marked and still matter — they're just kept
+      in a separate section so the headline number stays focused on what
+      moves the needle most.
     </p>
     <button type="button" class="btn btn-gold btn-block" id="dash-rating-info-close-btn">Got it</button>
   </div>

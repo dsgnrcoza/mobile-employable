@@ -1637,10 +1637,180 @@ button.auth-tab.active {
   color: var(--muted);
 }
 
+/* ==========================================================================
+   Primary metric cards (ATS / Skills / Experience) + Full Breakdown
+   ========================================================================== */
+
+.dash-primary-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.dash-primary-card {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.dash-primary-card-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: transparent;
+  border: none;
+  padding: 14px 16px;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  font-family: inherit;
+  color: var(--fg);
+  transition: background 0.15s ease;
+}
+
+.dash-primary-card-header:active {
+  background: var(--surface);
+}
+
+.dash-primary-ring-wrap {
+  position: relative;
+  flex-shrink: 0;
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dash-primary-ring {
+  width: 64px;
+  height: 64px;
+}
+
+.dash-primary-ring-track {
+  fill: none;
+  stroke: var(--line);
+  stroke-width: 6;
+}
+
+.dash-primary-ring-fill {
+  fill: none;
+  stroke: url(#gaugeGradient);
+  stroke-width: 6;
+  stroke-linecap: round;
+  transform: rotate(-90deg);
+  transform-origin: 40px 40px;
+  transition: stroke-dashoffset 0.3s ease;
+}
+
+.dash-primary-ring-score {
+  position: absolute;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--fg);
+}
+
+.dash-primary-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.dash-primary-name {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.dash-primary-finding {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.dash-primary-chevron {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  color: var(--muted);
+  transition: transform 0.2s ease;
+}
+
+.dash-primary-card.is-expanded .dash-primary-chevron {
+  transform: rotate(180deg);
+}
+
+.dash-primary-detail {
+  padding: 0 16px 16px;
+  border-top: 1px solid var(--line);
+  margin-top: -1px;
+  padding-top: 14px;
+}
+
+.dash-primary-detail p {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+
+.dash-primary-detail p:last-child {
+  margin-bottom: 0;
+}
+
+.dash-breakdown-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 16px 0 6px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.dash-breakdown-toggle[hidden] {
+  display: none;
+}
+
+.dash-breakdown-toggle:active {
+  color: var(--fg);
+}
+
+.dash-breakdown-chevron {
+  width: 14px;
+  height: 14px;
+  transition: transform 0.2s ease;
+}
+
+.dash-breakdown-toggle.is-expanded .dash-breakdown-chevron {
+  transform: rotate(180deg);
+}
+
 .dash-metrics {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  margin-top: 14px;
+}
+
+/* Matches .dash-metrics' own specificity (both are a single class
+   selector) so [hidden] actually wins over display:flex -- author
+   rules beat the UA stylesheet's plain [hidden]{display:none}
+   regardless of specificity, so a same-or-higher-specificity author
+   rule is required to make hidden work at all here. */
+.dash-metrics[hidden] {
+  display: none;
 }
 
 .dash-metric-row {
