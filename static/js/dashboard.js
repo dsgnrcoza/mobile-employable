@@ -450,14 +450,9 @@
     if (e.target === ratingInfoOverlay) ratingInfoOverlay.hidden = true;
   });
 
-  // ---------- View switching (dashboard / AI chat / CV workshop / profile / store) ----------
-  // Every nav control — the 3 tab bar buttons AND the 2 header icons —
-  // goes through this single function, so clicking any of them always
-  // switches the visible view no matter which view is currently showing
-  // (previously the AI chat lived in a separate floating sheet that
-  // could stay open on top of whatever switchView() picked, which is
-  // why tapping the profile icon while chatting looked like it did
-  // nothing).
+  // ---------- View switching (dashboard / AI chat / CV workshop) ----------
+  // The 3 tab bar buttons only -- Profile, Notifications, Store, and
+  // More live in the action sheet below now, not in this tab set.
 
   var avatarBtn = document.getElementById("dash-avatar-btn");
   var usernameEl = document.getElementById("dash-username");
@@ -471,40 +466,277 @@
     document.querySelectorAll(".tabbar-btn").forEach(function (btn) {
       btn.classList.toggle("active", btn.dataset.view === name);
     });
-    var onProfile = name === "profile";
-    // While viewing the profile screen there's no need for a button to
-    // open it — only the shop icon stays in the header — and the
-    // username is replaced by a back arrow, matching a single clean
-    // header row instead of two stacked ones.
-    if (dashHeaderLeft) dashHeaderLeft.hidden = onProfile;
-    if (backBtn) backBtn.hidden = !onProfile;
-
     if (name === "chat") scrollChatToBottom();
     if (name === "cv") loadCvContent();
   }
 
   document.querySelectorAll(".tabbar-btn").forEach(function (btn) {
-    btn.addEventListener("click", function () { switchView(btn.dataset.view); });
+    btn.addEventListener("click", function () {
+      closeActionSheet();
+      switchView(btn.dataset.view);
+    });
   });
 
-  var shopBtn = document.getElementById("dash-shop-btn");
-  if (shopBtn) shopBtn.addEventListener("click", function () { switchView("store"); });
-  if (avatarBtn) avatarBtn.addEventListener("click", function () { switchView("profile"); });
-  if (backBtn) backBtn.addEventListener("click", function () { switchView("dashboard"); });
+  // ---------- Action sheet: Profile / Notifications / Store / More ----------
+  // One shared sliding sheet, styled and animated exactly like the
+  // dashboard's own bottom sheet (same collapsed resting position,
+  // same drag-to-expand, same tab bar fade), so tapping any of the 4
+  // header buttons feels like that same physical sheet sliding up
+  // with different content -- not four different UI patterns.
 
-  // ---------- Header dropdowns: notifications + more-options menu ----------
+  var actionSheet = document.getElementById("action-sheet");
+  var actionHandle = document.getElementById("action-sheet-handle");
+  var actionBody = document.getElementById("action-sheet-body");
+  var actionTabbar = document.getElementById("tabbar");
+  var actionPanels = {
+    profile: document.getElementById("action-panel-profile"),
+    notifications: document.getElementById("action-panel-notifications"),
+    store: document.getElementById("action-panel-store"),
+    options: document.getElementById("action-panel-options"),
+  };
+
+  var actionReduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var ACTION_CLAIM_THRESHOLD = 6;
+  var ACTION_SNAP_PX = 40;
+
+  var actionState = "closed"; // 'closed' | 'collapsed' | 'expanded'
+  var activePanel = null;
+  var actionDragging = false;
+  var actionPendingPull = false;
+  var actionStartY = 0;
+  var actionStartOffset = 0;
+  var actionLastOffset = 0;
+
+  // Reuses the dashboard sheet's own measured collapsed offset (set
+  // in the drag-sheet IIFE below) so both sheets rest at the exact
+  // same pixel position -- opening one over the other reads as the
+  // same sheet, not a same-sized coincidence.
+  function getCollapsedOffset() {
+    return window.__dashSheetCollapsedOffset || Math.round(window.innerHeight * 0.47);
+  }
+
+  function getClosedOffset() {
+    return window.innerHeight + 40;
+  }
+
+  // Declared here (outer scope) and assigned inside the guard below --
+  // strict mode block-scopes plain `function` declarations, and these
+  // two are called from click handlers further down this same
+  // function, outside that block.
+  var openActionSheet = function () {};
+  var closeActionSheet = function () {};
+
+  if (actionSheet && actionHandle && actionBody) {
+    function showActionPanel(name) {
+      Object.keys(actionPanels).forEach(function (key) {
+        if (actionPanels[key]) actionPanels[key].hidden = key !== name;
+      });
+      activePanel = name;
+    }
+
+    function setActionHeaderOpen(open) {
+      if (dashHeaderLeft) dashHeaderLeft.hidden = open;
+      if (backBtn) backBtn.hidden = !open;
+    }
+
+    function applyActionOffset(offset) {
+      var closed = getClosedOffset();
+      offset = Math.max(0, Math.min(closed, offset));
+      actionLastOffset = offset;
+      actionSheet.style.transform = "translateY(" + offset + "px)";
+      var collapsed = getCollapsedOffset() || 1;
+      var progress = 1 - Math.min(offset, collapsed) / collapsed; // 0 collapsed/closed, 1 fully expanded
+      if (actionTabbar) {
+        actionTabbar.style.opacity = String(1 - progress);
+        actionTabbar.style.pointerEvents = progress > 0.5 ? "none" : "";
+      }
+    }
+
+    function setOffsetForState(s) {
+      if (s === "expanded") {
+        applyActionOffset(0);
+        actionBody.classList.remove("is-scroll-locked");
+      } else if (s === "collapsed") {
+        applyActionOffset(getCollapsedOffset());
+        actionBody.classList.add("is-scroll-locked");
+      } else {
+        applyActionOffset(getClosedOffset());
+        actionBody.classList.add("is-scroll-locked");
+      }
+    }
+
+    function snapToAction(newState) {
+      actionState = newState;
+      setOffsetForState(newState);
+    }
+
+    closeActionSheet = function () {
+      if (actionState === "closed") return;
+      setActionHeaderOpen(false);
+      snapToAction("closed");
+    };
+
+    openActionSheet = function (name) {
+      if (actionState !== "closed" && activePanel === name) {
+        closeActionSheet();
+        return;
+      }
+      showActionPanel(name);
+      setActionHeaderOpen(true);
+      if (name === "notifications") loadFriendRequests();
+      snapToAction("collapsed");
+    };
+
+    // Placed instantly (no transition) off-screen on load -- only
+    // snaps triggered by an actual open/drag afterward should animate.
+    actionSheet.style.transition = "none";
+    snapToAction("closed");
+    void actionSheet.offsetHeight;
+    actionSheet.style.transition = actionReduceMotion ? "none" : "";
+
+    window.addEventListener("resize", function () {
+      if (actionDragging || actionState === "closed") return;
+      snapToAction(actionState);
+    });
+
+    function actionPointerY(e) {
+      return e.touches ? e.touches[0].clientY : e.clientY;
+    }
+
+    function startActionDrag(y) {
+      actionDragging = true;
+      actionSheet.classList.add("is-dragging");
+      actionStartY = y;
+      actionStartOffset = actionLastOffset;
+    }
+
+    function moveActionDrag(y) {
+      applyActionOffset(actionStartOffset + (y - actionStartY));
+    }
+
+    function finishActionDrag() {
+      actionDragging = false;
+      actionSheet.classList.remove("is-dragging");
+      var moved = actionLastOffset - actionStartOffset; // negative = toward expanded
+      var wasExpanded = actionState === "expanded";
+      if (Math.abs(moved) < ACTION_CLAIM_THRESHOLD) {
+        snapToAction(wasExpanded ? "collapsed" : "expanded");
+        return;
+      }
+      if (moved <= -ACTION_SNAP_PX) {
+        snapToAction("expanded");
+        return;
+      }
+      if (moved >= ACTION_SNAP_PX) {
+        if (wasExpanded) { snapToAction("collapsed"); } else { closeActionSheet(); }
+        return;
+      }
+      if (wasExpanded) {
+        var span = getCollapsedOffset() || 1;
+        snapToAction(1 - actionLastOffset / span > 0.5 ? "expanded" : "collapsed");
+      } else {
+        var closeSpan = getClosedOffset() - getCollapsedOffset() || 1;
+        var closeProgress = (actionLastOffset - getCollapsedOffset()) / closeSpan;
+        if (closeProgress > 0.5) { closeActionSheet(); } else { snapToAction("collapsed"); }
+      }
+    }
+
+    actionHandle.addEventListener("touchstart", function (e) {
+      startActionDrag(actionPointerY(e));
+      if (e.cancelable) e.preventDefault();
+    }, { passive: false });
+
+    actionHandle.addEventListener("touchmove", function (e) {
+      if (!actionDragging) return;
+      moveActionDrag(actionPointerY(e));
+      if (e.cancelable) e.preventDefault();
+    }, { passive: false });
+
+    actionHandle.addEventListener("touchend", function () {
+      if (actionDragging) finishActionDrag();
+    });
+
+    actionHandle.addEventListener("mousedown", function (e) {
+      startActionDrag(e.clientY);
+    });
+
+    function actionShouldClaim(delta) {
+      if (actionState === "expanded") {
+        if (actionBody.scrollTop > 0) return false;
+        return delta > ACTION_CLAIM_THRESHOLD;
+      }
+      return Math.abs(delta) > ACTION_CLAIM_THRESHOLD;
+    }
+
+    actionBody.addEventListener("touchstart", function (e) {
+      if (actionDragging) return;
+      actionPendingPull = true;
+      actionStartY = actionPointerY(e);
+    }, { passive: true });
+
+    actionBody.addEventListener("touchmove", function (e) {
+      if (actionDragging) {
+        moveActionDrag(actionPointerY(e));
+        if (e.cancelable) e.preventDefault();
+        return;
+      }
+      if (!actionPendingPull) return;
+      var y = actionPointerY(e);
+      if (actionState === "expanded" && actionBody.scrollTop > 0) {
+        actionPendingPull = false;
+        return;
+      }
+      if (actionShouldClaim(y - actionStartY)) {
+        actionPendingPull = false;
+        startActionDrag(actionStartY);
+        moveActionDrag(y);
+        if (e.cancelable) e.preventDefault();
+      }
+    }, { passive: false });
+
+    actionBody.addEventListener("touchend", function () {
+      actionPendingPull = false;
+      if (actionDragging) finishActionDrag();
+    });
+
+    actionBody.addEventListener("mousedown", function (e) {
+      if (actionDragging) return;
+      actionPendingPull = true;
+      actionStartY = e.clientY;
+    });
+
+    window.addEventListener("mousemove", function (e) {
+      if (actionDragging) {
+        moveActionDrag(e.clientY);
+        return;
+      }
+      if (!actionPendingPull) return;
+      if (actionState === "expanded" && actionBody.scrollTop > 0) {
+        actionPendingPull = false;
+        return;
+      }
+      if (actionShouldClaim(e.clientY - actionStartY)) {
+        actionPendingPull = false;
+        startActionDrag(actionStartY);
+        moveActionDrag(e.clientY);
+      }
+    });
+
+    window.addEventListener("mouseup", function () {
+      actionPendingPull = false;
+      if (actionDragging) finishActionDrag();
+    });
+  }
+
+  var shopBtn = document.getElementById("dash-shop-btn");
+  if (shopBtn) shopBtn.addEventListener("click", function () { openActionSheet("store"); });
+  if (avatarBtn) avatarBtn.addEventListener("click", function () { openActionSheet("profile"); });
+  if (backBtn) backBtn.addEventListener("click", function () { closeActionSheet(); });
 
   var notifBtn = document.getElementById("dash-notif-btn");
-  var notifDropdown = document.getElementById("dash-notif-dropdown");
-  var notifList = document.getElementById("dash-notif-list");
   var notifBadge = document.getElementById("dash-notif-badge");
   var menuBtn = document.getElementById("dash-menu-btn");
-  var optionsDropdown = document.getElementById("dash-options-dropdown");
-
-  function closeHeaderDropdowns(except) {
-    if (notifDropdown && notifDropdown !== except) notifDropdown.hidden = true;
-    if (optionsDropdown && optionsDropdown !== except) optionsDropdown.hidden = true;
-  }
+  var actionNotifList = document.getElementById("action-notif-list");
 
   function setNotifBadge(count) {
     if (notifBadge) notifBadge.hidden = !count;
@@ -513,12 +745,12 @@
   setNotifBadge(state.pending_friend_request_count || 0);
 
   function renderFriendRequests(requests) {
-    notifList.innerHTML = "";
+    actionNotifList.innerHTML = "";
     if (!requests.length) {
       var empty = document.createElement("div");
-      empty.className = "dash-dropdown-empty";
-      empty.textContent = "No notifications yet";
-      notifList.appendChild(empty);
+      empty.className = "uploads-list-empty";
+      empty.textContent = "No notifications yet.";
+      actionNotifList.appendChild(empty);
       return;
     }
     requests.forEach(function (r) {
@@ -548,7 +780,7 @@
       actions.appendChild(acceptBtn);
       actions.appendChild(denyBtn);
       row.appendChild(actions);
-      notifList.appendChild(row);
+      actionNotifList.appendChild(row);
     });
   }
 
@@ -573,45 +805,19 @@
       .then(function (data) {
         if (!data.ok || !row) return;
         row.remove();
-        var remaining = notifList.querySelectorAll(".friend-request-row").length;
+        var remaining = actionNotifList.querySelectorAll(".friend-request-row").length;
         if (!remaining) renderFriendRequests([]);
         setNotifBadge(remaining);
       })
       .catch(function () {});
   }
 
-  if (notifBtn) {
-    notifBtn.addEventListener("click", function (e) {
-      e.stopPropagation();
-      var willOpen = notifDropdown.hidden;
-      closeHeaderDropdowns();
-      notifDropdown.hidden = !willOpen;
-      if (willOpen) loadFriendRequests();
-    });
-  }
-
-  if (menuBtn) {
-    menuBtn.addEventListener("click", function (e) {
-      e.stopPropagation();
-      var willOpen = optionsDropdown.hidden;
-      closeHeaderDropdowns();
-      optionsDropdown.hidden = !willOpen;
-    });
-  }
-
-  document.addEventListener("click", function (e) {
-    if (notifDropdown && !notifDropdown.hidden && !notifDropdown.contains(e.target) && e.target !== notifBtn && !notifBtn.contains(e.target)) {
-      notifDropdown.hidden = true;
-    }
-    if (optionsDropdown && !optionsDropdown.hidden && !optionsDropdown.contains(e.target) && e.target !== menuBtn && !menuBtn.contains(e.target)) {
-      optionsDropdown.hidden = true;
-    }
-  });
+  if (notifBtn) notifBtn.addEventListener("click", function () { openActionSheet("notifications"); });
+  if (menuBtn) menuBtn.addEventListener("click", function () { openActionSheet("options"); });
 
   var menuUploadBtn = document.getElementById("dash-menu-upload");
   if (menuUploadBtn) {
     menuUploadBtn.addEventListener("click", function () {
-      optionsDropdown.hidden = true;
       var uploadsBtn = document.getElementById("profile-uploads-btn");
       if (uploadsBtn) uploadsBtn.click();
     });
@@ -620,7 +826,6 @@
   var menuSupportBtn = document.getElementById("dash-menu-support");
   if (menuSupportBtn) {
     menuSupportBtn.addEventListener("click", function () {
-      optionsDropdown.hidden = true;
       window.location.href = "mailto:support@employable.app";
     });
   }
@@ -679,7 +884,6 @@
   var menuInviteBtn = document.getElementById("dash-menu-invite");
   if (menuInviteBtn) {
     menuInviteBtn.addEventListener("click", function () {
-      optionsDropdown.hidden = true;
       friendInviteError.hidden = true;
       friendInviteSuccess.hidden = true;
       friendUsernameInput.value = "";
@@ -2034,6 +2238,10 @@
 
     function measure() {
       collapsedOffset = scoreHeader.getBoundingClientRect().bottom;
+      // Shared with the action-sheet controller above so Profile/
+      // Notifications/Store/More rest at this exact same pixel
+      // position when opened.
+      window.__dashSheetCollapsedOffset = collapsedOffset;
     }
 
     function applyOffset(offset) {
