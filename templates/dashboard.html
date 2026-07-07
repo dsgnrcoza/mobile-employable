@@ -18,6 +18,18 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
     </button>
     <div class="dash-header-icons">
+      <div class="dash-menu-wrap">
+        <button type="button" class="dash-icon-btn" id="dash-notif-btn" aria-label="Notifications">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6 8a6 6 0 1 1 12 0c0 3.2 1 5 2 6.2a1 1 0 0 1-.8 1.6H4.8a1 1 0 0 1-.8-1.6c1-1.2 2-3 2-6.2z"/>
+            <path d="M9.5 18a2.5 2.5 0 0 0 5 0"/>
+          </svg>
+        </button>
+        <div class="dash-dropdown" id="dash-notif-dropdown" hidden>
+          <div class="dash-dropdown-empty" id="dash-notif-empty">No notifications yet</div>
+        </div>
+      </div>
+
       <button type="button" class="dash-icon-btn" id="dash-shop-btn" aria-label="Store">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <path d="M4 9V6a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v3"/>
@@ -26,6 +38,21 @@
           <path d="M10 20v-4h4v4"/>
         </svg>
       </button>
+
+      <div class="dash-menu-wrap">
+        <button type="button" class="dash-icon-btn" id="dash-menu-btn" aria-label="More options">
+          <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
+            <circle cx="12" cy="5" r="1.9"/>
+            <circle cx="12" cy="12" r="1.9"/>
+            <circle cx="12" cy="19" r="1.9"/>
+          </svg>
+        </button>
+        <div class="dash-dropdown" id="dash-options-dropdown" hidden>
+          <button type="button" id="dash-menu-upload">Upload Documents</button>
+          <button type="button" id="dash-menu-invite">Invite Friends</button>
+          <button type="button" id="dash-menu-support">Help &amp; Support</button>
+        </div>
+      </div>
     </div>
   </header>
 

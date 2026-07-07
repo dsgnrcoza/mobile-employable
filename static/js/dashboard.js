@@ -492,6 +492,75 @@
   if (avatarBtn) avatarBtn.addEventListener("click", function () { switchView("profile"); });
   if (backBtn) backBtn.addEventListener("click", function () { switchView("dashboard"); });
 
+  // ---------- Header dropdowns: notifications + more-options menu ----------
+
+  var notifBtn = document.getElementById("dash-notif-btn");
+  var notifDropdown = document.getElementById("dash-notif-dropdown");
+  var menuBtn = document.getElementById("dash-menu-btn");
+  var optionsDropdown = document.getElementById("dash-options-dropdown");
+
+  function closeHeaderDropdowns(except) {
+    if (notifDropdown && notifDropdown !== except) notifDropdown.hidden = true;
+    if (optionsDropdown && optionsDropdown !== except) optionsDropdown.hidden = true;
+  }
+
+  if (notifBtn) {
+    notifBtn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      var willOpen = notifDropdown.hidden;
+      closeHeaderDropdowns();
+      notifDropdown.hidden = !willOpen;
+    });
+  }
+
+  if (menuBtn) {
+    menuBtn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      var willOpen = optionsDropdown.hidden;
+      closeHeaderDropdowns();
+      optionsDropdown.hidden = !willOpen;
+    });
+  }
+
+  document.addEventListener("click", function (e) {
+    if (notifDropdown && !notifDropdown.hidden && !notifDropdown.contains(e.target) && e.target !== notifBtn && !notifBtn.contains(e.target)) {
+      notifDropdown.hidden = true;
+    }
+    if (optionsDropdown && !optionsDropdown.hidden && !optionsDropdown.contains(e.target) && e.target !== menuBtn && !menuBtn.contains(e.target)) {
+      optionsDropdown.hidden = true;
+    }
+  });
+
+  var menuUploadBtn = document.getElementById("dash-menu-upload");
+  if (menuUploadBtn) {
+    menuUploadBtn.addEventListener("click", function () {
+      optionsDropdown.hidden = true;
+      var uploadsBtn = document.getElementById("profile-uploads-btn");
+      if (uploadsBtn) uploadsBtn.click();
+    });
+  }
+
+  var menuInviteBtn = document.getElementById("dash-menu-invite");
+  if (menuInviteBtn) {
+    menuInviteBtn.addEventListener("click", function () {
+      optionsDropdown.hidden = true;
+      var shareText = "Employable helped me get my documents job-ready — check it out: " + window.location.origin;
+      if (navigator.share) {
+        navigator.share({ title: "Employable", text: shareText }).catch(function () {});
+      } else if (navigator.clipboard) {
+        navigator.clipboard.writeText(shareText).catch(function () {});
+      }
+    });
+  }
+
+  var menuSupportBtn = document.getElementById("dash-menu-support");
+  if (menuSupportBtn) {
+    menuSupportBtn.addEventListener("click", function () {
+      optionsDropdown.hidden = true;
+      window.location.href = "mailto:support@employable.app";
+    });
+  }
+
   // ---------- Profile screen ----------
 
   var profileNameEl = document.getElementById("profile-name");
