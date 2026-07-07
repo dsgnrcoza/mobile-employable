@@ -167,7 +167,7 @@ a {
   border: 1px solid var(--line);
   border-radius: 999px;
   padding: 4px;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .auth-tab {
@@ -243,7 +243,7 @@ a {
   display: block;
   width: 44px;
   height: 44px;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 }
 
 .auth-heading {
@@ -284,10 +284,10 @@ a {
   max-width: none;
   margin: 0;
   background: #0a0a0a;
-  /* line-strong (not the subtler line) -- this outline is what marks
-     where the card begins now that it's the same color as everything
-     behind it, so it needs to actually read clearly, not hint at it. */
-  border: 1px solid var(--line-strong);
+  /* These pages have a white header above the card now, so the card
+     already reads clearly against it -- the border only needs to
+     blend into the black card/page below it, not stand out. */
+  border: 1px solid var(--bg);
   border-bottom: none;
   border-radius: 34px 34px 0 0;
   /* Extra top padding gives the corner's arc room to finish sweeping
@@ -295,7 +295,7 @@ a {
      against it -- without this the gap between the pill's curve and
      the card's corner reads as an uneven straight sliver rather than
      following the corner smoothly. */
-  padding: 30px 20px calc(18px + env(safe-area-inset-bottom));
+  padding: 22px 20px calc(14px + env(safe-area-inset-bottom));
   animation: auth-card-in 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
@@ -327,7 +327,7 @@ a {
   color: var(--muted);
   font-size: 13px;
   line-height: 1.4;
-  margin-bottom: 18px;
+  margin-bottom: 12px;
 }
 
 /* ---------- Form fields ---------- */
@@ -335,8 +335,8 @@ a {
 .field {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-bottom: 14px;
+  gap: 6px;
+  margin-bottom: 10px;
 }
 
 .field label {
@@ -403,9 +403,9 @@ a {
 .field-hint {
   font-size: 12px;
   color: var(--muted);
-  margin-top: -10px;
-  margin-bottom: 4px;
-  line-height: 1.5;
+  margin-top: -8px;
+  margin-bottom: 2px;
+  line-height: 1.4;
 }
 
 .field-hint.is-met {
@@ -414,11 +414,11 @@ a {
 
 .password-reqs {
   list-style: none;
-  margin: 4px 0 0;
+  margin: 2px 0 0;
   padding: 0;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 4px 10px;
+  gap: 3px 10px;
 }
 
 .password-reqs li {
