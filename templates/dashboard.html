@@ -77,36 +77,41 @@
       </div>
     </div>
 
-    <div class="dash-score-card">
-      <div class="dash-metrics" id="dash-metrics"></div>
-
-      <div class="dash-empty" id="dash-empty" hidden>
-        <p>Your documents haven't been scored yet — this can happen if the first attempt timed out.</p>
-        <button type="button" class="btn btn-gold btn-block" id="dash-refresh-score-btn">Refresh Score</button>
-        <div id="dash-refresh-score-error" class="flash flash-error" hidden></div>
+    <div class="dash-sheet" id="dash-sheet">
+      <div class="dash-sheet-handle-wrap" id="dash-sheet-handle">
+        <div class="dash-sheet-handle"></div>
       </div>
+      <div class="dash-sheet-body">
+        <div class="dash-metrics" id="dash-metrics"></div>
 
-      <div class="dash-insights" id="dash-insights" hidden>
-        <div class="dash-insight-block">
-          <h3>Why This Score Is Accurate</h3>
-          <p class="dash-insight-intro">Every point above traces back to something specific we actually found — not a guess. Here's the real proof:</p>
-          <ul class="dash-evidence-list" id="dash-evidence-list"></ul>
+        <div class="dash-empty" id="dash-empty" hidden>
+          <p>Your documents haven't been scored yet — this can happen if the first attempt timed out.</p>
+          <button type="button" class="btn btn-gold btn-block" id="dash-refresh-score-btn">Refresh Score</button>
+          <div id="dash-refresh-score-error" class="flash flash-error" hidden></div>
         </div>
 
-        <div class="dash-insight-block">
-          <h3>What's Working</h3>
-          <ul class="dash-working-list" id="dash-working-list"></ul>
-        </div>
+        <div class="dash-insights" id="dash-insights" hidden>
+          <div class="dash-insight-block">
+            <h3>Why This Score Is Accurate</h3>
+            <p class="dash-insight-intro">Every point above traces back to something specific we actually found — not a guess. Here's the real proof:</p>
+            <ul class="dash-evidence-list" id="dash-evidence-list"></ul>
+          </div>
 
-        <div class="dash-insight-block">
-          <h3>What's Hurting You</h3>
-          <ul class="dash-issues-list" id="dash-issues-list"></ul>
-        </div>
+          <div class="dash-insight-block">
+            <h3>What's Working</h3>
+            <ul class="dash-working-list" id="dash-working-list"></ul>
+          </div>
 
-        <div class="dash-insight-block">
-          <h3>Your Roadmap</h3>
-          <p class="dash-insight-intro">Built from your actual documents and nothing else. Complete these to raise your score.</p>
-          <div class="dash-roadmap-list" id="dash-roadmap-list"></div>
+          <div class="dash-insight-block">
+            <h3>What's Hurting You</h3>
+            <ul class="dash-issues-list" id="dash-issues-list"></ul>
+          </div>
+
+          <div class="dash-insight-block">
+            <h3>Your Roadmap</h3>
+            <p class="dash-insight-intro">Built from your actual documents and nothing else. Complete these to raise your score.</p>
+            <div class="dash-roadmap-list" id="dash-roadmap-list"></div>
+          </div>
         </div>
       </div>
     </div>
