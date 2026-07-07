@@ -156,13 +156,6 @@ a {
   flex-direction: column;
   width: 100%;
   min-height: 0;
-  /* The card below has rounded top corners, which "cut away" from its
-     own top-left/top-right corners -- whatever sits behind the card
-     shows through that cut-away sliver. Matching the header's white
-     here (rather than leaving it to fall through to .auth-shell's
-     black) makes the header read as wrapping smoothly around the
-     card's curve instead of the curve exposing a black notch. */
-  background: #fff;
 }
 
 /* ---------- Login / Register tab switcher ---------- */
@@ -197,7 +190,6 @@ a {
   flex-shrink: 0;
   padding: 24px 24px 20px;
   text-align: left;
-  background: #fff;
 }
 
 .auth-wordmark {
@@ -257,14 +249,14 @@ a {
   font-size: 23px;
   font-weight: 700;
   line-height: 1.25;
-  color: #0a0a0a;
+  color: var(--fg);
 }
 
 .auth-subheading {
   display: block;
   font-size: 13px;
   line-height: 1.4;
-  color: rgba(10, 10, 10, 0.55);
+  color: var(--muted);
   margin-top: 4px;
 }
 
@@ -290,7 +282,10 @@ a {
   max-width: none;
   margin: 0;
   background: #0a0a0a;
-  border: 1px solid var(--line);
+  /* line-strong (not the subtler line) -- this outline is what marks
+     where the card begins now that it's the same color as everything
+     behind it, so it needs to actually read clearly, not hint at it. */
+  border: 1px solid var(--line-strong);
   border-bottom: none;
   border-radius: 34px 34px 0 0;
   /* Extra top padding gives the corner's arc room to finish sweeping
@@ -1160,20 +1155,6 @@ a {
   align-items: center;
   justify-content: space-between;
   padding: 20px 20px 8px;
-  transition: background-color 0.2s ease;
-}
-
-/* White only while the dashboard (home) tab is active, matching the
-   white .dash-score-header directly below it -- every other tab
-   (profile, store, CV, chat) keeps the header black, toggled by
-   switchView() in dashboard.js. Same --fg/--muted/--line flip used by
-   .dash-score-header so every child rule recolors for free. */
-.dash-header.dash-header-light {
-  --fg: #0a0a0a;
-  --muted: rgba(10, 10, 10, 0.55);
-  --line: rgba(10, 10, 10, 0.15);
-  --line-strong: rgba(10, 10, 10, 0.4);
-  background: #fff;
 }
 
 .dash-header-left {
@@ -1249,12 +1230,10 @@ a {
   margin: 0 auto;
 }
 
-/* Same white-header/black-card concept as the auth and onboarding
-   screens, scoped to just this one view (by id, not the shared
-   .dash-content class) so the profile/store tabs are untouched. The
-   score circle + its two titles sit on white; everything else in this
-   view sits in a black card with rounded top corners only,
-   full-bleed left/right. */
+/* Full-bleed, no-padding container for this one view (by id, not the
+   shared .dash-content class, so the profile/store tabs are
+   untouched) -- everything else in it sits in .dash-sheet, a black
+   card with a visible outline and rounded top corners only. */
 #dash-view-dashboard {
   padding: 0;
   max-width: none;
@@ -1263,7 +1242,6 @@ a {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  background: #fff;
 }
 
 /* An id selector setting display:flex above beats the UA stylesheet's
@@ -1277,18 +1255,7 @@ a {
 }
 
 .dash-score-header {
-  /* Flips the shared --fg/--muted/--line variables to their
-     dark-on-white equivalents for this subtree only -- every rule
-     below (gauge title, score number, "out of 10", label, info
-     icons, the circle's border/track) already reads from these same
-     variables, so redefining them here is enough to recolor all of
-     it without touching each rule individually. */
-  --fg: #0a0a0a;
-  --muted: rgba(10, 10, 10, 0.55);
-  --line: rgba(10, 10, 10, 0.15);
-  --line-strong: rgba(10, 10, 10, 0.4);
   flex-shrink: 0;
-  background: #fff;
   padding: 8px 20px 24px;
   text-align: center;
 }
@@ -1305,7 +1272,12 @@ a {
   right: 0;
   top: 0;
   bottom: 0;
-  background: var(--bg);
+  /* Same #0a0a0a + line-strong outline as .auth-form-box, for the same
+     reason: against a same-color background, a visible border is what
+     marks the card's edge instead of a color change. */
+  background: #0a0a0a;
+  border: 1px solid var(--line-strong);
+  border-bottom: none;
   border-radius: 28px 28px 0 0;
   display: flex;
   flex-direction: column;
