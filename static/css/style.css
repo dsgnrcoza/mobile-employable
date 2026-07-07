@@ -610,6 +610,9 @@ a {
   flex-direction: column;
 }
 
+/* Still used by the terms gate (templates/terms_gate.html), which
+   keeps its original plain-black layout rather than the white-header
+   treatment below. */
 .ob-topbar {
   padding: 24px 24px 8px;
   text-align: center;
@@ -623,26 +626,95 @@ a {
   padding: 24px 24px 40px;
 }
 
-.ob-dots {
+.ob-content h1 {
+  font-size: 26px;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+/* Same visual language as the auth screens: white header with the app
+   badge, black card below with rounded top corners only, full-bleed
+   left/right. Reuses .auth-card/.auth-visual/.auth-form-side/
+   .auth-form-box directly rather than re-implementing the same look
+   under new names. */
+.ob-shell .auth-card {
+  flex: none;
+}
+
+.ob-shell .auth-visual {
+  padding: 24px 24px 20px;
+  text-align: center;
+}
+
+.ob-shell .auth-badge {
+  margin: 0 auto;
+}
+
+.ob-shell .auth-form-box {
+  overflow-y: visible;
+}
+
+/* ---------- Step indicator (numbered circles + tiny titles) ---------- */
+
+.ob-steps {
   display: flex;
+  align-items: flex-start;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
   margin-bottom: 24px;
 }
 
-.ob-dot {
-  width: 8px;
-  height: 8px;
+.ob-step-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 108px;
+}
+
+.ob-step-circle {
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
-  background: var(--line-strong);
+  border: 1.5px solid var(--line-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }
 
-.ob-dot.active {
+.ob-step-label {
+  font-size: 11px;
+  color: var(--muted);
+  text-align: center;
+  line-height: 1.3;
+  transition: color 0.2s ease;
+}
+
+.ob-step-item.active .ob-step-circle {
   background: var(--fg);
+  border-color: var(--fg);
+  color: #000;
 }
 
-.ob-content h1 {
-  font-size: 26px;
+.ob-step-item.active .ob-step-label {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.ob-step-connector {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 1.5px;
+  background: var(--line);
+  margin-top: 12px;
+}
+
+.ob-step h1 {
+  font-size: 24px;
   font-weight: 700;
   margin-bottom: 10px;
 }
