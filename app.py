@@ -1497,8 +1497,8 @@ def api_chat():
     skills = state.get("skills", [])
 
     # All 8 scored dimensions still feed the AI's context even though
-    # the dashboard's primary view only surfaces 3 of them as cards
-    # (the other 5 sit behind "Full Breakdown") -- listing every one
+    # the dashboard's primary view only surfaces 5 of them as cards
+    # (the other 3 sit behind "Full Breakdown") -- listing every one
     # here, in the same order the Full Breakdown displays them, keeps
     # the AI's view complete regardless of what's currently expanded.
     dims = analysis.get("dimensions", [])
@@ -1583,8 +1583,8 @@ You also have full context of this user's Employable profile:
 - Location: {profile.get('location') or 'Not specified'}
 - Skills: {skill_list}
 - Documents uploaded: {doc_names}
-- Current Employability Score: {f"{analysis['employability_score']:.2f}/10 ({analysis.get('employability_score_label','')})" if analysis.get('employability_score') is not None else 'Not scored yet'} -- this is the EXACT number and label shown at the top of this user's dashboard right now, averaging only ATS Compatibility, Skill Strength, and Experience Strength. Always use this one when asked about "their score" generally, never recompute or estimate your own.
-- Broader Employability Rating (all 8 dimensions, weighted): {f"{analysis['overall_rating']:.2f}/10 ({analysis.get('rating_label','')})" if analysis.get('overall_rating') else 'Not scored yet'} -- shown in the dashboard's "Full Breakdown" section, not the primary number. Only bring this up if the user specifically asks about the broader rating or a dimension outside ATS/Skills/Experience.
+- Current Employability Score: {f"{analysis['employability_score']:.2f}/10 ({analysis.get('employability_score_label','')})" if analysis.get('employability_score') is not None else 'Not scored yet'} -- this is the EXACT number and label shown at the top of this user's dashboard right now, averaging ATS Compatibility, Skill Strength, Experience Strength, Qualification Strength, and Market Competitiveness. Always use this one when asked about "their score" generally, never recompute or estimate your own.
+- Broader Employability Rating (all 8 dimensions, weighted): {f"{analysis['overall_rating']:.2f}/10 ({analysis.get('rating_label','')})" if analysis.get('overall_rating') else 'Not scored yet'} -- shown in the dashboard's "Full Breakdown" section, not the primary number. Only bring this up if the user specifically asks about the broader rating or a dimension outside the 5 primary ones.
 
 Cubic-Metric Dimension Scores:
 {dim_lines}

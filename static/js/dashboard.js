@@ -37,6 +37,7 @@
       label: "Qualification Strength",
       short: "Qualifications",
       icon: '<path d="M22 10 12 5 2 10l10 5 10-5z"/><path d="M6 12v5c0 1.5 2.5 3 6 3s6-1.5 6-3v-5"/><path d="M22 10v6"/>',
+      color: "#f59e0b",
     },
     {
       label: "Skill Strength",
@@ -48,6 +49,7 @@
       label: "Market Competitiveness",
       short: "Market Fit",
       icon: '<path d="M3 17l6-6 4 4 8-8"/><path d="M15 6h6v6"/>',
+      color: "#3b82f6",
     },
     {
       label: "Evidence Credibility",
@@ -67,7 +69,7 @@
     },
   ];
 
-  var PRIMARY_LABELS = ["ATS Compatibility", "Skill Strength", "Experience Strength"];
+  var PRIMARY_LABELS = ["ATS Compatibility", "Skill Strength", "Experience Strength", "Qualification Strength", "Market Competitiveness"];
   var PRIMARY_METRICS = PRIMARY_LABELS.map(function (label) {
     return METRICS.filter(function (m) { return m.label === label; })[0];
   });
@@ -93,6 +95,8 @@
     document.getElementById("dash-gauge-seg-0"),
     document.getElementById("dash-gauge-seg-1"),
     document.getElementById("dash-gauge-seg-2"),
+    document.getElementById("dash-gauge-seg-3"),
+    document.getElementById("dash-gauge-seg-4"),
   ];
   var gaugeScore = document.getElementById("dash-gauge-score");
   var gaugeLabel = document.getElementById("dash-gauge-label");
@@ -323,15 +327,16 @@
 
   // Generic, dimension-level "why employers actually care about this"
   // context — not tied to this user's specific score, just the honest
-  // real-world reason each of these 5 metrics exists at all. Reused
-  // as-is by the Full Breakdown rows below; the 3 primary cards show
-  // this same text inline instead of via this modal.
+  // real-world reason each of these metrics exists at all. Reused as-is
+  // by the Full Breakdown rows below; the 5 primary rows show this same
+  // text via this same modal instead of an inline expand.
   var WHY_EMPLOYERS_CARE = {
     "Documentation": "Employers care about this because anyone can write a great-sounding CV — what actually convinces a hiring manager is proof: certificates, references, transcripts. A CV backed by real documents tells them your claims are real, not just well-written.",
     "Experience": "Employers care about years of experience because it's the clearest sign you can do the job without heavy hand-holding. But raw years alone aren't enough — they also want to see what you actually achieved in that time, not just that you showed up.",
     "Skills": "Employers — and the automated systems that screen CVs before a human ever does — scan for specific, in-demand skills as an early filter. Skills you can prove you've actually used in a real role carry far more weight than a skill just listed at the bottom of a page.",
     "Market Fit": "Employers compare you against everyone else applying for the same role — 'good enough on its own' isn't the bar, 'better than the other applicants' is. This shows you honestly how you stack up against what the market currently expects for your target role.",
     "ATS Score": "Before a human ever reads your CV, an automated tracking system usually reads it first — and if it can't parse your layout, dates, or sections properly, a strong candidate can get filtered out before anyone sees a single word. This score is about surviving that first automated gate.",
+    "Qualifications": "Employers use formal qualifications as a quick, verifiable filter — a degree or certification is proof of a baseline of training that doesn't rely on taking your word for it. It won't outweigh real experience, but its absence is often an early screening cutoff.",
   };
 
   function openMetricModal(label, score, description, simpleExplanation, shortLabel) {
@@ -371,6 +376,8 @@
     "ATS Compatibility": "Gets you past the resume-scanning robots.",
     "Skill Strength": "What makes you valuable to a company.",
     "Experience Strength": "Proof you can actually do the job.",
+    "Qualification Strength": "Your formal training and certifications.",
+    "Market Competitiveness": "How you stack up against other applicants.",
   };
 
   var legendRowRefs = {}; // label -> { rowEl, valueEl, dim }
@@ -451,7 +458,7 @@
     });
   }
 
-  // ---------- One entry point: gauge + 3 primary cards + Full Breakdown ----------
+  // ---------- One entry point: gauge + primary legend rows + Full Breakdown ----------
   // Called once at load and again after any upload/removal that comes
   // back with fresh state, so every part of the score display -- not
   // just the number -- stays in sync with what actually changed.

@@ -483,16 +483,18 @@ DASHBOARD_VISIBLE_DIMENSIONS = [
     "ATS Compatibility",
 ]
 
-# The 3 dimensions the dashboard's primary cards show, and the only 3
+# The 5 dimensions the dashboard's primary cards show, and the only 5
 # averaged into the headline "Employability Score" below -- deliberately
 # a different, smaller set than DASHBOARD_VISIBLE_DIMENSIONS above,
 # which is unrelated and keeps driving the roadmap's own points math
 # untouched. All 8 dimensions are still fully computed either way; this
-# only decides which 3 feed the new headline number and primary cards.
+# only decides which 5 feed the new headline number and primary cards.
 PRIMARY_SCORE_DIMENSIONS = [
     "ATS Compatibility",
     "Skill Strength",
     "Experience Strength",
+    "Qualification Strength",
+    "Market Competitiveness",
 ]
 
 
@@ -500,7 +502,7 @@ def _add_employability_score(analysis_data: dict) -> dict:
     """
     Adds `employability_score` (plus its own label/star rating) as new,
     additive fields on the analysis dict -- a simple average of only
-    the 3 PRIMARY_SCORE_DIMENSIONS. This is distinct from the existing
+    the 5 PRIMARY_SCORE_DIMENSIONS. This is distinct from the existing
     `overall_rating` (the weighted average across all 8 dimensions),
     which is left completely untouched and keeps backing score history,
     the AI chat context, and the Full Breakdown exactly as before.
