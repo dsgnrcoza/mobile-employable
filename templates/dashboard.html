@@ -18,18 +18,13 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
     </button>
     <div class="dash-header-icons">
-      <div class="dash-menu-wrap">
-        <button type="button" class="dash-icon-btn" id="dash-notif-btn" aria-label="Notifications">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M6 8a6 6 0 1 1 12 0c0 3.2 1 5 2 6.2a1 1 0 0 1-.8 1.6H4.8a1 1 0 0 1-.8-1.6c1-1.2 2-3 2-6.2z"/>
-            <path d="M9.5 18a2.5 2.5 0 0 0 5 0"/>
-          </svg>
-          <span class="dash-notif-badge" id="dash-notif-badge" hidden></span>
-        </button>
-        <div class="dash-dropdown dash-notif-dropdown" id="dash-notif-dropdown" hidden>
-          <div class="dash-notif-list" id="dash-notif-list"></div>
-        </div>
-      </div>
+      <button type="button" class="dash-icon-btn" id="dash-notif-btn" aria-label="Notifications">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6 8a6 6 0 1 1 12 0c0 3.2 1 5 2 6.2a1 1 0 0 1-.8 1.6H4.8a1 1 0 0 1-.8-1.6c1-1.2 2-3 2-6.2z"/>
+          <path d="M9.5 18a2.5 2.5 0 0 0 5 0"/>
+        </svg>
+        <span class="dash-notif-badge" id="dash-notif-badge" hidden></span>
+      </button>
 
       <button type="button" class="dash-icon-btn" id="dash-shop-btn" aria-label="Store">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -40,20 +35,13 @@
         </svg>
       </button>
 
-      <div class="dash-menu-wrap">
-        <button type="button" class="dash-icon-btn" id="dash-menu-btn" aria-label="More options">
-          <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
-            <circle cx="12" cy="5" r="1.9"/>
-            <circle cx="12" cy="12" r="1.9"/>
-            <circle cx="12" cy="19" r="1.9"/>
-          </svg>
-        </button>
-        <div class="dash-dropdown" id="dash-options-dropdown" hidden>
-          <button type="button" id="dash-menu-upload">Upload Documents</button>
-          <button type="button" id="dash-menu-invite">Invite Friends</button>
-          <button type="button" id="dash-menu-support">Help &amp; Support</button>
-        </div>
-      </div>
+      <button type="button" class="dash-icon-btn" id="dash-menu-btn" aria-label="More options">
+        <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
+          <circle cx="12" cy="5" r="1.9"/>
+          <circle cx="12" cy="12" r="1.9"/>
+          <circle cx="12" cy="19" r="1.9"/>
+        </svg>
+      </button>
     </div>
   </header>
 
@@ -302,9 +290,17 @@
     </div>
   </div>
 
-  <!-- Profile view -->
-  <div class="dash-content dash-view" id="dash-view-profile" hidden>
+  <!-- Action sheet: slides up to the exact same size/position as the
+       dashboard's own bottom sheet, covering it, for Profile,
+       Notifications, Store, and More -- one shared sliding sheet whose
+       body content swaps per panel rather than 4 separate mechanisms. -->
+  <div class="action-sheet" id="action-sheet">
+    <div class="dash-sheet-handle-wrap" id="action-sheet-handle">
+      <div class="dash-sheet-handle"></div>
+    </div>
+    <div class="action-sheet-body" id="action-sheet-body">
 
+      <div class="action-panel" id="action-panel-profile" hidden>
     <div class="profile-card">
       <button type="button" class="profile-avatar-btn" id="profile-avatar-btn" aria-label="Change profile photo">
         <img id="profile-avatar-img" alt="" hidden>
@@ -377,10 +373,14 @@
     </div>
 
     <input type="file" id="profile-avatar-input" accept="image/*" hidden>
-  </div>
+      </div>
 
-  <!-- Store placeholder view -->
-  <div class="dash-content dash-view" id="dash-view-store" hidden>
+      <div class="action-panel" id="action-panel-notifications" hidden>
+        <h2 class="action-panel-title">Notifications</h2>
+        <div class="action-notif-list" id="action-notif-list"></div>
+      </div>
+
+      <div class="action-panel" id="action-panel-store" hidden>
     <div class="dash-placeholder">
       <div class="dash-placeholder-icon">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -405,6 +405,36 @@
           <circle cx="12" cy="7.8" r="0.6" fill="currentColor" stroke="none"/>
         </svg>
       </button>
+    </div>
+      </div>
+
+      <div class="action-panel" id="action-panel-options" hidden>
+        <h2 class="action-panel-title">More</h2>
+        <div class="profile-menu">
+          <button type="button" class="profile-menu-row" id="dash-menu-upload">
+            <span class="profile-menu-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            </span>
+            <span class="profile-menu-label">Upload Documents</span>
+            <svg class="profile-menu-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+          <button type="button" class="profile-menu-row" id="dash-menu-invite">
+            <span class="profile-menu-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.5 3-5.5 6.5-5.5s6.5 2 6.5 5.5"/><line x1="18" y1="9" x2="18" y2="15"/><line x1="15" y1="12" x2="21" y2="12"/></svg>
+            </span>
+            <span class="profile-menu-label">Invite Friends</span>
+            <svg class="profile-menu-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+          <button type="button" class="profile-menu-row" id="dash-menu-support">
+            <span class="profile-menu-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 1.5-2 2-2 3.5"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </span>
+            <span class="profile-menu-label">Help &amp; Support</span>
+            <svg class="profile-menu-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </div>
+      </div>
+
     </div>
   </div>
 
