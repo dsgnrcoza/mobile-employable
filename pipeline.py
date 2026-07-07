@@ -483,6 +483,38 @@ DASHBOARD_VISIBLE_DIMENSIONS = [
     "ATS Compatibility",
 ]
 
+# The 3 dimensions the dashboard's primary cards show, and the only 3
+# averaged into the headline "Employability Score" below -- deliberately
+# a different, smaller set than DASHBOARD_VISIBLE_DIMENSIONS above,
+# which is unrelated and keeps driving the roadmap's own points math
+# untouched. All 8 dimensions are still fully computed either way; this
+# only decides which 3 feed the new headline number and primary cards.
+PRIMARY_SCORE_DIMENSIONS = [
+    "ATS Compatibility",
+    "Skill Strength",
+    "Experience Strength",
+]
+
+
+def _add_employability_score(analysis_data: dict) -> dict:
+    """
+    Adds `employability_score` (plus its own label/star rating) as new,
+    additive fields on the analysis dict -- a simple average of only
+    the 3 PRIMARY_SCORE_DIMENSIONS. This is distinct from the existing
+    `overall_rating` (the weighted average across all 8 dimensions),
+    which is left completely untouched and keeps backing score history,
+    the AI chat context, and the Full Breakdown exactly as before.
+    """
+    dim_scores = {d["label"]: d.get("score", 0) for d in (analysis_data.get("dimensions") or [])}
+    if not all(label in dim_scores for label in PRIMARY_SCORE_DIMENSIONS):
+        return analysis_data
+    primary_scores = [float(dim_scores[label] or 0) for label in PRIMARY_SCORE_DIMENSIONS]
+    employability_score = round(sum(primary_scores) / len(primary_scores), 2)
+    analysis_data["employability_score"] = employability_score
+    analysis_data["employability_score_label"] = label_for_score(employability_score)
+    analysis_data["employability_score_stars"] = stars_for_score(employability_score)
+    return analysis_data
+
 
 def _filter_and_recompute_roadmap(analysis_data: dict) -> dict:
     """
@@ -582,6 +614,12 @@ def get_dashboard_state(user_id: int) -> dict:
             analysis_data = _filter_and_recompute_roadmap(analysis_data)
         except Exception:
             pass  # roadmap recompute must never break the main flow
+
+    if analysis_data is not None:
+        try:
+            analysis_data = _add_employability_score(analysis_data)
+        except Exception:
+            pass  # must never break the main flow
 
     avatar_path = user.get("avatar_path") or ""
     if avatar_path.startswith("data:"):

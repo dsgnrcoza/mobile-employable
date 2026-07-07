@@ -16,9 +16,11 @@
   });
 
   // All 8 dimensions the backend scores, in the same canonical order
-  // rubric.py's DIMENSIONS (and therefore the AI's own view of them)
-  // uses — every one of them visible here now, so the dashboard and
-  // the AI chat are always looking at the exact same set.
+  // rubric.py's DIMENSIONS uses. Only 3 of these (PRIMARY_LABELS below)
+  // are shown as the main cards and averaged into the headline
+  // Employability Score (see pipeline.py's PRIMARY_SCORE_DIMENSIONS,
+  // which this must match); the other 5 are still fully computed and
+  // shown, just moved behind "Full Breakdown".
   var METRICS = [
     {
       label: "Documentation Strength",
@@ -62,6 +64,12 @@
     },
   ];
 
+  var PRIMARY_LABELS = ["ATS Compatibility", "Skill Strength", "Experience Strength"];
+  var PRIMARY_METRICS = PRIMARY_LABELS.map(function (label) {
+    return METRICS.filter(function (m) { return m.label === label; })[0];
+  });
+  var SECONDARY_METRICS = METRICS.filter(function (m) { return PRIMARY_LABELS.indexOf(m.label) === -1; });
+
   function firstName() {
     var raw = (profile.full_name || "").trim();
     if (!raw) raw = (profile.username || "").trim();
@@ -81,8 +89,16 @@
   var gaugeFill = document.getElementById("dash-gauge-fill");
   var gaugeScore = document.getElementById("dash-gauge-score");
   var gaugeLabel = document.getElementById("dash-gauge-label");
+  var primaryMetricsEl = document.getElementById("dash-primary-metrics");
   var metricsEl = document.getElementById("dash-metrics");
+  var breakdownToggle = document.getElementById("dash-breakdown-toggle");
   var emptyEl = document.getElementById("dash-empty");
+
+  breakdownToggle.addEventListener("click", function () {
+    var willShow = metricsEl.hidden;
+    metricsEl.hidden = !willShow;
+    breakdownToggle.classList.toggle("is-expanded", willShow);
+  });
 
   // Actually implements what the empty state's copy has always
   // promised — a real "Refresh Score" retry, for when the first
@@ -123,6 +139,11 @@
     var pct = Math.max(0, Math.min(1, rating / 10));
     gaugeFill.style.strokeDashoffset = (CIRCUMFERENCE * (1 - pct)).toFixed(2);
   }
+
+  // Same technique as the main gauge above, at the smaller radius used
+  // by the 3 primary metric cards' rings.
+  var PRIMARY_RING_RADIUS = 34;
+  var PRIMARY_RING_CIRCUMFERENCE = 2 * Math.PI * PRIMARY_RING_RADIUS;
 
   var LABEL_EXPLANATIONS = {
     "Highly Employable": {
@@ -170,26 +191,147 @@
     if (e.target === labelInfoOverlay) labelInfoOverlay.hidden = true;
   });
 
-  if (!analysis) {
-    setGauge(0);
-    gaugeScore.textContent = "–";
-    gaugeLabel.textContent = "Awaiting analysis";
-    emptyEl.hidden = false;
-  } else {
-    var dimByLabel = {};
-    (analysis.dimensions || []).forEach(function (d) { dimByLabel[d.label] = d; });
+  var metricOverlay = document.getElementById("dash-metric-overlay");
+  var metricTitle = document.getElementById("dash-metric-title");
+  var metricScore = document.getElementById("dash-metric-score");
+  var metricDesc = document.getElementById("dash-metric-desc");
+  var metricSimple = document.getElementById("dash-metric-simple");
+  var metricWhy = document.getElementById("dash-metric-why");
+  var metricCloseBtn = document.getElementById("dash-metric-close-btn");
 
-    // All 8 dimensions are visible now, so the gauge just shows the
-    // backend's own overall_rating/rating_label directly -- the exact
-    // same weighted score used for history and the roadmap, and the
-    // exact same one the AI chat quotes. One number, everywhere.
-    var overall = analysis.overall_rating || 0;
-    setGauge(overall);
-    gaugeScore.textContent = overall.toFixed(1);
-    gaugeLabel.textContent = analysis.rating_label || "Unrated";
-    labelInfoBtn.hidden = false;
+  // Generic, dimension-level "why employers actually care about this"
+  // context — not tied to this user's specific score, just the honest
+  // real-world reason each of these 5 metrics exists at all. Reused
+  // as-is by the Full Breakdown rows below; the 3 primary cards show
+  // this same text inline instead of via this modal.
+  var WHY_EMPLOYERS_CARE = {
+    "Documentation": "Employers care about this because anyone can write a great-sounding CV — what actually convinces a hiring manager is proof: certificates, references, transcripts. A CV backed by real documents tells them your claims are real, not just well-written.",
+    "Experience": "Employers care about years of experience because it's the clearest sign you can do the job without heavy hand-holding. But raw years alone aren't enough — they also want to see what you actually achieved in that time, not just that you showed up.",
+    "Skills": "Employers — and the automated systems that screen CVs before a human ever does — scan for specific, in-demand skills as an early filter. Skills you can prove you've actually used in a real role carry far more weight than a skill just listed at the bottom of a page.",
+    "Market Fit": "Employers compare you against everyone else applying for the same role — 'good enough on its own' isn't the bar, 'better than the other applicants' is. This shows you honestly how you stack up against what the market currently expects for your target role.",
+    "ATS Score": "Before a human ever reads your CV, an automated tracking system usually reads it first — and if it can't parse your layout, dates, or sections properly, a strong candidate can get filtered out before anyone sees a single word. This score is about surviving that first automated gate.",
+  };
 
-    METRICS.forEach(function (m) {
+  function openMetricModal(label, score, description, simpleExplanation, shortLabel) {
+    metricTitle.textContent = label;
+    metricScore.textContent = score.toFixed(1) + " / 10";
+    metricDesc.textContent = description || "";
+    // Older cached analyses won't have simple_explanation yet — hide
+    // that paragraph gracefully instead of showing it empty.
+    if (simpleExplanation) {
+      metricSimple.textContent = simpleExplanation;
+      metricSimple.hidden = false;
+    } else {
+      metricSimple.hidden = true;
+    }
+    metricWhy.textContent = WHY_EMPLOYERS_CARE[shortLabel] || "";
+    metricOverlay.hidden = false;
+  }
+
+  metricCloseBtn.addEventListener("click", function () { metricOverlay.hidden = true; });
+  metricOverlay.addEventListener("click", function (e) {
+    if (e.target === metricOverlay) metricOverlay.hidden = true;
+  });
+
+  // ---------- 3 primary cards: built once, updated (not rebuilt) on ----------
+  // ---------- every re-render so the ring can animate smoothly       ----------
+
+  var primaryCardRefs = {}; // label -> { ringFill, scoreEl, findingEl, detailDesc, detailSimple, detailWhy }
+
+  // The one short "most relevant specific finding" line for a primary
+  // card, built entirely from data the backend already computes: the
+  // mechanical ATS findings for ATS Compatibility (most specific and
+  // verifiable), otherwise the top roadmap item already targeting this
+  // dimension, otherwise the dimension's own AI description.
+  function findPrimaryFinding(label, dim, roadmap) {
+    if (label === "ATS Compatibility" && dim && dim.ats_findings && dim.ats_findings.length) {
+      return dim.ats_findings[0];
+    }
+    var topItem = (roadmap || []).filter(function (r) { return r.dimension === label; })[0];
+    if (topItem && topItem.what) return topItem.what;
+    if (dim && dim.description) return dim.description;
+    return "No specific gaps flagged for this yet.";
+  }
+
+  function buildPrimaryCard(m) {
+    var card = document.createElement("div");
+    card.className = "dash-primary-card";
+
+    var header = document.createElement("button");
+    header.type = "button";
+    header.className = "dash-primary-card-header";
+    header.innerHTML =
+      '<span class="dash-primary-ring-wrap">' +
+        '<svg class="dash-primary-ring" viewBox="0 0 80 80">' +
+          '<circle class="dash-primary-ring-track" cx="40" cy="40" r="' + PRIMARY_RING_RADIUS + '"></circle>' +
+          '<circle class="dash-primary-ring-fill" cx="40" cy="40" r="' + PRIMARY_RING_RADIUS + '"></circle>' +
+        '</svg>' +
+        '<span class="dash-primary-ring-score">–</span>' +
+      '</span>' +
+      '<span class="dash-primary-info">' +
+        '<span class="dash-primary-name">' + m.short + '</span>' +
+        '<span class="dash-primary-finding"></span>' +
+      '</span>' +
+      '<svg class="dash-primary-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+
+    var detail = document.createElement("div");
+    detail.className = "dash-primary-detail";
+    detail.hidden = true;
+    detail.innerHTML =
+      '<p class="dash-primary-detail-desc"></p>' +
+      '<p class="dash-primary-detail-simple"></p>' +
+      '<p class="dash-primary-detail-why"></p>';
+
+    header.addEventListener("click", function () {
+      var willOpen = detail.hidden;
+      detail.hidden = !willOpen;
+      card.classList.toggle("is-expanded", willOpen);
+    });
+
+    card.appendChild(header);
+    card.appendChild(detail);
+    primaryMetricsEl.appendChild(card);
+
+    var ringFill = header.querySelector(".dash-primary-ring-fill");
+    ringFill.style.strokeDasharray = PRIMARY_RING_CIRCUMFERENCE.toFixed(2);
+    ringFill.style.strokeDashoffset = PRIMARY_RING_CIRCUMFERENCE.toFixed(2);
+
+    primaryCardRefs[m.label] = {
+      ringFill: ringFill,
+      scoreEl: header.querySelector(".dash-primary-ring-score"),
+      findingEl: header.querySelector(".dash-primary-finding"),
+      detailDesc: detail.querySelector(".dash-primary-detail-desc"),
+      detailSimple: detail.querySelector(".dash-primary-detail-simple"),
+      detailWhy: detail.querySelector(".dash-primary-detail-why"),
+    };
+  }
+
+  PRIMARY_METRICS.forEach(buildPrimaryCard);
+
+  function updatePrimaryCard(m, dim, roadmap) {
+    var refs = primaryCardRefs[m.label];
+    var score = dim ? dim.score : 0;
+    var pct = Math.max(0, Math.min(1, score / 10));
+    refs.ringFill.style.strokeDashoffset = (PRIMARY_RING_CIRCUMFERENCE * (1 - pct)).toFixed(2);
+    refs.scoreEl.textContent = score.toFixed(1);
+    refs.findingEl.textContent = findPrimaryFinding(m.label, dim, roadmap);
+    refs.detailDesc.textContent = dim ? (dim.description || "") : "No details available yet.";
+    if (dim && dim.simple_explanation) {
+      refs.detailSimple.textContent = dim.simple_explanation;
+      refs.detailSimple.hidden = false;
+    } else {
+      refs.detailSimple.hidden = true;
+    }
+    refs.detailWhy.textContent = WHY_EMPLOYERS_CARE[m.short] || "";
+  }
+
+  // ---------- Full Breakdown: the other 5 metrics, unchanged rows ----------
+  // Rebuilt each time (not updated in place) -- it's a secondary,
+  // usually-collapsed view, so it doesn't need its own animation.
+
+  function renderSecondaryMetrics(dimByLabel) {
+    metricsEl.innerHTML = "";
+    SECONDARY_METRICS.forEach(function (m) {
       var dim = dimByLabel[m.label];
       var score = dim ? dim.score : 0;
       var pct = Math.max(0, Math.min(100, (score / 10) * 100));
@@ -222,45 +364,46 @@
     });
   }
 
-  var metricOverlay = document.getElementById("dash-metric-overlay");
-  var metricTitle = document.getElementById("dash-metric-title");
-  var metricScore = document.getElementById("dash-metric-score");
-  var metricDesc = document.getElementById("dash-metric-desc");
-  var metricSimple = document.getElementById("dash-metric-simple");
-  var metricWhy = document.getElementById("dash-metric-why");
-  var metricCloseBtn = document.getElementById("dash-metric-close-btn");
+  // ---------- One entry point: gauge + 3 primary cards + Full Breakdown ----------
+  // Called once at load and again after any upload/removal that comes
+  // back with fresh state, so every part of the score display -- not
+  // just the number -- stays in sync with what actually changed.
 
-  // Generic, dimension-level "why employers actually care about this"
-  // context — not tied to this user's specific score, just the honest
-  // real-world reason each of the 5 visible metrics exists at all.
-  var WHY_EMPLOYERS_CARE = {
-    "Documentation": "Employers care about this because anyone can write a great-sounding CV — what actually convinces a hiring manager is proof: certificates, references, transcripts. A CV backed by real documents tells them your claims are real, not just well-written.",
-    "Experience": "Employers care about years of experience because it's the clearest sign you can do the job without heavy hand-holding. But raw years alone aren't enough — they also want to see what you actually achieved in that time, not just that you showed up.",
-    "Skills": "Employers — and the automated systems that screen CVs before a human ever does — scan for specific, in-demand skills as an early filter. Skills you can prove you've actually used in a real role carry far more weight than a skill just listed at the bottom of a page.",
-    "Market Fit": "Employers compare you against everyone else applying for the same role — 'good enough on its own' isn't the bar, 'better than the other applicants' is. This shows you honestly how you stack up against what the market currently expects for your target role.",
-    "ATS Score": "Before a human ever reads your CV, an automated tracking system usually reads it first — and if it can't parse your layout, dates, or sections properly, a strong candidate can get filtered out before anyone sees a single word. This score is about surviving that first automated gate.",
-  };
+  function renderDashboardScore(analysisArg) {
+    analysis = analysisArg;
 
-  function openMetricModal(label, score, description, simpleExplanation, shortLabel) {
-    metricTitle.textContent = label;
-    metricScore.textContent = score.toFixed(1) + " / 10";
-    metricDesc.textContent = description || "";
-    // Older cached analyses won't have simple_explanation yet — hide
-    // that paragraph gracefully instead of showing it empty.
-    if (simpleExplanation) {
-      metricSimple.textContent = simpleExplanation;
-      metricSimple.hidden = false;
-    } else {
-      metricSimple.hidden = true;
+    if (!analysis) {
+      setGauge(0);
+      gaugeScore.textContent = "–";
+      gaugeLabel.textContent = "Awaiting analysis";
+      labelInfoBtn.hidden = true;
+      breakdownToggle.hidden = true;
+      metricsEl.hidden = true;
+      emptyEl.hidden = false;
+      insightsEl.hidden = true;
+      return;
     }
-    metricWhy.textContent = WHY_EMPLOYERS_CARE[shortLabel] || "";
-    metricOverlay.hidden = false;
-  }
 
-  metricCloseBtn.addEventListener("click", function () { metricOverlay.hidden = true; });
-  metricOverlay.addEventListener("click", function (e) {
-    if (e.target === metricOverlay) metricOverlay.hidden = true;
-  });
+    emptyEl.hidden = true;
+    breakdownToggle.hidden = false;
+
+    var dimByLabel = {};
+    (analysis.dimensions || []).forEach(function (d) { dimByLabel[d.label] = d; });
+    var roadmap = analysis.improvement_roadmap || [];
+
+    var overall = analysis.employability_score || 0;
+    setGauge(overall);
+    gaugeScore.textContent = overall.toFixed(1);
+    gaugeLabel.textContent = analysis.employability_score_label || "Unrated";
+    labelInfoBtn.hidden = false;
+
+    PRIMARY_METRICS.forEach(function (m) {
+      updatePrimaryCard(m, dimByLabel[m.label], roadmap);
+    });
+
+    renderSecondaryMetrics(dimByLabel);
+    renderInsights(analysis);
+  }
 
   // ---------- Dashboard insights: evidence, working well / hurting you, roadmap ----------
   // Every list rendered here comes straight from the analysis this user's
@@ -436,10 +579,10 @@
     if (e.target === roadmapResultOverlay) roadmapResultOverlay.hidden = true;
   });
 
-  // Deferred until here (rather than inline where the metric rows are
+  // Deferred until here (rather than inline where the primary cards are
   // built) so every var this depends on — evidenceListEl, roadmapListEl,
   // etc. — has actually been assigned by the time this runs.
-  if (analysis) renderInsights(analysis);
+  renderDashboardScore(analysis);
 
   var ratingInfoBtn = document.getElementById("dash-rating-info-btn");
   var ratingInfoOverlay = document.getElementById("dash-rating-info-overlay");
@@ -1087,6 +1230,11 @@
           if (data.state) {
             state.documents = data.state.documents;
             state.analysis = data.state.analysis;
+            // Same re-render used at page load, so the gauge, the 3
+            // primary rings, and the Full Breakdown all reflect the
+            // freshly recomputed scores instead of going stale until
+            // the next full page reload.
+            renderDashboardScore(state.analysis);
           }
           if (data.warning) {
             uploadsAddError.textContent = data.warning;
