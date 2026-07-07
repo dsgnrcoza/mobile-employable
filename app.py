@@ -239,13 +239,15 @@ def signup_page():
                 email=request.form.get("email", ""),
                 password=request.form.get("password", ""),
                 confirm_password=request.form.get("confirm_password", ""),
+                security_question=request.form.get("security_question", ""),
+                security_answer=request.form.get("security_answer", ""),
             )
             flash("Account created. Welcome to Employable.", "success")
             return redirect(url_for("dashboard"))
         except auth.AuthError as e:
             flash(str(e), "error")
 
-    return render_template("signup.html")
+    return render_template("signup.html", security_questions=auth.SECURITY_QUESTIONS)
 
 
 @app.route("/login", methods=["GET", "POST"])
@@ -255,11 +257,7 @@ def login_page():
 
     if request.method == "POST":
         try:
-            result = auth.login(request.form.get("email", ""), request.form.get("password", ""))
-            if result["status"] == "2fa_required":
-                session["pending_2fa_user_id"] = result["user_id"]
-                session["pending_code_purpose"] = "2fa_login"
-                return redirect(url_for("verify_code_page"))
+            auth.login(request.form.get("email", ""), request.form.get("password", ""))
             return redirect(url_for("dashboard"))
         except auth.AuthError as e:
             flash(str(e), "error")
@@ -277,10 +275,10 @@ def logout_page():
 @app.route("/forgot-password", methods=["GET", "POST"])
 def forgot_password_page():
     """
-    Step 1 of password recovery: takes an email, emails a 6-digit code
-    if it matches an account, and always shows the same message either
-    way (see auth.request_password_reset's docstring) so the response
-    can't be used to enumerate which emails have accounts here.
+    Step 1 of password recovery: takes an email and looks up its
+    security question (a decoy if there's no match -- see
+    auth.get_security_question's docstring) so the response can't be
+    used to enumerate which emails have accounts here.
     """
     if auth.current_user():
         return redirect(url_for("dashboard"))
@@ -293,63 +291,42 @@ def forgot_password_page():
             flash(str(e), "error")
             return render_template("forgot_password.html")
 
-        user_id = auth.request_password_reset(email)
+        user_id, question = auth.get_security_question(email)
         session["pending_reset_user_id"] = user_id
-        session["pending_code_purpose"] = "password_reset"
-        return redirect(url_for("verify_code_page"))
+        session["pending_reset_question"] = question
+        return redirect(url_for("security_question_page"))
 
     return render_template("forgot_password.html")
 
 
-@app.route("/verify-code", methods=["GET", "POST"])
-def verify_code_page():
+@app.route("/security-question", methods=["GET", "POST"])
+def security_question_page():
     """
-    One shared page for both codes this app ever emails: the 2FA
-    sign-in code and the password-reset code. Which one is active, and
-    for which user, lives only in the signed session -- never in the
-    URL or a form field -- so it can't be swapped to check a code
-    against a different account.
+    Step 2 of password recovery: shows the security question stashed
+    in the session by forgot_password_page and checks the submitted
+    answer against it.
     """
     if auth.current_user():
         return redirect(url_for("dashboard"))
 
-    purpose = session.get("pending_code_purpose")
-    if purpose not in ("2fa_login", "password_reset"):
-        return redirect(url_for("login_page"))
-    user_id = session.get("pending_2fa_user_id") if purpose == "2fa_login" else session.get("pending_reset_user_id")
+    question = session.get("pending_reset_question")
+    if not question:
+        return redirect(url_for("forgot_password_page"))
+    user_id = session.get("pending_reset_user_id")
 
     if request.method == "POST":
         try:
-            auth.verify_code(user_id, purpose, request.form.get("code", ""))
+            auth.verify_security_answer(user_id, request.form.get("answer", ""))
         except auth.AuthError as e:
             flash(str(e), "error")
-            return render_template("verify_code.html", purpose=purpose)
-
-        if purpose == "2fa_login":
-            session.pop("pending_2fa_user_id", None)
-            session.pop("pending_code_purpose", None)
-            auth.log_in_user(user_id)
-            return redirect(url_for("dashboard"))
+            return render_template("security_question.html", question=question)
 
         session.pop("pending_reset_user_id", None)
-        session.pop("pending_code_purpose", None)
+        session.pop("pending_reset_question", None)
         session["reset_verified_user_id"] = user_id
         return redirect(url_for("reset_password_page"))
 
-    return render_template("verify_code.html", purpose=purpose)
-
-
-@app.route("/api/resend-code", methods=["POST"])
-def api_resend_code():
-    purpose = session.get("pending_code_purpose")
-    if purpose not in ("2fa_login", "password_reset"):
-        return jsonify({"ok": False, "error": "That verification session has expired."}), 400
-    user_id = session.get("pending_2fa_user_id") if purpose == "2fa_login" else session.get("pending_reset_user_id")
-    try:
-        auth.resend_code(user_id, purpose)
-        return jsonify({"ok": True})
-    except auth.AuthError as e:
-        return jsonify({"ok": False, "error": str(e)}), 400
+    return render_template("security_question.html", question=question)
 
 
 @app.route("/reset-password", methods=["GET", "POST"])
@@ -375,19 +352,6 @@ def reset_password_page():
             flash(str(e), "error")
 
     return render_template("reset_password.html")
-
-
-@app.route("/api/2fa/toggle", methods=["POST"])
-@auth.login_required
-def api_2fa_toggle():
-    data = request.json if request.is_json else request.form
-    user = auth.current_user()
-    try:
-        enable = bool(data.get("enable"))
-        auth.set_two_factor_enabled(user["id"], enable, data.get("password", ""))
-        return jsonify({"ok": True, "two_factor_enabled": enable})
-    except auth.AuthError as e:
-        return jsonify({"ok": False, "error": str(e)}), 400
 
 
 # ---------------- ONBOARDING (required before first dashboard view) ----------------
