@@ -869,10 +869,16 @@ a {
   width: 100%;
   font-family: inherit;
   color: var(--fg);
+  transition: background 0.15s ease, transform 0.1s ease;
 }
 
 .ob-doc-row:hover {
   background: var(--surface);
+}
+
+.ob-doc-row:active {
+  background: var(--surface);
+  transform: scale(0.98);
 }
 
 .ob-doc-info {
@@ -1149,19 +1155,25 @@ a {
 }
 
 .dash-header {
-  /* Same white-on-dark-text flip as .dash-score-header below it, so
-     the two read as one continuous white area with only the sheet
-     staying black. */
-  --fg: #0a0a0a;
-  --muted: rgba(10, 10, 10, 0.55);
-  --line: rgba(10, 10, 10, 0.15);
-  --line-strong: rgba(10, 10, 10, 0.4);
-  background: #fff;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 20px 20px 8px;
+  transition: background-color 0.2s ease;
+}
+
+/* White only while the dashboard (home) tab is active, matching the
+   white .dash-score-header directly below it -- every other tab
+   (profile, store, CV, chat) keeps the header black, toggled by
+   switchView() in dashboard.js. Same --fg/--muted/--line flip used by
+   .dash-score-header so every child rule recolors for free. */
+.dash-header.dash-header-light {
+  --fg: #0a0a0a;
+  --muted: rgba(10, 10, 10, 0.55);
+  --line: rgba(10, 10, 10, 0.15);
+  --line-strong: rgba(10, 10, 10, 0.4);
+  background: #fff;
 }
 
 .dash-header-left {
@@ -1200,6 +1212,13 @@ a {
   cursor: pointer;
   padding: 0;
   overflow: hidden;
+  transition: transform 0.1s ease, background 0.15s ease;
+}
+
+.dash-icon-btn:active,
+.dash-avatar-btn:active {
+  transform: scale(0.92);
+  background: var(--surface);
 }
 
 .dash-icon-btn[hidden],
@@ -1274,15 +1293,17 @@ a {
   text-align: center;
 }
 
-/* Draggable bottom sheet -- positioned relative to the viewport
-   (not a flex child) so it can slide up over the white header and
-   tab bar when expanded. Resting "top" (collapsed) and "0" (expanded)
-   are both set by dashboard.js, which measures .dash-score-header's
-   real rendered height rather than hardcoding a value here. */
+/* Draggable bottom sheet -- fixed to the full viewport height at all
+   times and moved purely with `transform: translateY(...)` rather
+   than animating `top`, since transform is compositor-only (no
+   layout/paint per frame) and stays smooth even on slower devices.
+   Collapsed rest = translateY(.dash-score-header's rendered height);
+   expanded = translateY(0). Both are set by dashboard.js. */
 .dash-sheet {
   position: fixed;
   left: 0;
   right: 0;
+  top: 0;
   bottom: 0;
   background: var(--bg);
   border-radius: 28px 28px 0 0;
@@ -1290,7 +1311,8 @@ a {
   flex-direction: column;
   z-index: 30;
   box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.4);
-  transition: top 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: transform;
+  transition: transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .dash-sheet.is-dragging {
@@ -1303,11 +1325,15 @@ a {
   }
 }
 
+/* Generous touch target (44px, the standard minimum) even though the
+   visible line is thin -- dragging works anywhere in this padded
+   area, not just directly on the 4px line itself. */
 .dash-sheet-handle-wrap {
   flex-shrink: 0;
   display: flex;
+  align-items: center;
   justify-content: center;
-  padding: 10px 0 6px;
+  min-height: 44px;
   touch-action: none;
   cursor: grab;
 }
@@ -1368,10 +1394,19 @@ a {
   border: none;
   color: var(--muted);
   cursor: pointer;
-  padding: 2px;
+  /* Padding grows the actual tap target well past the tiny 15px icon
+     -- the matching negative margin keeps it from pushing its flex
+     siblings (the gauge title/label text) apart. */
+  padding: 10px;
+  margin: -8px;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: transform 0.1s ease;
+}
+
+.dash-info-btn:active {
+  transform: scale(0.85);
 }
 
 .dash-info-btn[hidden] {
@@ -1480,6 +1515,15 @@ a {
   width: 100%;
   font-family: inherit;
   color: var(--fg);
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+
+/* :active (not just :hover, which never fires on a touch device) so
+   tapping a row gives immediate visual feedback -- without this the
+   row looked identically inert whether or not the tap registered. */
+.dash-metric-row:active {
+  background: var(--surface);
+  transform: scale(0.98);
 }
 
 .dash-metric-row:hover {
@@ -1808,6 +1852,11 @@ a {
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: color 0.15s ease, transform 0.1s ease;
+}
+
+.tabbar-btn:active {
+  transform: scale(0.88);
 }
 
 .tabbar-btn svg {
@@ -2114,9 +2163,11 @@ a {
   cursor: pointer;
   font-family: inherit;
   color: var(--fg);
+  transition: background 0.15s ease;
 }
 
-.chat-history-item:hover {
+.chat-history-item:hover,
+.chat-history-item:active {
   background: var(--surface);
 }
 
@@ -2738,10 +2789,16 @@ a {
   border: none;
   color: var(--fg);
   cursor: pointer;
-  padding: 4px;
+  padding: 10px;
+  margin: -6px;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: transform 0.1s ease;
+}
+
+.dash-back-btn:active {
+  transform: scale(0.88);
 }
 
 .dash-back-btn[hidden] {
@@ -2854,6 +2911,11 @@ a {
   text-align: left;
   width: 100%;
   font-family: inherit;
+  transition: background 0.15s ease;
+}
+
+.profile-menu-row:active {
+  background: var(--surface);
 }
 
 .profile-menu-row:last-child {

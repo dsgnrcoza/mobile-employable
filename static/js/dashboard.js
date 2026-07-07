@@ -463,6 +463,7 @@
   var usernameEl = document.getElementById("dash-username");
   var dashHeaderLeft = document.getElementById("dash-header-left");
   var backBtn = document.getElementById("dash-back-btn");
+  var dashHeaderEl = document.getElementById("dash-header");
 
   function switchView(name) {
     document.querySelectorAll(".dash-view").forEach(function (el) {
@@ -471,6 +472,9 @@
     document.querySelectorAll(".tabbar-btn").forEach(function (btn) {
       btn.classList.toggle("active", btn.dataset.view === name);
     });
+    // White header only on the dashboard tab, matching the white
+    // score section right below it -- every other tab keeps it black.
+    if (dashHeaderEl) dashHeaderEl.classList.toggle("dash-header-light", name === "dashboard");
     var onProfile = name === "profile";
     // While viewing the profile screen there's no need for a button to
     // open it — only the shop icon stays in the header — and the
@@ -1750,32 +1754,47 @@
   // Collapsed rest position is measured from .dash-score-header's real
   // rendered height rather than a hardcoded number, so it stays correct
   // regardless of font size, safe-area insets, or content changes.
-  // Dragging is only wired up on the handle -- everything else in the
-  // sheet keeps its normal scroll behavior with no gesture conflict.
+  //
+  // Moved purely via `transform: translateY(...)` (compositor-only,
+  // no layout/paint per frame) instead of animating `top`, so dragging
+  // stays smooth even on slower devices.
+  //
+  // Two ways to drag:
+  //  1. The handle -- always draggable, regardless of scroll position.
+  //  2. Anywhere in the sheet's body -- but only once its content is
+  //     already scrolled to the very top AND the drag is a clear
+  //     downward pull. Until that threshold is crossed, touches in the
+  //     body are left completely alone for native scrolling; there's
+  //     no way to tell a "scroll" from a "drag" apart until then.
   (function () {
     var sheet = document.getElementById("dash-sheet");
     var handle = document.getElementById("dash-sheet-handle");
+    var body = document.querySelector(".dash-sheet-body");
     var scoreHeader = document.querySelector(".dash-score-header");
     var tabbar = document.getElementById("tabbar");
-    if (!sheet || !handle || !scoreHeader) return;
+    if (!sheet || !handle || !body || !scoreHeader) return;
 
     var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    var collapsedTop = 0;
-    var expandedTop = 0;
+    var PULL_THRESHOLD = 8; // px of downward movement before a body touch is claimed as a drag
+
+    var collapsedOffset = 0;
     var expanded = false;
-    var dragging = false;
+    var dragging = false; // a drag (handle- or pull-driven) is actively moving the sheet
+    var pendingPull = false; // touched down inside the body; still deciding if this becomes a drag
     var startY = 0;
-    var startTop = 0;
+    var startOffset = 0;
+    var lastOffset = 0;
 
     function measure() {
-      collapsedTop = scoreHeader.getBoundingClientRect().bottom;
-      expandedTop = 0;
+      collapsedOffset = scoreHeader.getBoundingClientRect().bottom;
     }
 
-    function applyTop(top) {
-      sheet.style.top = top + "px";
-      var span = collapsedTop - expandedTop || 1;
-      var progress = 1 - Math.max(0, Math.min(1, (top - expandedTop) / span));
+    function applyOffset(offset) {
+      offset = Math.max(0, Math.min(collapsedOffset, offset));
+      lastOffset = offset;
+      sheet.style.transform = "translateY(" + offset + "px)";
+      var span = collapsedOffset || 1;
+      var progress = 1 - offset / span; // 0 = collapsed, 1 = fully expanded
       if (tabbar) {
         tabbar.style.opacity = String(1 - progress);
         tabbar.style.pointerEvents = progress > 0.5 ? "none" : "";
@@ -1784,7 +1803,7 @@
 
     function snapTo(isExpanded) {
       expanded = isExpanded;
-      applyTop(isExpanded ? expandedTop : collapsedTop);
+      applyOffset(isExpanded ? 0 : collapsedOffset);
     }
 
     // Placed instantly (no transition) on first load -- only snaps
@@ -1805,43 +1824,111 @@
       return e.touches ? e.touches[0].clientY : e.clientY;
     }
 
-    function onDragStart(e) {
+    function startDrag(y) {
       dragging = true;
       sheet.classList.add("is-dragging");
-      startY = pointerY(e);
       measure();
-      startTop = sheet.getBoundingClientRect().top;
-      if (e.cancelable) e.preventDefault();
+      startY = y;
+      startOffset = lastOffset;
     }
 
-    function onDragMove(e) {
-      if (!dragging) return;
-      var delta = pointerY(e) - startY;
-      var next = Math.max(expandedTop, Math.min(collapsedTop, startTop + delta));
-      applyTop(next);
+    function moveDrag(y) {
+      applyOffset(startOffset + (y - startY));
     }
 
-    function onDragEnd() {
-      if (!dragging) return;
+    function finishDrag() {
       dragging = false;
       sheet.classList.remove("is-dragging");
-      var currentTop = sheet.getBoundingClientRect().top;
-      var moved = Math.abs(currentTop - startTop);
+      var moved = Math.abs(lastOffset - startOffset);
       if (moved < 6) {
         // Barely moved -- treat as a tap on the handle, toggle instead.
         snapTo(!expanded);
         return;
       }
-      var span = collapsedTop - expandedTop || 1;
-      var progress = 1 - (currentTop - expandedTop) / span;
-      snapTo(progress > 0.4);
+      var span = collapsedOffset || 1;
+      snapTo(1 - lastOffset / span > 0.4);
     }
 
-    handle.addEventListener("touchstart", onDragStart, { passive: false });
-    handle.addEventListener("touchmove", onDragMove, { passive: false });
-    handle.addEventListener("touchend", onDragEnd);
-    handle.addEventListener("mousedown", onDragStart);
-    window.addEventListener("mousemove", onDragMove);
-    window.addEventListener("mouseup", onDragEnd);
+    // ---- The handle: a large (44px) touch target, always draggable ----
+    handle.addEventListener("touchstart", function (e) {
+      startDrag(pointerY(e));
+      if (e.cancelable) e.preventDefault();
+    }, { passive: false });
+
+    handle.addEventListener("touchmove", function (e) {
+      if (!dragging) return;
+      moveDrag(pointerY(e));
+      if (e.cancelable) e.preventDefault();
+    }, { passive: false });
+
+    handle.addEventListener("touchend", function () {
+      if (dragging) finishDrag();
+    });
+
+    handle.addEventListener("mousedown", function (e) {
+      startDrag(e.clientY);
+    });
+
+    // ---- The body: claims the gesture only once scrolled to the top ----
+    body.addEventListener("touchstart", function (e) {
+      if (dragging) return;
+      pendingPull = true;
+      startY = pointerY(e);
+    }, { passive: true });
+
+    body.addEventListener("touchmove", function (e) {
+      if (dragging) {
+        moveDrag(pointerY(e));
+        if (e.cancelable) e.preventDefault();
+        return;
+      }
+      if (!pendingPull) return;
+      var y = pointerY(e);
+      if (body.scrollTop > 0) {
+        pendingPull = false; // not at the top -- this is just a normal scroll
+        return;
+      }
+      if (y - startY > PULL_THRESHOLD) {
+        pendingPull = false;
+        startDrag(startY);
+        moveDrag(y);
+        if (e.cancelable) e.preventDefault();
+      }
+    }, { passive: false });
+
+    body.addEventListener("touchend", function () {
+      pendingPull = false;
+      if (dragging) finishDrag();
+    });
+
+    body.addEventListener("mousedown", function (e) {
+      if (dragging) return;
+      pendingPull = true;
+      startY = e.clientY;
+    });
+
+    // Shared continuation for whichever gesture (handle- or
+    // body-pull-driven) is currently active via the mouse.
+    window.addEventListener("mousemove", function (e) {
+      if (dragging) {
+        moveDrag(e.clientY);
+        return;
+      }
+      if (!pendingPull) return;
+      if (body.scrollTop > 0) {
+        pendingPull = false;
+        return;
+      }
+      if (e.clientY - startY > PULL_THRESHOLD) {
+        pendingPull = false;
+        startDrag(startY);
+        moveDrag(e.clientY);
+      }
+    });
+
+    window.addEventListener("mouseup", function () {
+      pendingPull = false;
+      if (dragging) finishDrag();
+    });
   })();
 })();
