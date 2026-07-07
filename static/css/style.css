@@ -138,6 +138,13 @@ a {
   flex-direction: column;
   width: 100%;
   min-height: 0;
+  /* The card below has rounded top corners, which "cut away" from its
+     own top-left/top-right corners -- whatever sits behind the card
+     shows through that cut-away sliver. Matching the header's white
+     here (rather than leaving it to fall through to .auth-shell's
+     black) makes the header read as wrapping smoothly around the
+     card's curve instead of the curve exposing a black notch. */
+  background: #fff;
 }
 
 /* ---------- Login / Register tab switcher ---------- */
@@ -170,8 +177,8 @@ a {
 
 .auth-visual {
   flex-shrink: 0;
-  padding: 20px 24px 18px;
-  text-align: center;
+  padding: 24px 24px 20px;
+  text-align: left;
   background: #fff;
 }
 
@@ -191,18 +198,23 @@ a {
    through that loop point too. Pink/purple/turquoise only -- an earlier
    navy stop was too close to black to read against dark backgrounds. */
 .splash-logo,
-.auth-wordmark {
+.auth-wordmark,
+.auth-badge {
   background: linear-gradient(
     90deg,
     #ff3ea5, #a855f7, #2dd4bf,
     #ff3ea5, #a855f7, #2dd4bf
   );
   background-size: 200% auto;
+  animation: brand-gradient-shift 8s linear infinite;
+}
+
+.splash-logo,
+.auth-wordmark {
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
   -webkit-text-fill-color: transparent;
-  animation: brand-gradient-shift 8s linear infinite;
 }
 
 @keyframes brand-gradient-shift {
@@ -214,16 +226,36 @@ a {
   }
 }
 
-/* Page title (Login / Sign Up) sits centered in the white area above
-   the card, in place of the old left-aligned headline + subtext. */
-.auth-page-title {
+/* Small logo mark on the login/signup header -- same animated gradient
+   as the wordmark, just as a filled badge behind a single letter
+   instead of clipped through text. */
+.auth-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  font-size: 19px;
+  font-weight: 800;
+  color: #fff;
+  margin-bottom: 14px;
+}
+
+.auth-heading {
   display: block;
-  text-align: center;
-  font-size: 18px;
-  font-weight: 500;
-  letter-spacing: 0.01em;
+  font-size: 23px;
+  font-weight: 700;
+  line-height: 1.25;
   color: #0a0a0a;
-  margin-top: 14px;
+}
+
+.auth-subheading {
+  display: block;
+  font-size: 13px;
+  line-height: 1.4;
+  color: rgba(10, 10, 10, 0.55);
+  margin-top: 4px;
 }
 
 .auth-form-side {
