@@ -1221,6 +1221,49 @@ a {
   margin: 0 auto;
 }
 
+/* Same white-header/black-card concept as the auth and onboarding
+   screens, scoped to just this one view (by id, not the shared
+   .dash-content class) so the profile/store tabs are untouched. The
+   score circle + its two titles sit on white; everything else in this
+   view sits in a black card with rounded top corners only,
+   full-bleed left/right. */
+#dash-view-dashboard {
+  padding: 0;
+  max-width: none;
+  width: 100%;
+  margin: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+}
+
+.dash-score-header {
+  /* Flips the shared --fg/--muted/--line variables to their
+     dark-on-white equivalents for this subtree only -- every rule
+     below (gauge title, score number, "out of 10", label, info
+     icons, the circle's border/track) already reads from these same
+     variables, so redefining them here is enough to recolor all of
+     it without touching each rule individually. */
+  --fg: #0a0a0a;
+  --muted: rgba(10, 10, 10, 0.55);
+  --line: rgba(10, 10, 10, 0.15);
+  --line-strong: rgba(10, 10, 10, 0.4);
+  flex-shrink: 0;
+  background: #fff;
+  padding: 8px 20px 24px;
+  text-align: center;
+}
+
+.dash-score-card {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--bg);
+  border-radius: 28px 28px 0 0;
+  padding: 24px 20px 24px;
+}
+
 /* Full-bleed views (AI chat, CV editor) — no card/container, no max-width,
    fills all space between the header and the tab bar exactly like the
    signup screen fills the whole viewport. */
@@ -1322,6 +1365,12 @@ a {
 .dash-gauge-score {
   font-size: 32px;
   font-weight: 800;
+  /* Explicit rather than relying on inherited color -- body's own
+     color: var(--fg) resolves against --fg at body's scope, so a
+     descendant that never re-declares color itself would inherit
+     that already-resolved value and miss the .dash-score-header
+     override further down the tree. */
+  color: var(--fg);
 }
 
 .dash-gauge-outof {
