@@ -1357,6 +1357,14 @@ a {
   padding: 8px 20px 24px;
 }
 
+/* Applied by dashboard.js while the sheet is collapsed -- scrolling
+   the content only makes sense once it's fully visible, and disabling
+   it here means every drag while collapsed can unambiguously expand
+   the sheet instead of fighting with an attempted scroll. */
+.dash-sheet-body.is-scroll-locked {
+  overflow-y: hidden;
+}
+
 /* Full-bleed views (AI chat, CV editor) — no card/container, no max-width,
    fills all space between the header and the tab bar exactly like the
    signup screen fills the whole viewport. */
