@@ -456,8 +456,6 @@
 
   var avatarBtn = document.getElementById("dash-avatar-btn");
   var usernameEl = document.getElementById("dash-username");
-  var dashHeaderLeft = document.getElementById("dash-header-left");
-  var backBtn = document.getElementById("dash-back-btn");
 
   function switchView(name) {
     document.querySelectorAll(".dash-view").forEach(function (el) {
@@ -538,11 +536,6 @@
       activePanel = name;
     }
 
-    function setActionHeaderOpen(open) {
-      if (dashHeaderLeft) dashHeaderLeft.hidden = open;
-      if (backBtn) backBtn.hidden = !open;
-    }
-
     function applyActionOffset(offset) {
       var closed = getClosedOffset();
       offset = Math.max(0, Math.min(closed, offset));
@@ -576,7 +569,6 @@
 
     closeActionSheet = function () {
       if (actionState === "closed") return;
-      setActionHeaderOpen(false);
       snapToAction("closed");
     };
 
@@ -586,7 +578,6 @@
         return;
       }
       showActionPanel(name);
-      setActionHeaderOpen(true);
       if (name === "notifications") loadFriendRequests();
       snapToAction("collapsed");
     };
@@ -735,7 +726,6 @@
   var shopBtn = document.getElementById("dash-shop-btn");
   if (shopBtn) shopBtn.addEventListener("click", function () { openActionSheet("store"); });
   if (avatarBtn) avatarBtn.addEventListener("click", function () { openActionSheet("profile"); });
-  if (backBtn) backBtn.addEventListener("click", function () { closeActionSheet(); });
 
   var notifBtn = document.getElementById("dash-notif-btn");
   var notifBadge = document.getElementById("dash-notif-badge");

@@ -2911,36 +2911,6 @@ button.auth-tab.active {
 }
 
 /* ==========================================================================
-   Header back button (shown instead of the username while on Profile)
-   ========================================================================== */
-
-.dash-back-btn {
-  background: none;
-  border: none;
-  color: var(--fg);
-  cursor: pointer;
-  padding: 10px;
-  margin: -6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform 0.1s ease;
-}
-
-.dash-back-btn:active {
-  transform: scale(0.88);
-}
-
-.dash-back-btn[hidden] {
-  display: none;
-}
-
-.dash-back-btn svg {
-  width: 22px;
-  height: 22px;
-}
-
-/* ==========================================================================
    Profile screen
    ========================================================================== */
 
