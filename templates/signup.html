@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% block title %}Create Account — Employable{% endblock %}
 {% block content %}
-<div class="auth-shell">
-  <div class="auth-card">
+<div class="auth-shell" data-auth-page="signup">
+  <div class="auth-card" id="auth-view">
 
     <div class="auth-visual">
       <img class="auth-badge" src="{{ url_for('static', filename='icons/icon-192.png') }}" alt="Employable">
@@ -68,17 +68,20 @@
   {% include "_download_app_button.html" %}
 </div>
 
-<div class="celebrate-overlay" id="celebrate-overlay" hidden>
-  <div class="celebrate-modal">
-    <div class="celebrate-icon">&#10003;</div>
-    <h2>Account created!</h2>
-    <p>You have created your account successfully.</p>
-    <button type="button" class="btn btn-gold btn-block" id="celebrate-continue-btn">Continue</button>
+<div id="auth-overlay-slot">
+  <div class="celebrate-overlay" id="celebrate-overlay" hidden>
+    <div class="celebrate-modal">
+      <div class="celebrate-icon">&#10003;</div>
+      <h2>Account created!</h2>
+      <p>You have created your account successfully.</p>
+      <button type="button" class="btn btn-gold btn-block" id="celebrate-continue-btn">Continue</button>
+    </div>
   </div>
 </div>
 {% endblock %}
 {% block extra_scripts %}
 <script src="{{ url_for('static', filename='js/signup.js') }}"></script>
+<script src="{{ url_for('static', filename='js/install-prompt.js') }}"></script>
 <script src="{{ url_for('static', filename='js/download-app.js') }}"></script>
 <script src="{{ url_for('static', filename='js/auth-transition.js') }}"></script>
 {% endblock %}

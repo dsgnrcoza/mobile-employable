@@ -7,6 +7,12 @@
   // mobile app, or just continue in the browser. Skipped entirely for
   // anyone already using the installed app (nothing to offer them) and
   // never shown again once dismissed either way.
+  //
+  // Exposed as a named function so auth-transition.js can re-invoke it
+  // after swapping the login page's markup into the DOM client-side --
+  // the overlay this closure originally captured no longer exists once
+  // that happens.
+  window.initInstallPrompt = function () {
   var overlay = document.getElementById("install-choice-overlay");
   if (!overlay) return;
 
@@ -72,4 +78,7 @@
     note.textContent = "Downloading the Android app… Android will warn that it's from outside the Play Store — that's expected for any app installed this way. Open the file, then tap \"Install anyway\" / \"Install without scanning\" to continue.";
     note.hidden = false;
   });
+  };
+
+  window.initInstallPrompt();
 })();
