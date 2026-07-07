@@ -250,8 +250,13 @@ a {
   background: #0a0a0a;
   border: 1px solid var(--line);
   border-bottom: none;
-  border-radius: 28px 28px 0 0;
-  padding: 22px 20px calc(18px + env(safe-area-inset-bottom));
+  border-radius: 34px 34px 0 0;
+  /* Extra top padding gives the corner's arc room to finish sweeping
+     before the tab pill starts, instead of the pill crowding right up
+     against it -- without this the gap between the pill's curve and
+     the card's corner reads as an uneven straight sliver rather than
+     following the corner smoothly. */
+  padding: 30px 20px calc(18px + env(safe-area-inset-bottom));
   animation: auth-card-in 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
