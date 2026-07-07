@@ -156,6 +156,7 @@ a {
   flex-direction: column;
   width: 100%;
   min-height: 0;
+  background: #fff;
 }
 
 /* ---------- Login / Register tab switcher ---------- */
@@ -190,6 +191,7 @@ a {
   flex-shrink: 0;
   padding: 24px 24px 20px;
   text-align: left;
+  background: #fff;
 }
 
 .auth-wordmark {
@@ -249,14 +251,14 @@ a {
   font-size: 23px;
   font-weight: 700;
   line-height: 1.25;
-  color: var(--fg);
+  color: #0a0a0a;
 }
 
 .auth-subheading {
   display: block;
   font-size: 13px;
   line-height: 1.4;
-  color: var(--muted);
+  color: rgba(10, 10, 10, 0.55);
   margin-top: 4px;
 }
 
