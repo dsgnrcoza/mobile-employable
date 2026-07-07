@@ -32,40 +32,10 @@
   <!-- Dashboard view -->
   <div class="dash-content dash-view" id="dash-view-dashboard">
 
-    <div class="dash-gauge-title-row">
-      <span class="dash-gauge-title">Employability Rating</span>
-      <button type="button" class="dash-info-btn" id="dash-rating-info-btn" aria-label="What is this rating?">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10"/>
-          <line x1="12" y1="11" x2="12" y2="16.5"/>
-          <circle cx="12" cy="7.8" r="0.6" fill="currentColor" stroke="none"/>
-        </svg>
-      </button>
-    </div>
-
-    <div class="dash-gauge-wrap" id="dash-gauge-wrap">
-      <div class="dash-gauge-card">
-        <svg class="dash-gauge" viewBox="0 0 120 120">
-          <defs>
-            <linearGradient id="gaugeGradient" gradientUnits="objectBoundingBox" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stop-color="#8b5cf6"/>
-              <stop offset="33%" stop-color="#ec4899"/>
-              <stop offset="66%" stop-color="#1e3a8a"/>
-              <stop offset="100%" stop-color="#2dd4bf"/>
-              <animateTransform attributeName="gradientTransform" type="rotate" from="0 0.5 0.5" to="360 0.5 0.5" dur="8s" repeatCount="indefinite"/>
-            </linearGradient>
-          </defs>
-          <circle class="dash-gauge-track" cx="60" cy="60" r="52"></circle>
-          <circle class="dash-gauge-fill" id="dash-gauge-fill" cx="60" cy="60" r="52"></circle>
-        </svg>
-        <div class="dash-gauge-center">
-          <span class="dash-gauge-score" id="dash-gauge-score">–</span>
-          <span class="dash-gauge-outof">out of 10</span>
-        </div>
-      </div>
-      <div class="dash-gauge-label-row">
-        <span class="dash-gauge-label" id="dash-gauge-label">Awaiting analysis</span>
-        <button type="button" class="dash-info-btn" id="dash-label-info-btn" aria-label="What does this label mean?" hidden>
+    <div class="dash-score-header">
+      <div class="dash-gauge-title-row">
+        <span class="dash-gauge-title">Employability Rating</span>
+        <button type="button" class="dash-info-btn" id="dash-rating-info-btn" aria-label="What is this rating?">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="10"/>
             <line x1="12" y1="11" x2="12" y2="16.5"/>
@@ -73,37 +43,71 @@
           </svg>
         </button>
       </div>
+
+      <div class="dash-gauge-wrap" id="dash-gauge-wrap">
+        <div class="dash-gauge-card">
+          <svg class="dash-gauge" viewBox="0 0 120 120">
+            <defs>
+              <linearGradient id="gaugeGradient" gradientUnits="objectBoundingBox" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#8b5cf6"/>
+                <stop offset="33%" stop-color="#ec4899"/>
+                <stop offset="66%" stop-color="#1e3a8a"/>
+                <stop offset="100%" stop-color="#2dd4bf"/>
+                <animateTransform attributeName="gradientTransform" type="rotate" from="0 0.5 0.5" to="360 0.5 0.5" dur="8s" repeatCount="indefinite"/>
+              </linearGradient>
+            </defs>
+            <circle class="dash-gauge-track" cx="60" cy="60" r="52"></circle>
+            <circle class="dash-gauge-fill" id="dash-gauge-fill" cx="60" cy="60" r="52"></circle>
+          </svg>
+          <div class="dash-gauge-center">
+            <span class="dash-gauge-score" id="dash-gauge-score">–</span>
+            <span class="dash-gauge-outof">out of 10</span>
+          </div>
+        </div>
+        <div class="dash-gauge-label-row">
+          <span class="dash-gauge-label" id="dash-gauge-label">Awaiting analysis</span>
+          <button type="button" class="dash-info-btn" id="dash-label-info-btn" aria-label="What does this label mean?" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="12" y1="11" x2="12" y2="16.5"/>
+              <circle cx="12" cy="7.8" r="0.6" fill="currentColor" stroke="none"/>
+            </svg>
+          </button>
+        </div>
+      </div>
     </div>
 
-    <div class="dash-metrics" id="dash-metrics"></div>
+    <div class="dash-score-card">
+      <div class="dash-metrics" id="dash-metrics"></div>
 
-    <div class="dash-empty" id="dash-empty" hidden>
-      <p>Your documents haven't been scored yet — this can happen if the first attempt timed out.</p>
-      <button type="button" class="btn btn-gold btn-block" id="dash-refresh-score-btn">Refresh Score</button>
-      <div id="dash-refresh-score-error" class="flash flash-error" hidden></div>
-    </div>
-
-    <div class="dash-insights" id="dash-insights" hidden>
-      <div class="dash-insight-block">
-        <h3>Why This Score Is Accurate</h3>
-        <p class="dash-insight-intro">Every point above traces back to something specific we actually found — not a guess. Here's the real proof:</p>
-        <ul class="dash-evidence-list" id="dash-evidence-list"></ul>
+      <div class="dash-empty" id="dash-empty" hidden>
+        <p>Your documents haven't been scored yet — this can happen if the first attempt timed out.</p>
+        <button type="button" class="btn btn-gold btn-block" id="dash-refresh-score-btn">Refresh Score</button>
+        <div id="dash-refresh-score-error" class="flash flash-error" hidden></div>
       </div>
 
-      <div class="dash-insight-block">
-        <h3>What's Working</h3>
-        <ul class="dash-working-list" id="dash-working-list"></ul>
-      </div>
+      <div class="dash-insights" id="dash-insights" hidden>
+        <div class="dash-insight-block">
+          <h3>Why This Score Is Accurate</h3>
+          <p class="dash-insight-intro">Every point above traces back to something specific we actually found — not a guess. Here's the real proof:</p>
+          <ul class="dash-evidence-list" id="dash-evidence-list"></ul>
+        </div>
 
-      <div class="dash-insight-block">
-        <h3>What's Hurting You</h3>
-        <ul class="dash-issues-list" id="dash-issues-list"></ul>
-      </div>
+        <div class="dash-insight-block">
+          <h3>What's Working</h3>
+          <ul class="dash-working-list" id="dash-working-list"></ul>
+        </div>
 
-      <div class="dash-insight-block">
-        <h3>Your Roadmap</h3>
-        <p class="dash-insight-intro">Built from your actual documents and nothing else. Complete these to raise your score.</p>
-        <div class="dash-roadmap-list" id="dash-roadmap-list"></div>
+        <div class="dash-insight-block">
+          <h3>What's Hurting You</h3>
+          <ul class="dash-issues-list" id="dash-issues-list"></ul>
+        </div>
+
+        <div class="dash-insight-block">
+          <h3>Your Roadmap</h3>
+          <p class="dash-insight-intro">Built from your actual documents and nothing else. Complete these to raise your score.</p>
+          <div class="dash-roadmap-list" id="dash-roadmap-list"></div>
+        </div>
       </div>
     </div>
 
