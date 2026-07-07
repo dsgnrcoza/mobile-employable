@@ -58,6 +58,24 @@
               <input type="password" id="confirm_password" name="confirm_password" placeholder="Confirm Password" required minlength="9">
             </div>
           </div>
+          <div class="field">
+            <div class="field-input-wrap">
+              <svg class="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 1.5-2 2-2 3.5"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              <select id="security_question" name="security_question" required>
+                <option value="" disabled selected>Choose a security question</option>
+                {% for q in security_questions %}
+                <option value="{{ q }}">{{ q }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+          <div class="field">
+            <div class="field-input-wrap">
+              <svg class="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+              <input type="text" id="security_answer" name="security_answer" placeholder="Your answer" required maxlength="120" autocomplete="off">
+            </div>
+            <span class="field-hint">Used to reset your password if you ever forget it -- not shared with anyone.</span>
+          </div>
           <button type="submit" class="btn btn-gold btn-block">Create Account</button>
         </form>
       </div>

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Forgot Password — Employable{% endblock %}
+{% block title %}Security Question — Employable{% endblock %}
 {% block content %}
 <div class="auth-shell">
   <div class="auth-card">
@@ -10,8 +10,8 @@
 
     <div class="auth-form-side">
       <div class="auth-form-box">
-        <h1>Reset your password</h1>
-        <span class="sub">Enter your email to answer your security question.</span>
+        <h1>Answer your security question</h1>
+        <span class="sub">{{ question }}</span>
 
         {% with messages = get_flashed_messages(with_categories=true) %}
           {% if messages %}
@@ -21,15 +21,14 @@
           {% endif %}
         {% endwith %}
 
-        <form method="POST" action="{{ url_for('forgot_password_page') }}" autocomplete="off">
+        <form method="POST" action="{{ url_for('security_question_page') }}" autocomplete="off">
           <div class="field">
-            <label for="email">Email</label>
             <div class="field-input-wrap">
-              <svg class="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/><path d="m3.5 6 8.5 7 8.5-7"/></svg>
-              <input type="email" id="email" name="email" placeholder="you@example.com" autocapitalize="off" autocorrect="off" spellcheck="false" required>
+              <svg class="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+              <input type="text" id="answer" name="answer" placeholder="Your answer" autocapitalize="off" autocorrect="off" spellcheck="false" required autofocus>
             </div>
           </div>
-          <button type="submit" class="btn btn-gold btn-block">Continue</button>
+          <button type="submit" class="btn btn-gold btn-block">Verify</button>
         </form>
 
         <div class="auth-switch"><a href="{{ url_for('login_page') }}">Back to Sign In</a></div>

@@ -383,7 +383,8 @@ a {
 /* Must come after the shared .field input rule above (equal
    specificity otherwise) so this actually wins and the icon doesn't
    sit on top of the placeholder/typed text. */
-.field-input-wrap input {
+.field-input-wrap input,
+.field-input-wrap select {
   padding-left: 44px;
 }
 

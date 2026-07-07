@@ -293,55 +293,6 @@ def update_password(user_id, new_password_hash):
         conn.close()
 
 
-def set_two_factor_enabled(user_id, enabled: bool):
-    conn = get_db()
-    try:
-        conn.execute("UPDATE users SET two_factor_enabled = ? WHERE id = ?", (1 if enabled else 0, user_id))
-        conn.commit()
-    finally:
-        conn.close()
-
-
-def set_pending_code(user_id, code, purpose, expires_at_iso):
-    conn = get_db()
-    try:
-        conn.execute(
-            """UPDATE users SET pending_code = ?, pending_code_purpose = ?,
-                                 pending_code_expires_at = ?, pending_code_attempts = 0
-               WHERE id = ?""",
-            (code, purpose, expires_at_iso, user_id),
-        )
-        conn.commit()
-    finally:
-        conn.close()
-
-
-def increment_pending_code_attempts(user_id):
-    conn = get_db()
-    try:
-        conn.execute(
-            "UPDATE users SET pending_code_attempts = pending_code_attempts + 1 WHERE id = ?",
-            (user_id,),
-        )
-        conn.commit()
-    finally:
-        conn.close()
-
-
-def clear_pending_code(user_id):
-    conn = get_db()
-    try:
-        conn.execute(
-            """UPDATE users SET pending_code = '', pending_code_purpose = '',
-                                 pending_code_expires_at = '', pending_code_attempts = 0
-               WHERE id = ?""",
-            (user_id,),
-        )
-        conn.commit()
-    finally:
-        conn.close()
-
-
 def update_profile_fields(user_id, **fields):
     if not fields:
         return

@@ -765,62 +765,6 @@
       });
   });
 
-  // ---------- Two-factor authentication toggle ----------
-
-  var tfaToggle = document.getElementById("profile-2fa-toggle");
-  var tfaOverlay = document.getElementById("tfa-overlay");
-  var tfaTitle = document.getElementById("tfa-modal-title");
-  var tfaSub = document.getElementById("tfa-modal-sub");
-  var tfaPasswordInput = document.getElementById("tfa-password");
-  var tfaError = document.getElementById("tfa-error");
-  var tfaConfirmBtn = document.getElementById("tfa-confirm-btn");
-
-  function renderTfaToggle() {
-    tfaToggle.classList.toggle("is-on", !!profile.two_factor_enabled);
-  }
-  renderTfaToggle();
-
-  document.getElementById("profile-2fa-btn").addEventListener("click", function () {
-    var enabling = !profile.two_factor_enabled;
-    tfaTitle.textContent = enabling ? "Enable Two-Factor Authentication" : "Disable Two-Factor Authentication";
-    tfaSub.textContent = enabling
-      ? "We'll email you a 6-digit code every time you sign in. Enter your password to confirm."
-      : "You'll no longer be asked for an email code at sign-in. Enter your password to confirm.";
-    tfaPasswordInput.value = "";
-    tfaError.hidden = true;
-    tfaConfirmBtn.disabled = false;
-    tfaOverlay.hidden = false;
-  });
-
-  document.getElementById("tfa-cancel-btn").addEventListener("click", function () { tfaOverlay.hidden = true; });
-
-  tfaConfirmBtn.addEventListener("click", function () {
-    var enabling = !profile.two_factor_enabled;
-    tfaConfirmBtn.disabled = true;
-    fetch("/api/2fa/toggle", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ enable: enabling, password: tfaPasswordInput.value }),
-    })
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        if (data.ok) {
-          profile.two_factor_enabled = data.two_factor_enabled;
-          renderTfaToggle();
-          tfaOverlay.hidden = true;
-        } else {
-          tfaError.textContent = data.error || "Couldn't update this setting. Please try again.";
-          tfaError.hidden = false;
-          tfaConfirmBtn.disabled = false;
-        }
-      })
-      .catch(function () {
-        tfaError.textContent = "Something went wrong. Please try again.";
-        tfaError.hidden = false;
-        tfaConfirmBtn.disabled = false;
-      });
-  });
-
   // ---------- Avatar upload + basic pan/zoom crop ----------
 
   var avatarInput = document.getElementById("profile-avatar-input");

@@ -1,9 +1,9 @@
 """
 auth.py
 -------
-Account creation, login (with optional email-based 2FA), and password
-recovery via a 6-digit emailed code -- see email_sender.py for how the
-code itself gets delivered.
+Account creation, login, and password recovery via a security
+question chosen at signup (no email sending involved anywhere in this
+file -- see git history if email-based 2FA/reset ever needs reviving).
 
 SESSION MODEL:
 Flask's built-in `session` object is used to remember who's logged in
@@ -16,39 +16,60 @@ hash. This is the standard, secure way to do "stay logged in" on the
 web.
 
 Two *other* session keys are used as short-lived, server-verified
-handoffs between steps of a multi-step flow -- never as proof of
-identity by themselves:
-  - "pending_2fa_user_id": set after a correct password when 2FA is on,
-    cleared the moment the code is verified (or a new login starts).
-  - "pending_reset_user_id" / "reset_verified_user_id": set while a
-    password-reset code has been requested / verified, respectively.
-None of these three ever get treated as "logged in" -- only
+handoffs between the steps of the password-reset flow -- never as
+proof of identity by themselves:
+  - "pending_reset_user_id": set once an email has been looked up (see
+    get_security_question()), cleared once the security answer is
+    verified.
+  - "reset_verified_user_id": set once the security answer has been
+    verified, cleared once the password itself has been changed.
+Neither of these ever gets treated as "logged in" -- only
 log_in_user() setting "user_id" does that.
 
 PASSWORD RULES:
 At least 9 characters, with at least one uppercase letter, one
-lowercase letter, and one special (non-alphanumeric) character. Codes
-for 2FA/reset are exactly 6 digits, expire 10 minutes after being
-issued, and lock out after 5 wrong attempts (forcing a fresh code
-rather than allowing unlimited guesses against a 1-in-a-million space).
+lowercase letter, and one special (non-alphanumeric) character.
+
+SECURITY QUESTION / ENUMERATION RESISTANCE:
+get_security_question() always returns *some* question, even for an
+email with no matching account (a decoy, picked from the same public
+list every real user picks from) -- so the response looks identical
+whether or not the account exists, and verify_security_answer() always
+fails the same way for a decoy. Callers must never branch on which
+case it was.
 """
 
 import re
-import secrets
-from datetime import datetime, timedelta, timezone
 from functools import wraps
 from flask import session, redirect, url_for, flash, g
 from werkzeug.security import generate_password_hash, check_password_hash
 
 import db
-import email_sender
 
 EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 USERNAME_PATTERN = re.compile(r"^[A-Za-z0-9_.\-]{3,32}$")
 PASSWORD_MIN_LENGTH = 9
 _SPECIAL_CHAR = re.compile(r"[^A-Za-z0-9]")
-CODE_TTL_MINUTES = 10
-CODE_MAX_ATTEMPTS = 5
+
+SECURITY_QUESTIONS = [
+    "What was the name of your first pet?",
+    "What is your mother's maiden name?",
+    "What was the make of your first car?",
+    "What elementary school did you attend?",
+    "What is the name of the town where you were born?",
+    "What was your childhood nickname?",
+    "What is your favorite book?",
+    "What was the name of your first employer?",
+    "What is your favorite food?",
+    "Who was your childhood best friend?",
+    "What was the name of the street you grew up on?",
+    "What is your favorite movie?",
+]
+
+# Always one of the real, public options above -- a decoy that happens
+# to match a genuine choice is what makes it indistinguishable from a
+# real account that picked the same question.
+DECOY_SECURITY_QUESTION = SECURITY_QUESTIONS[0]
 
 
 class AuthError(Exception):
@@ -84,6 +105,25 @@ def validate_password(password: str) -> str:
     return password
 
 
+def validate_security_question(question: str) -> str:
+    question = (question or "").strip()
+    if question not in SECURITY_QUESTIONS:
+        raise AuthError("Please choose a security question from the list.")
+    return question
+
+
+def validate_security_answer(answer: str) -> str:
+    answer = (answer or "").strip()
+    if len(answer) < 2:
+        raise AuthError("Please enter an answer to your security question.")
+    return answer
+
+
+def _normalize_answer(answer: str) -> str:
+    """Case/whitespace shouldn't matter for matching a security answer."""
+    return (answer or "").strip().lower()
+
+
 def _generate_username_from_email(email: str) -> str:
     """
     The `username` column is still how internal lookups/uniqueness
@@ -101,125 +141,77 @@ def _generate_username_from_email(email: str) -> str:
     return candidate
 
 
-def _generate_code() -> str:
-    return f"{secrets.randbelow(1_000_000):06d}"
-
-
-def _code_expiry_iso() -> str:
-    return (datetime.now(timezone.utc) + timedelta(minutes=CODE_TTL_MINUTES)).isoformat()
-
-
-def signup(full_name, email, password, confirm_password):
+def signup(full_name, email, password, confirm_password, security_question, security_answer):
     """
-    Creates a new account with just a name, email, and password.
-    Raises AuthError with a user-facing message on any problem
-    (duplicate email, weak password, mismatch, etc). On success, logs
-    the new user in immediately and returns their id.
+    Creates a new account with a name, email, password, and a security
+    question/answer pair (used later for password recovery instead of
+    an emailed code). Raises AuthError with a user-facing message on
+    any problem (duplicate email, weak password, mismatch, etc). On
+    success, logs the new user in immediately and returns their id.
     """
     full_name = validate_full_name(full_name)
     email = validate_email(email)
     validate_password(password)
     if password != confirm_password:
         raise AuthError("Passwords do not match.")
+    security_question = validate_security_question(security_question)
+    security_answer = validate_security_answer(security_answer)
 
     if db.get_user_by_email(email):
         raise AuthError("An account with that email already exists.")
 
     username = _generate_username_from_email(email)
     password_hash = generate_password_hash(password)
-    user_id = db.create_user(username, password_hash, "", "", full_name, email=email)
+    security_answer_hash = generate_password_hash(_normalize_answer(security_answer))
+    user_id = db.create_user(username, password_hash, security_question, security_answer_hash, full_name, email=email)
     log_in_user(user_id)
     return user_id
 
 
 def login(email, password):
     """
-    Verifies credentials. Raises AuthError with a generic message on
-    failure -- deliberately not saying WHICH part was wrong (unknown
-    email vs wrong password), since that distinction would let an
-    attacker enumerate which emails have accounts here.
-
-    Returns a dict: either {"status": "ok", "user_id": ...} (already
-    logged in) or {"status": "2fa_required", "user_id": ...} (correct
-    password, but a code has been emailed and must be verified via
-    verify_code() before log_in_user() is called).
+    Verifies credentials and logs the user in. Raises AuthError with a
+    generic message on failure -- deliberately not saying WHICH part
+    was wrong (unknown email vs wrong password), since that distinction
+    would let an attacker enumerate which emails have accounts here.
     """
     email = (email or "").strip().lower()
     user = db.get_user_by_email(email)
     if not user or not check_password_hash(user["password_hash"], password or ""):
         raise AuthError("Incorrect email or password.")
-
-    if user.get("two_factor_enabled"):
-        code = _generate_code()
-        db.set_pending_code(user["id"], code, "2fa_login", _code_expiry_iso())
-        email_sender.send_code_email(user["email"], code, "2fa_login")
-        return {"status": "2fa_required", "user_id": user["id"]}
-
     log_in_user(user["id"])
-    return {"status": "ok", "user_id": user["id"]}
+    return user["id"]
 
 
-def request_password_reset(email):
+def get_security_question(email):
     """
-    Emails a reset code if the address matches an account. Always
-    returns without indicating whether the account existed (the caller
-    must show the identical message either way) -- returns the user id
-    on a match, or None otherwise, purely so the caller can stash it
-    for the verification step without ever surfacing which case it was.
+    Returns (user_id, question) for the given email -- user_id is None
+    if no account matches, but a question is always returned (a decoy
+    in that case) so the response looks identical either way. The
+    caller stashes user_id in the session for the next step without
+    ever surfacing which case it was.
     """
     email = (email or "").strip().lower()
     user = db.get_user_by_email(email)
     if not user:
-        return None
-    code = _generate_code()
-    db.set_pending_code(user["id"], code, "password_reset", _code_expiry_iso())
-    email_sender.send_code_email(user["email"], code, "password_reset")
-    return user["id"]
+        return None, DECOY_SECURITY_QUESTION
+    return user["id"], (user.get("security_question") or DECOY_SECURITY_QUESTION)
 
 
-def resend_code(user_id, purpose):
-    """Re-issues a fresh code for an already-started 2FA or reset flow."""
-    if not user_id:
-        raise AuthError("That verification session has expired. Please start again.")
-    user = db.get_user_by_id(user_id)
-    if not user:
-        raise AuthError("That verification session has expired. Please start again.")
-    code = _generate_code()
-    db.set_pending_code(user_id, code, purpose, _code_expiry_iso())
-    email_sender.send_code_email(user["email"], code, purpose)
-
-
-def verify_code(user_id, purpose, code):
+def verify_security_answer(user_id, answer):
     """
-    Checks a submitted code against the pending one stored for
-    user_id/purpose. Raises AuthError on any mismatch, expiry, or
-    attempt-limit breach; on success, clears the pending code (one-time
-    use) and returns True.
+    Checks a submitted answer against the stored hash for user_id.
+    Raises AuthError on any mismatch (including a decoy's user_id of
+    None, which always fails) -- the same message either way, so this
+    can't be used to confirm an account exists.
     """
     if not user_id:
-        raise AuthError("Invalid or expired code. Please request a new one.")
+        raise AuthError("Incorrect answer. Please try again.")
     user = db.get_user_by_id(user_id)
-    if not user or not user.get("pending_code") or user.get("pending_code_purpose") != purpose:
-        raise AuthError("Invalid or expired code. Please request a new one.")
-
-    if int(user.get("pending_code_attempts") or 0) >= CODE_MAX_ATTEMPTS:
-        db.clear_pending_code(user_id)
-        raise AuthError("Too many incorrect attempts. Please request a new code.")
-
-    expires_at = user.get("pending_code_expires_at") or ""
-    try:
-        expired = not expires_at or datetime.now(timezone.utc) > datetime.fromisoformat(expires_at)
-    except ValueError:
-        expired = True
-    if expired:
-        db.clear_pending_code(user_id)
-        raise AuthError("That code has expired. Please request a new one.")
-
-    if (code or "").strip() != user["pending_code"]:
-        db.increment_pending_code_attempts(user_id)
-        raise AuthError("Incorrect code. Please try again.")
-
-    db.clear_pending_code(user_id)
+    if not user or not user.get("security_answer_hash") or not check_password_hash(
+        user["security_answer_hash"], _normalize_answer(answer)
+    ):
+        raise AuthError("Incorrect answer. Please try again.")
     return True
 
 
@@ -230,14 +222,6 @@ def complete_password_reset(user_id, new_password, confirm_password):
     if new_password != confirm_password:
         raise AuthError("Passwords do not match.")
     db.update_password(user_id, generate_password_hash(new_password))
-
-
-def set_two_factor_enabled(user_id, enabled: bool, current_password: str):
-    """Requires the current password as confirmation before flipping this switch either way."""
-    user = db.get_user_by_id(user_id)
-    if not user or not check_password_hash(user["password_hash"], current_password or ""):
-        raise AuthError("Incorrect password.")
-    db.set_two_factor_enabled(user_id, enabled)
 
 
 def log_in_user(user_id):
