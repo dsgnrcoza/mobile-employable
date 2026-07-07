@@ -463,7 +463,6 @@
   var usernameEl = document.getElementById("dash-username");
   var dashHeaderLeft = document.getElementById("dash-header-left");
   var backBtn = document.getElementById("dash-back-btn");
-  var dashHeaderEl = document.getElementById("dash-header");
 
   function switchView(name) {
     document.querySelectorAll(".dash-view").forEach(function (el) {
@@ -472,9 +471,6 @@
     document.querySelectorAll(".tabbar-btn").forEach(function (btn) {
       btn.classList.toggle("active", btn.dataset.view === name);
     });
-    // White header only on the dashboard tab, matching the white
-    // score section right below it -- every other tab keeps it black.
-    if (dashHeaderEl) dashHeaderEl.classList.toggle("dash-header-light", name === "dashboard");
     var onProfile = name === "profile";
     // While viewing the profile screen there's no need for a button to
     // open it — only the shop icon stays in the header — and the
