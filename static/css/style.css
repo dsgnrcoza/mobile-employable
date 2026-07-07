@@ -20,6 +20,26 @@
   --line: rgba(255, 255, 255, 0.22);
   --line-strong: rgba(255, 255, 255, 0.6);
   --surface: rgba(255, 255, 255, 0.06);
+  --surface-strong: rgba(255, 255, 255, 0.1);
+
+  /* Pulled from the existing brand wordmark/gauge gradient so every
+     accent in the app (focus rings, active states, glows) reads as
+     the same signature palette instead of an arbitrary extra color. */
+  --accent-pink: #ff3ea5;
+  --accent-violet: #a855f7;
+  --accent-teal: #2dd4bf;
+  --accent-gradient: linear-gradient(135deg, var(--accent-pink), var(--accent-violet), var(--accent-teal));
+
+  /* Consistent radius scale -- replaces the ad-hoc 26/28/34px etc that
+     had accumulated across cards/sheets/modals. */
+  --radius-sm: 12px;
+  --radius-md: 18px;
+  --radius-lg: 24px;
+  --radius-xl: 28px;
+
+  --shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 8px 28px rgba(0, 0, 0, 0.42);
+  --shadow-lg: 0 -10px 40px rgba(0, 0, 0, 0.5);
 }
 
 * {
@@ -303,7 +323,7 @@ button.auth-tab.active {
      blend into the black card/page below it, not stand out. */
   border: 1px solid var(--bg);
   border-bottom: none;
-  border-radius: 34px 34px 0 0;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   /* Extra top padding gives the corner's arc room to finish sweeping
      before the tab pill starts, instead of the pill crowding right up
      against it -- without this the gap between the pill's curve and
@@ -385,10 +405,10 @@ button.auth-tab.active {
   font-size: 15px;
   padding: 13px 16px;
   outline: none;
-  border-radius: 16px;
+  border-radius: var(--radius-md);
   font-family: inherit;
   width: 100%;
-  transition: border-color 0.15s ease, background 0.15s ease;
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
 }
 
 /* Must come after the shared .field input rule above (equal
@@ -410,8 +430,9 @@ button.auth-tab.active {
 
 .field input:focus,
 .field select:focus {
-  border-color: var(--fg);
+  border-color: var(--accent-violet);
   background: rgba(255, 255, 255, 0.07);
+  box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.18);
 }
 
 .field-hint {
@@ -478,7 +499,7 @@ button.auth-tab.active {
   text-decoration: none;
   cursor: pointer;
   border: 1px solid transparent;
-  transition: opacity 0.15s ease, background 0.15s ease, transform 0.1s ease;
+  transition: opacity 0.15s ease, background 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
   font-family: inherit;
 }
 
@@ -493,6 +514,7 @@ button.auth-tab.active {
 .btn-gold {
   background: var(--fg);
   color: #000;
+  box-shadow: 0 4px 20px rgba(255, 255, 255, 0.12);
 }
 
 .btn-gold:hover {
@@ -500,13 +522,14 @@ button.auth-tab.active {
 }
 
 .btn-ghost {
-  background: transparent;
+  background: var(--surface);
   color: var(--fg);
-  border-color: var(--fg);
+  border-color: var(--line);
 }
 
 .btn-ghost:hover {
-  background: var(--surface);
+  background: var(--surface-strong);
+  border-color: var(--line-strong);
 }
 
 .btn-sm {
@@ -707,9 +730,9 @@ button.auth-tab.active {
 }
 
 .ob-step-item.active .ob-step-circle {
-  background: var(--fg);
-  border-color: var(--fg);
-  color: #000;
+  background: var(--accent-gradient);
+  border-color: transparent;
+  color: #fff;
 }
 
 .ob-step-item.active .ob-step-label {
@@ -978,6 +1001,8 @@ button.auth-tab.active {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -992,11 +1017,12 @@ button.auth-tab.active {
 .celebrate-modal {
   background: #0a0a0a;
   border: 1px solid var(--line-strong);
-  border-radius: 26px;
+  border-radius: var(--radius-lg);
   padding: 32px 26px;
   text-align: center;
   max-width: 340px;
   width: 100%;
+  box-shadow: var(--shadow-md);
 }
 
 .celebrate-icon {
@@ -1248,8 +1274,8 @@ button.auth-tab.active {
 .dash-icon-btn,
 .dash-avatar-btn {
   position: relative;
-  background: none;
-  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: 50%;
   width: 38px;
   height: 38px;
@@ -1260,7 +1286,7 @@ button.auth-tab.active {
   cursor: pointer;
   padding: 0;
   overflow: hidden;
-  transition: transform 0.1s ease, background 0.15s ease;
+  transition: transform 0.1s ease, background 0.15s ease, border-color 0.15s ease;
 }
 
 .dash-notif-badge {
@@ -1281,7 +1307,8 @@ button.auth-tab.active {
 .dash-icon-btn:active,
 .dash-avatar-btn:active {
   transform: scale(0.92);
-  background: var(--surface);
+  background: var(--surface-strong);
+  border-color: var(--line-strong);
 }
 
 .dash-icon-btn[hidden],
@@ -1360,11 +1387,11 @@ button.auth-tab.active {
   background: #0a0a0a;
   border: 1px solid var(--line-strong);
   border-bottom: none;
-  border-radius: 28px 28px 0 0;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   display: flex;
   flex-direction: column;
   z-index: 30;
-  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-lg);
   will-change: transform;
   transition: transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
@@ -1435,7 +1462,7 @@ button.auth-tab.active {
   background: #0a0a0a;
   border: 1px solid var(--line-strong);
   border-bottom: none;
-  border-radius: 28px 28px 0 0;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   display: flex;
   flex-direction: column;
   /* Same layer as .dash-sheet (not above the tab bar's 40) -- later in
@@ -1444,7 +1471,7 @@ button.auth-tab.active {
      either sheet nears fullscreen) is what visually covers it, not
      raw stacking order. */
   z-index: 30;
-  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-lg);
   will-change: transform;
   transition: transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
@@ -1563,6 +1590,20 @@ button.auth-tab.active {
   justify-content: center;
 }
 
+/* Soft ambient glow behind the ring, in the same hues as the fill
+   gradient -- makes the score the clear focal point of the screen
+   instead of just another bordered circle. */
+.dash-gauge-card::before {
+  content: "";
+  position: absolute;
+  inset: -30px;
+  z-index: -1;
+  border-radius: 50%;
+  background: var(--accent-gradient);
+  opacity: 0.16;
+  filter: blur(28px);
+}
+
 .dash-gauge {
   width: 160px;
   height: 160px;
@@ -1634,9 +1675,9 @@ button.auth-tab.active {
   align-items: center;
   gap: 14px;
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: var(--radius-sm);
   padding: 14px 16px;
-  background: transparent;
+  background: var(--surface);
   cursor: pointer;
   text-align: left;
   width: 100%;
@@ -1662,7 +1703,7 @@ button.auth-tab.active {
   width: 36px;
   height: 36px;
   border: 1px solid var(--line-strong);
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1672,6 +1713,38 @@ button.auth-tab.active {
   width: 18px;
   height: 18px;
 }
+
+/* Each row's icon badge and progress bar share one of 4 accent hues
+   pulled from the brand gradient, cycling in order -- turns a plain
+   list into a small, coherent data-vis instead of one flat color. */
+.dash-metric-row:nth-child(4n+1) .dash-metric-icon {
+  color: var(--accent-pink);
+  border-color: rgba(255, 62, 165, 0.4);
+  background: rgba(255, 62, 165, 0.1);
+}
+
+.dash-metric-row:nth-child(4n+2) .dash-metric-icon {
+  color: var(--accent-violet);
+  border-color: rgba(168, 85, 247, 0.4);
+  background: rgba(168, 85, 247, 0.1);
+}
+
+.dash-metric-row:nth-child(4n+3) .dash-metric-icon {
+  color: var(--accent-teal);
+  border-color: rgba(45, 212, 191, 0.4);
+  background: rgba(45, 212, 191, 0.1);
+}
+
+.dash-metric-row:nth-child(4n+4) .dash-metric-icon {
+  color: #60a5fa;
+  border-color: rgba(96, 165, 250, 0.4);
+  background: rgba(96, 165, 250, 0.1);
+}
+
+.dash-metric-row:nth-child(4n+1) .dash-metric-bar-fill { background: var(--accent-pink); }
+.dash-metric-row:nth-child(4n+2) .dash-metric-bar-fill { background: var(--accent-violet); }
+.dash-metric-row:nth-child(4n+3) .dash-metric-bar-fill { background: var(--accent-teal); }
+.dash-metric-row:nth-child(4n+4) .dash-metric-bar-fill { background: #60a5fa; }
 
 .dash-metric-main {
   flex: 1;
@@ -1976,13 +2049,14 @@ button.auth-tab.active {
 .tabbar-btn {
   background: none;
   border: none;
+  border-radius: var(--radius-sm);
   color: var(--muted);
   cursor: pointer;
-  padding: 8px;
+  padding: 8px 14px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: color 0.15s ease, transform 0.1s ease;
+  transition: color 0.15s ease, transform 0.1s ease, background 0.15s ease;
 }
 
 .tabbar-btn:active {
@@ -1996,6 +2070,10 @@ button.auth-tab.active {
 
 .tabbar-btn.active {
   color: var(--fg);
+}
+
+.tabbar-btn.active:not(.tabbar-ai-btn) {
+  background: var(--surface);
 }
 
 .tabbar-ai-btn {
@@ -2144,8 +2222,8 @@ button.auth-tab.active {
 
 .chat-msg-user {
   align-self: flex-end;
-  background: var(--fg);
-  color: #000;
+  background: var(--accent-gradient);
+  color: #fff;
   border-bottom-right-radius: 4px;
 }
 
@@ -2194,6 +2272,12 @@ button.auth-tab.active {
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  box-shadow: 0 2px 12px rgba(255, 255, 255, 0.1);
+  transition: transform 0.1s ease;
+}
+
+.chat-input-row button:active {
+  transform: scale(0.9);
 }
 
 .chat-input-row button svg {
@@ -2929,7 +3013,7 @@ button.auth-tab.active {
   height: 92px;
   border-radius: 50%;
   border: 1px solid var(--line-strong);
-  background: none;
+  background: var(--surface);
   color: var(--fg);
   cursor: pointer;
   padding: 0;
@@ -2938,6 +3022,18 @@ button.auth-tab.active {
   justify-content: center;
   overflow: visible;
   margin-bottom: 14px;
+}
+
+/* Soft gradient ring behind the avatar -- a small echo of the gauge's
+   glow so Profile feels part of the same visual family. */
+.profile-avatar-btn::before {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  z-index: -1;
+  border-radius: 50%;
+  background: var(--accent-gradient);
+  opacity: 0.5;
 }
 
 .profile-avatar-btn img {
@@ -3003,6 +3099,10 @@ button.auth-tab.active {
 .profile-menu {
   display: flex;
   flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--surface);
 }
 
 .profile-menu-row {
@@ -3012,7 +3112,7 @@ button.auth-tab.active {
   background: none;
   border: none;
   border-bottom: 1px solid var(--line);
-  padding: 16px 4px;
+  padding: 14px 16px;
   color: var(--fg);
   cursor: pointer;
   text-align: left;
@@ -3022,7 +3122,7 @@ button.auth-tab.active {
 }
 
 .profile-menu-row:active {
-  background: var(--surface);
+  background: var(--surface-strong);
 }
 
 .profile-menu-row:last-child {
@@ -3031,6 +3131,10 @@ button.auth-tab.active {
 
 .profile-menu-icon {
   flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-strong);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3038,8 +3142,8 @@ button.auth-tab.active {
 }
 
 .profile-menu-icon svg {
-  width: 19px;
-  height: 19px;
+  width: 17px;
+  height: 17px;
 }
 
 .profile-menu-label {
