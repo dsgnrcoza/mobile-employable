@@ -4,6 +4,15 @@
    without touching markup.
    ========================================================================== */
 
+/* Cross-fades between page navigations (e.g. the Login/Register tabs,
+   which are plain links to two different pages) instead of the
+   default hard cut -- browsers that don't support this ignore it and
+   fall back to a normal instant navigation, so there's no dependency
+   on it working everywhere. */
+@view-transition {
+  navigation: auto;
+}
+
 :root {
   --bg: #000000;
   --fg: #ffffff;
@@ -162,7 +171,7 @@ a {
 .auth-visual {
   flex-shrink: 0;
   padding: 20px 24px 18px;
-  text-align: left;
+  text-align: center;
   background: #fff;
 }
 
@@ -210,8 +219,9 @@ a {
 .auth-page-title {
   display: block;
   text-align: center;
-  font-size: 26px;
-  font-weight: 700;
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
   color: #0a0a0a;
   margin-top: 14px;
 }
