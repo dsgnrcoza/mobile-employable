@@ -126,11 +126,11 @@ def _normalize_answer(answer: str) -> str:
 
 def _generate_username_from_email(email: str) -> str:
     """
-    The `username` column is still how internal lookups/uniqueness
-    work, but the signup form no longer asks for one -- derived from
-    the email's local part instead, with a numeric suffix appended
-    until it's unique, so this never surfaces as something the user
-    has to think about.
+    The `username` column is still how friends find/add each other, but
+    the signup form only asks for a full name -- derived from the
+    email's local part instead, with a numeric suffix appended until
+    it's unique, so this never surfaces as something the user has to
+    think about at signup (they can see/change it later in Profile).
     """
     base = re.sub(r"[^A-Za-z0-9_.\-]", "", (email.split("@")[0] or "").lower())[:28] or "user"
     candidate = base

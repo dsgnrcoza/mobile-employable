@@ -671,6 +671,60 @@ def api_update_profile():
     return jsonify({"ok": True, "state": pipeline.get_dashboard_state(user["id"])})
 
 
+@app.route("/api/friends/invite", methods=["POST"])
+@auth.login_required
+def api_friends_invite():
+    user = auth.current_user()
+    data = request.json if request.is_json else request.form
+    username = (data.get("username") or "").strip()
+    if not username:
+        return jsonify({"ok": False, "error": "Enter a username."}), 400
+
+    target = db.get_user_by_username(username)
+    if not target:
+        return jsonify({"ok": False, "error": "No account found with that username."}), 404
+    if target["id"] == user["id"]:
+        return jsonify({"ok": False, "error": "You can't add yourself."}), 400
+
+    existing = db.get_active_friend_request_between(user["id"], target["id"])
+    if existing:
+        if existing["status"] == "accepted":
+            return jsonify({"ok": False, "error": "You're already friends."}), 400
+        return jsonify({"ok": False, "error": "A friend request is already pending."}), 400
+
+    db.create_friend_request(user["id"], target["id"])
+    return jsonify({"ok": True})
+
+
+@app.route("/api/friends/requests")
+@auth.login_required
+def api_friends_requests():
+    user = auth.current_user()
+    return jsonify({"requests": db.get_pending_incoming_requests(user["id"])})
+
+
+@app.route("/api/friends/requests/<int:request_id>/respond", methods=["POST"])
+@auth.login_required
+def api_friends_respond(request_id):
+    user = auth.current_user()
+    data = request.json if request.is_json else request.form
+    accept = bool(data.get("accept"))
+
+    req = db.get_friend_request_by_id(request_id)
+    if not req or req["to_user_id"] != user["id"] or req["status"] != "pending":
+        return jsonify({"ok": False, "error": "Request not found."}), 404
+
+    db.respond_to_friend_request(request_id, "accepted" if accept else "declined")
+    return jsonify({"ok": True})
+
+
+@app.route("/api/friends")
+@auth.login_required
+def api_friends_list():
+    user = auth.current_user()
+    return jsonify({"friends": db.get_friends_for_user(user["id"])})
+
+
 @app.route("/api/profile/photo", methods=["POST"])
 @auth.login_required
 def api_upload_avatar():

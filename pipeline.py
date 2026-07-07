@@ -626,4 +626,5 @@ def get_dashboard_state(user_id: int) -> dict:
         ],
         "score_history": db.get_score_history(user_id, limit=20),
         "subscription": _compute_subscription_info(user),
+        "pending_friend_request_count": db.count_pending_incoming_requests(user_id),
     }

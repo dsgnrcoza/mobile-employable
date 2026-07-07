@@ -496,6 +496,8 @@
 
   var notifBtn = document.getElementById("dash-notif-btn");
   var notifDropdown = document.getElementById("dash-notif-dropdown");
+  var notifList = document.getElementById("dash-notif-list");
+  var notifBadge = document.getElementById("dash-notif-badge");
   var menuBtn = document.getElementById("dash-menu-btn");
   var optionsDropdown = document.getElementById("dash-options-dropdown");
 
@@ -504,12 +506,87 @@
     if (optionsDropdown && optionsDropdown !== except) optionsDropdown.hidden = true;
   }
 
+  function setNotifBadge(count) {
+    if (notifBadge) notifBadge.hidden = !count;
+  }
+
+  setNotifBadge(state.pending_friend_request_count || 0);
+
+  function renderFriendRequests(requests) {
+    notifList.innerHTML = "";
+    if (!requests.length) {
+      var empty = document.createElement("div");
+      empty.className = "dash-dropdown-empty";
+      empty.textContent = "No notifications yet";
+      notifList.appendChild(empty);
+      return;
+    }
+    requests.forEach(function (r) {
+      var row = document.createElement("div");
+      row.className = "friend-request-row";
+
+      var name = document.createElement("span");
+      name.className = "friend-request-name";
+      name.textContent = (r.from_full_name || r.from_username || "Someone") + " wants to be friends";
+      row.appendChild(name);
+
+      var actions = document.createElement("div");
+      actions.className = "friend-request-actions";
+
+      var acceptBtn = document.createElement("button");
+      acceptBtn.type = "button";
+      acceptBtn.className = "friend-request-btn friend-request-accept";
+      acceptBtn.textContent = "Accept";
+      acceptBtn.addEventListener("click", function () { respondToFriendRequest(r.id, true, row); });
+
+      var denyBtn = document.createElement("button");
+      denyBtn.type = "button";
+      denyBtn.className = "friend-request-btn friend-request-deny";
+      denyBtn.textContent = "Deny";
+      denyBtn.addEventListener("click", function () { respondToFriendRequest(r.id, false, row); });
+
+      actions.appendChild(acceptBtn);
+      actions.appendChild(denyBtn);
+      row.appendChild(actions);
+      notifList.appendChild(row);
+    });
+  }
+
+  function loadFriendRequests() {
+    fetch("/api/friends/requests")
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var requests = data.requests || [];
+        renderFriendRequests(requests);
+        setNotifBadge(requests.length);
+      })
+      .catch(function () {});
+  }
+
+  function respondToFriendRequest(id, accept, row) {
+    fetch("/api/friends/requests/" + id + "/respond", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ accept: accept }),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data.ok || !row) return;
+        row.remove();
+        var remaining = notifList.querySelectorAll(".friend-request-row").length;
+        if (!remaining) renderFriendRequests([]);
+        setNotifBadge(remaining);
+      })
+      .catch(function () {});
+  }
+
   if (notifBtn) {
     notifBtn.addEventListener("click", function (e) {
       e.stopPropagation();
       var willOpen = notifDropdown.hidden;
       closeHeaderDropdowns();
       notifDropdown.hidden = !willOpen;
+      if (willOpen) loadFriendRequests();
     });
   }
 
@@ -540,19 +617,6 @@
     });
   }
 
-  var menuInviteBtn = document.getElementById("dash-menu-invite");
-  if (menuInviteBtn) {
-    menuInviteBtn.addEventListener("click", function () {
-      optionsDropdown.hidden = true;
-      var shareText = "Employable helped me get my documents job-ready — check it out: " + window.location.origin;
-      if (navigator.share) {
-        navigator.share({ title: "Employable", text: shareText }).catch(function () {});
-      } else if (navigator.clipboard) {
-        navigator.clipboard.writeText(shareText).catch(function () {});
-      }
-    });
-  }
-
   var menuSupportBtn = document.getElementById("dash-menu-support");
   if (menuSupportBtn) {
     menuSupportBtn.addEventListener("click", function () {
@@ -561,9 +625,117 @@
     });
   }
 
+  // ---------- Friends: invite by username / view accepted friends ----------
+
+  var friendsOverlay = document.getElementById("friends-overlay");
+  var friendsTabButtons = document.querySelectorAll("#friends-tabs .auth-tab");
+  var friendsPanelInvite = document.getElementById("friends-tab-invite");
+  var friendsPanelList = document.getElementById("friends-tab-list");
+  var friendUsernameInput = document.getElementById("friend-username-input");
+  var friendInviteError = document.getElementById("friend-invite-error");
+  var friendInviteSuccess = document.getElementById("friend-invite-success");
+  var friendInviteSendBtn = document.getElementById("friend-invite-send-btn");
+  var friendsListEl = document.getElementById("friends-list");
+
+  function switchFriendsTab(tab) {
+    friendsTabButtons.forEach(function (btn) {
+      btn.classList.toggle("active", btn.dataset.friendsTab === tab);
+    });
+    friendsPanelInvite.hidden = tab !== "invite";
+    friendsPanelList.hidden = tab !== "list";
+    if (tab === "list") loadFriendsList();
+  }
+
+  friendsTabButtons.forEach(function (btn) {
+    btn.addEventListener("click", function () { switchFriendsTab(btn.dataset.friendsTab); });
+  });
+
+  function loadFriendsList() {
+    friendsListEl.innerHTML = "";
+    fetch("/api/friends")
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var friends = data.friends || [];
+        if (!friends.length) {
+          var empty = document.createElement("div");
+          empty.className = "uploads-list-empty";
+          empty.textContent = "No friends yet — invite someone by username.";
+          friendsListEl.appendChild(empty);
+          return;
+        }
+        friends.forEach(function (f) {
+          var row = document.createElement("div");
+          row.className = "uploads-list-item";
+          var name = document.createElement("span");
+          name.className = "uploads-list-item-name";
+          name.textContent = (f.full_name || "").trim() || f.username;
+          row.appendChild(name);
+          friendsListEl.appendChild(row);
+        });
+      })
+      .catch(function () {});
+  }
+
+  var menuInviteBtn = document.getElementById("dash-menu-invite");
+  if (menuInviteBtn) {
+    menuInviteBtn.addEventListener("click", function () {
+      optionsDropdown.hidden = true;
+      friendInviteError.hidden = true;
+      friendInviteSuccess.hidden = true;
+      friendUsernameInput.value = "";
+      switchFriendsTab("invite");
+      friendsOverlay.hidden = false;
+    });
+  }
+
+  if (friendInviteSendBtn) {
+    friendInviteSendBtn.addEventListener("click", function () {
+      var username = friendUsernameInput.value.trim();
+      friendInviteError.hidden = true;
+      friendInviteSuccess.hidden = true;
+      if (!username) {
+        friendInviteError.textContent = "Enter a username.";
+        friendInviteError.hidden = false;
+        return;
+      }
+      friendInviteSendBtn.disabled = true;
+      friendInviteSendBtn.textContent = "Sending…";
+      fetch("/api/friends/invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: username }),
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          friendInviteSendBtn.disabled = false;
+          friendInviteSendBtn.textContent = "Send Request";
+          if (data.ok) {
+            friendInviteSuccess.textContent = "Friend request sent.";
+            friendInviteSuccess.hidden = false;
+            friendUsernameInput.value = "";
+          } else {
+            friendInviteError.textContent = data.error || "Couldn't send that request.";
+            friendInviteError.hidden = false;
+          }
+        })
+        .catch(function () {
+          friendInviteSendBtn.disabled = false;
+          friendInviteSendBtn.textContent = "Send Request";
+          friendInviteError.textContent = "Something went wrong. Please try again.";
+          friendInviteError.hidden = false;
+        });
+    });
+  }
+
+  var friendsCloseBtn = document.getElementById("friends-close-btn");
+  if (friendsCloseBtn) {
+    friendsCloseBtn.addEventListener("click", function () { friendsOverlay.hidden = true; });
+  }
+
   // ---------- Profile screen ----------
 
   var profileNameEl = document.getElementById("profile-name");
+  var profileUsernameEl = document.getElementById("profile-username");
   var profilePhoneEl = document.getElementById("profile-phone");
   var profileEmailEl = document.getElementById("profile-email");
   var profileAvatarImg = document.getElementById("profile-avatar-img");
@@ -572,6 +744,8 @@
   function renderProfileCard() {
     var name = (profile.full_name || "").trim() || (profile.username || "").trim() || "Your Name";
     profileNameEl.textContent = name;
+    var username = (profile.username || "").trim();
+    profileUsernameEl.textContent = username ? "@" + username : "";
     if (profile.phone) {
       profilePhoneEl.textContent = profile.phone;
       profilePhoneEl.hidden = false;
