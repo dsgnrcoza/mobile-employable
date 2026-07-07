@@ -24,9 +24,10 @@
             <path d="M6 8a6 6 0 1 1 12 0c0 3.2 1 5 2 6.2a1 1 0 0 1-.8 1.6H4.8a1 1 0 0 1-.8-1.6c1-1.2 2-3 2-6.2z"/>
             <path d="M9.5 18a2.5 2.5 0 0 0 5 0"/>
           </svg>
+          <span class="dash-notif-badge" id="dash-notif-badge" hidden></span>
         </button>
-        <div class="dash-dropdown" id="dash-notif-dropdown" hidden>
-          <div class="dash-dropdown-empty" id="dash-notif-empty">No notifications yet</div>
+        <div class="dash-dropdown dash-notif-dropdown" id="dash-notif-dropdown" hidden>
+          <div class="dash-notif-list" id="dash-notif-list"></div>
         </div>
       </div>
 
@@ -605,6 +606,36 @@
     <div id="uploads-add-error" class="flash flash-error" hidden></div>
     <button type="button" class="btn btn-ghost btn-block" id="uploads-close-btn">Close</button>
     <input type="file" id="uploads-add-input" multiple hidden>
+  </div>
+</div>
+
+<!-- Friends: invite by username / view accepted friends -->
+<div class="celebrate-overlay" id="friends-overlay" hidden>
+  <div class="celebrate-modal uploads-modal">
+    <div class="auth-tabs" id="friends-tabs">
+      <button type="button" class="auth-tab active" data-friends-tab="invite">Invite</button>
+      <button type="button" class="auth-tab" data-friends-tab="list">Friends</button>
+    </div>
+
+    <div id="friends-tab-invite">
+      <p class="uploads-modal-sub">Enter a friend's username to send them a request.</p>
+      <div class="field">
+        <div class="field-input-wrap">
+          <svg class="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>
+          <input type="text" id="friend-username-input" placeholder="Username" autocapitalize="off" autocorrect="off" spellcheck="false">
+        </div>
+      </div>
+      <div id="friend-invite-error" class="flash flash-error" hidden></div>
+      <div id="friend-invite-success" class="flash flash-success" hidden></div>
+      <button type="button" class="btn btn-gold btn-block" id="friend-invite-send-btn">Send Request</button>
+    </div>
+
+    <div id="friends-tab-list" hidden>
+      <div class="uploads-list" id="friends-list"></div>
+    </div>
+
+    <div style="height:14px"></div>
+    <button type="button" class="btn btn-ghost btn-block" id="friends-close-btn">Close</button>
   </div>
 </div>
 

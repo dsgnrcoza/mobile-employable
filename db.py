@@ -182,6 +182,15 @@ def init_db():
             points_awarded REAL NOT NULL DEFAULT 0,
             completed_at TEXT NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS friend_requests (
+            id {_PK},
+            from_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            to_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            status TEXT NOT NULL DEFAULT 'pending',
+            created_at TEXT NOT NULL,
+            responded_at TEXT DEFAULT NULL
+        );
     """)
     conn.commit()
 
@@ -742,5 +751,103 @@ def get_messages_for_conversation(conv_id):
             (conv_id,)
         ).fetchall()
         return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+# ---------------- FRIEND REQUEST QUERIES ----------------
+
+def create_friend_request(from_user_id, to_user_id):
+    conn = get_db()
+    try:
+        cur = conn.execute(
+            "INSERT INTO friend_requests (from_user_id, to_user_id, status, created_at) VALUES (?, ?, 'pending', ?)",
+            (from_user_id, to_user_id, now_iso()),
+        )
+        conn.commit()
+        return cur.lastrowid
+    finally:
+        conn.close()
+
+
+def get_active_friend_request_between(user_a, user_b):
+    """Any pending or accepted request between the two, either direction --
+    a prior declined request never blocks a fresh invite."""
+    conn = get_db()
+    try:
+        row = conn.execute(
+            """SELECT * FROM friend_requests
+               WHERE status IN ('pending', 'accepted')
+                 AND ((from_user_id = ? AND to_user_id = ?) OR (from_user_id = ? AND to_user_id = ?))
+               ORDER BY created_at DESC LIMIT 1""",
+            (user_a, user_b, user_b, user_a),
+        ).fetchone()
+        return dict(row) if row else None
+    finally:
+        conn.close()
+
+
+def get_friend_request_by_id(request_id):
+    conn = get_db()
+    try:
+        row = conn.execute("SELECT * FROM friend_requests WHERE id = ?", (request_id,)).fetchone()
+        return dict(row) if row else None
+    finally:
+        conn.close()
+
+
+def get_pending_incoming_requests(user_id):
+    conn = get_db()
+    try:
+        rows = conn.execute(
+            """SELECT fr.id, fr.created_at, u.id AS from_user_id, u.username AS from_username,
+                      u.full_name AS from_full_name
+               FROM friend_requests fr
+               JOIN users u ON u.id = fr.from_user_id
+               WHERE fr.to_user_id = ? AND fr.status = 'pending'
+               ORDER BY fr.created_at DESC""",
+            (user_id,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def respond_to_friend_request(request_id, status):
+    conn = get_db()
+    try:
+        conn.execute(
+            "UPDATE friend_requests SET status = ?, responded_at = ? WHERE id = ?",
+            (status, now_iso(), request_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_friends_for_user(user_id):
+    conn = get_db()
+    try:
+        rows = conn.execute(
+            """SELECT u.id, u.username, u.full_name, fr.responded_at
+               FROM friend_requests fr
+               JOIN users u ON u.id = (CASE WHEN fr.from_user_id = ? THEN fr.to_user_id ELSE fr.from_user_id END)
+               WHERE fr.status = 'accepted' AND (fr.from_user_id = ? OR fr.to_user_id = ?)
+               ORDER BY fr.responded_at DESC""",
+            (user_id, user_id, user_id),
+        ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def count_pending_incoming_requests(user_id):
+    conn = get_db()
+    try:
+        row = conn.execute(
+            "SELECT COUNT(*) AS c FROM friend_requests WHERE to_user_id = ? AND status = 'pending'",
+            (user_id,),
+        ).fetchone()
+        return row["c"] if row else 0
     finally:
         conn.close()
