@@ -735,6 +735,7 @@
   // ---------- Profile screen ----------
 
   var profileNameEl = document.getElementById("profile-name");
+  var profileUsernameEl = document.getElementById("profile-username");
   var profilePhoneEl = document.getElementById("profile-phone");
   var profileEmailEl = document.getElementById("profile-email");
   var profileAvatarImg = document.getElementById("profile-avatar-img");
@@ -743,6 +744,8 @@
   function renderProfileCard() {
     var name = (profile.full_name || "").trim() || (profile.username || "").trim() || "Your Name";
     profileNameEl.textContent = name;
+    var username = (profile.username || "").trim();
+    profileUsernameEl.textContent = username ? "@" + username : "";
     if (profile.phone) {
       profilePhoneEl.textContent = profile.phone;
       profilePhoneEl.hidden = false;

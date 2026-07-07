@@ -3002,6 +3002,13 @@ button.auth-tab.active {
   margin-bottom: 4px;
 }
 
+.profile-username {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
 .profile-contact {
   display: block;
   font-size: 13px;

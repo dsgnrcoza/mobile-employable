@@ -76,13 +76,13 @@ class AuthError(Exception):
     """Raised for any user-facing validation failure during signup/login/reset."""
 
 
-def validate_username(username: str) -> str:
-    username = (username or "").strip()
-    if not username:
-        raise AuthError("Please choose a username.")
-    if not USERNAME_PATTERN.match(username):
-        raise AuthError("Username must be 3-32 characters: letters, numbers, underscore, dot, or dash, no spaces.")
-    return username
+def validate_full_name(full_name: str) -> str:
+    full_name = (full_name or "").strip()
+    if not full_name:
+        raise AuthError("Please enter your name.")
+    if len(full_name) > 80:
+        raise AuthError("Name is too long.")
+    return full_name
 
 
 def validate_email(email: str) -> str:
@@ -124,17 +124,32 @@ def _normalize_answer(answer: str) -> str:
     return (answer or "").strip().lower()
 
 
-def signup(username, email, password, confirm_password, security_question, security_answer):
+def _generate_username_from_email(email: str) -> str:
     """
-    Creates a new account with a username, email, password, and a
-    security question/answer pair (used later for password recovery
-    instead of an emailed code). The username is chosen by the user at
-    signup and is how friends find and add each other later. Raises
-    AuthError with a user-facing message on any problem (duplicate
-    email/username, weak password, mismatch, etc). On success, logs
-    the new user in immediately and returns their id.
+    The `username` column is still how friends find/add each other, but
+    the signup form only asks for a full name -- derived from the
+    email's local part instead, with a numeric suffix appended until
+    it's unique, so this never surfaces as something the user has to
+    think about at signup (they can see/change it later in Profile).
     """
-    username = validate_username(username)
+    base = re.sub(r"[^A-Za-z0-9_.\-]", "", (email.split("@")[0] or "").lower())[:28] or "user"
+    candidate = base
+    suffix = 1
+    while db.get_user_by_username(candidate):
+        suffix += 1
+        candidate = f"{base}{suffix}"
+    return candidate
+
+
+def signup(full_name, email, password, confirm_password, security_question, security_answer):
+    """
+    Creates a new account with a name, email, password, and a security
+    question/answer pair (used later for password recovery instead of
+    an emailed code). Raises AuthError with a user-facing message on
+    any problem (duplicate email, weak password, mismatch, etc). On
+    success, logs the new user in immediately and returns their id.
+    """
+    full_name = validate_full_name(full_name)
     email = validate_email(email)
     validate_password(password)
     if password != confirm_password:
@@ -144,12 +159,11 @@ def signup(username, email, password, confirm_password, security_question, secur
 
     if db.get_user_by_email(email):
         raise AuthError("An account with that email already exists.")
-    if db.get_user_by_username(username):
-        raise AuthError("That username is already taken.")
 
+    username = _generate_username_from_email(email)
     password_hash = generate_password_hash(password)
     security_answer_hash = generate_password_hash(_normalize_answer(security_answer))
-    user_id = db.create_user(username, password_hash, security_question, security_answer_hash, email=email)
+    user_id = db.create_user(username, password_hash, security_question, security_answer_hash, full_name, email=email)
     log_in_user(user_id)
     return user_id
 

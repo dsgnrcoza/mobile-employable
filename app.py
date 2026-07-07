@@ -235,7 +235,7 @@ def signup_page():
     if request.method == "POST":
         try:
             auth.signup(
-                username=request.form.get("username", ""),
+                full_name=request.form.get("full_name", ""),
                 email=request.form.get("email", ""),
                 password=request.form.get("password", ""),
                 confirm_password=request.form.get("confirm_password", ""),
