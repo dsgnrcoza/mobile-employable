@@ -44,6 +44,25 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-secret-key-change-this-in-production")
 app.config["MAX_CONTENT_LENGTH"] = 25 * 1024 * 1024  # 25MB upload cap per request
 
+# One database connection is opened per request (on first use) and reused
+# by every db.* call for the rest of that request, instead of each call
+# opening its own -- this hook is what actually closes that shared
+# connection once the response is done.
+app.teardown_appcontext(db.close_db)
+
+
+@app.after_request
+def _cache_static_assets(response):
+    # Static files (CSS/JS/icons) currently answer every single request
+    # with Cache-Control: no-cache, forcing a network round-trip on every
+    # page load just to get a 304. An hour of real caching lets repeat
+    # loads skip the network entirely while still picking up a deploy
+    # within an hour -- ETag-based revalidation (unchanged, still present)
+    # keeps correctness beyond that window.
+    if request.path.startswith("/static/"):
+        response.headers["Cache-Control"] = "public, max-age=3600"
+    return response
+
 ALLOWED_EXTENSIONS = {"pdf", "docx", "doc", "txt", "jpg", "jpeg", "png", "tiff", "tif"}
 ALLOWED_IMAGE_EXTENSIONS = {"jpg", "jpeg", "png", "gif", "webp"}
 AVATAR_ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "avatars")
@@ -995,7 +1014,7 @@ def api_document_insight(doc_id):
     dim_deltas = json.loads(doc["dimension_deltas"]) if doc.get("dimension_deltas") else {}
     all_filenames = [d["filename"] for d in docs if d["id"] != doc_id]
 
-    client = OpenAI(api_key=analyzer.get_openai_api_key(), timeout=analyzer.CLIENT_TIMEOUT, max_retries=analyzer.CLIENT_MAX_RETRIES)
+    client = OpenAI(api_key=analyzer.get_openai_api_key(), timeout=analyzer.get_client_timeout(), max_retries=analyzer.CLIENT_MAX_RETRIES)
     system = (
         "You are a career intelligence analyst inside the Employable platform. "
         "Respond ONLY with valid HTML — use <p>, <ul>, <li>, <strong> tags. "
@@ -1131,7 +1150,7 @@ def api_roadmap_complete():
     _analysis_data = json.loads(_analysis_row["result_json"]) if _analysis_row and _analysis_row.get("result_json") else {}
     overall = float(_analysis_data.get("overall_score") or 0)
 
-    client = OpenAI(api_key=analyzer.get_openai_api_key(), timeout=analyzer.CLIENT_TIMEOUT, max_retries=analyzer.CLIENT_MAX_RETRIES)
+    client = OpenAI(api_key=analyzer.get_openai_api_key(), timeout=analyzer.get_client_timeout(), max_retries=analyzer.CLIENT_MAX_RETRIES)
     system = (
         "You are a strict but fair career coach evaluating whether a document fulfills a specific career improvement objective. "
         "Reply ONLY with a JSON object in this exact format:\n"
@@ -1191,7 +1210,7 @@ def api_cv_edit():
     if not instruction:
         return jsonify({"error": "Missing instruction."}), 400
 
-    client = OpenAI(api_key=analyzer.get_openai_api_key(), timeout=analyzer.CLIENT_TIMEOUT, max_retries=analyzer.CLIENT_MAX_RETRIES)
+    client = OpenAI(api_key=analyzer.get_openai_api_key(), timeout=analyzer.get_client_timeout(), max_retries=analyzer.CLIENT_MAX_RETRIES)
 
     # Same grounding the main chat endpoint uses (see api_chat) -- without
     # this, an empty editor + an instruction like "write me a CV like
@@ -1622,7 +1641,7 @@ Use this context naturally when relevant. Don't dump it all at once — weave it
 
     model_name = "gpt-4o" if has_images else "gpt-4o-mini"
     try:
-        client = OpenAI(api_key=analyzer.get_openai_api_key(), timeout=analyzer.CLIENT_TIMEOUT, max_retries=analyzer.CLIENT_MAX_RETRIES)
+        client = OpenAI(api_key=analyzer.get_openai_api_key(), timeout=analyzer.get_client_timeout(), max_retries=analyzer.CLIENT_MAX_RETRIES)
         response = client.chat.completions.create(
             model=model_name,
             messages=openai_messages,

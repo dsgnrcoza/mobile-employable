@@ -3,6 +3,8 @@ import os
 import json
 from datetime import datetime, timezone
 
+from flask import g, has_app_context
+
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "instance", "employable.sqlite3")
 
 _DATABASE_URL = os.environ.get("DATABASE_URL", "")
@@ -67,7 +69,7 @@ class _PGConn:
         self._conn.rollback()
 
 
-def get_db():
+def _open_connection():
     if _USE_PG:
         return _PGConn()
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
@@ -75,6 +77,57 @@ def get_db():
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
+
+
+class _RequestConnProxy:
+    """
+    Every db.py function calls get_db() independently and closes what it
+    gets back when done -- previously that meant a brand-new database
+    connection (a fresh TCP+TLS+auth handshake against Postgres in
+    production) for every single one of the 5-10 db.* calls a single
+    request makes. Within a request, get_db() now hands out this proxy
+    around ONE real, shared connection instead: .close() becomes a
+    no-op (the real connection is closed once, by close_db(), at
+    request teardown) while every other call -- execute, commit,
+    rollback, executescript -- passes straight through, so no call site
+    needed to change.
+    """
+
+    __slots__ = ("_real",)
+
+    def __init__(self, real):
+        object.__setattr__(self, "_real", real)
+
+    def close(self):
+        pass
+
+    def __getattr__(self, name):
+        return getattr(self._real, name)
+
+
+def get_db():
+    if has_app_context():
+        if "_db_conn" not in g:
+            g._db_conn = _open_connection()
+        return _RequestConnProxy(g._db_conn)
+    # No Flask request/app context (standalone scripts, migrations, the
+    # seed/test tooling) -- fall back to the original one-shot-connection
+    # behavior, where the caller's own conn.close() really does close it.
+    return _open_connection()
+
+
+def close_db(exception=None):
+    """Registered as a Flask teardown_appcontext hook (see app.py) so the
+    one real connection opened per request actually gets closed once,
+    after the response is built."""
+    conn = g.pop("_db_conn", None)
+    if conn is not None:
+        if exception is not None:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+        conn.close()
 
 
 def init_db():
