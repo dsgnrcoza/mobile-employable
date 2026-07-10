@@ -566,14 +566,13 @@ def dashboard():
 
 
 # ---------------- New tool sections (Qualify / Builder / Trackers / Notes) ----------------
-# Qualify/Builder are still brand-new/not built out -- these render a
-# shared placeholder page so the drawer's navigation is fully real and
-# clickable, ahead of each tool actually getting built. Notes and
+# Qualify is still brand-new/not built out -- this renders a shared
+# placeholder page so the drawer's navigation is fully real and
+# clickable, ahead of it actually getting built. Builder, Notes, and
 # Trackers are real, separate features now (see below).
 
 _TOOL_STUBS = {
     "qualify": {"title": "Qualify", "blurb": "This is where Qualify will live."},
-    "builder": {"title": "Builder", "blurb": "This is where Builder will live."},
 }
 
 
@@ -1397,8 +1396,6 @@ def api_cv_edit():
     if not instruction:
         return jsonify({"error": "Missing instruction."}), 400
 
-    client = OpenAI(api_key=analyzer.get_openai_api_key(), timeout=analyzer.get_client_timeout(), max_retries=analyzer.CLIENT_MAX_RETRIES)
-
     # Same grounding the main chat endpoint uses (see api_chat) -- without
     # this, an empty editor + an instruction like "write me a CV like
     # mine" had nothing real to draw from, and the model would invent a
@@ -1466,6 +1463,7 @@ def api_cv_edit():
     prompt = f"Current document HTML:\n{cv_html if cv_html else '(empty — generate fresh content)'}\n\nInstruction: {instruction}"
 
     try:
+        client = OpenAI(api_key=analyzer.get_openai_api_key(), timeout=analyzer.get_client_timeout(), max_retries=analyzer.CLIENT_MAX_RETRIES)
         resp = client.chat.completions.create(
             model="gpt-4o",
             messages=[{"role": "system", "content": system}, {"role": "user", "content": prompt}],
@@ -1668,6 +1666,109 @@ def api_cv_download_pdf():
     buf.seek(0)
     return send_file(buf, mimetype="application/pdf",
                      as_attachment=True, download_name="my-cv.pdf")
+
+
+# ---------------- Builder (CV / cover letter drafting) ----------------
+
+@app.route("/builder")
+@auth.login_required
+def builder_page():
+    return render_template("builder.html")
+
+
+@app.route("/api/letter-edit", methods=["POST"])
+@auth.login_required
+def api_letter_edit():
+    """Same grounded-generation approach as /api/cv-edit, but for cover
+    letters -- kept as its own endpoint (rather than a branch inside
+    cv-edit) since the design guidance and system prompt are genuinely
+    different documents, not just a formatting variant."""
+    from openai import OpenAI
+    user = auth.current_user()
+    data = request.get_json(force=True)
+    instruction = (data.get("instruction") or "").strip()
+    letter_html = (data.get("letter_html") or "").strip()
+    if not instruction:
+        return jsonify({"error": "Missing instruction."}), 400
+
+    state = pipeline.get_dashboard_state(user["id"])
+    profile = state.get("profile", {})
+    full_docs = db.get_documents_for_user(user["id"])
+    doc_texts = []
+    total_chars = 0
+    DOC_CHAR_CAP = 3000
+    TOTAL_CHAR_CAP = 20000
+    for d in full_docs:
+        if total_chars >= TOTAL_CHAR_CAP:
+            break
+        try:
+            txt = (d.get("content") or "").strip()
+            if not txt and d.get("stored_path") and os.path.exists(d["stored_path"]):
+                txt = (extract.extract_text(d["stored_path"]) or "").strip()
+            if txt:
+                snippet = txt[:DOC_CHAR_CAP]
+                doc_texts.append(f"[{d['filename']}]\n{snippet}")
+                total_chars += len(snippet)
+        except Exception:
+            pass
+    doc_content_block = "\n\n---\n\n".join(doc_texts) if doc_texts else "No documents uploaded yet."
+    skill_names = [s["label"] for s in state.get("skills", [])]
+
+    import re as _re
+    system = (
+        "You are an expert cover letter writer built into the Employable platform. "
+        "CRITICAL: Always attempt to understand and fulfill the user's intent, even if their instruction contains spelling mistakes, typos, or imprecise phrasing. "
+        "Never refuse, do nothing, or ask for clarification — silently make your best reasonable interpretation and act on it. "
+        "OUTPUT RULES — you MUST follow these exactly:\n"
+        "- Return a JSON object with exactly two keys: 'html' and 'description'.\n"
+        "- 'html': the full updated cover letter as valid HTML. Use <p>, <strong>, <em>, <br> tags only "
+        "(no lists, headings, or <hr> — a cover letter is plain prose paragraphs). "
+        "NEVER use markdown asterisks, hyphens for bullets, --- separators, or backticks. "
+        "No <html>, <head>, <body> wrappers. No code fences.\n"
+        "- 'description': one short, specific sentence (max 20 words) describing exactly what you changed.\n\n"
+        "DESIGN — a strong cover letter: a specific, non-generic opening line (never 'I am writing to "
+        "apply for...'), 2-3 short paragraphs connecting the person's real, specific experience to what "
+        "the role likely needs, and a brief confident closing with a call to action. Keep the whole letter "
+        "under 300 words. Never pad with filler or generic enthusiasm ('I am a hard worker who is passionate "
+        "about...') — every sentence should carry real information.\n\n"
+        "GROUNDING — this is the most important rule, above all others: every fact in the letter "
+        "(employer names, job titles, dates, achievements) must come from the user's real profile/documents "
+        "below, or already be present in the current letter HTML. NEVER invent a person, career, employer, "
+        "achievement, or biography that isn't actually theirs. If there isn't enough real information to "
+        "write a grounded letter (no documents uploaded, or nothing usable in them), say so plainly in "
+        "'description' and return the document unchanged rather than fabricating one.\n\n"
+        f"This user's real profile:\n"
+        f"- Name: {profile.get('full_name') or 'Unknown'}\n"
+        f"- Location: {profile.get('location') or 'Not specified'}\n"
+        f"- Skills: {', '.join(skill_names) if skill_names else 'None listed.'}\n\n"
+        f"Full content of this user's actual uploaded documents (the ONLY source of truth for any letter "
+        f"content you write):\n{doc_content_block}"
+    )
+    prompt = f"Current letter HTML:\n{letter_html if letter_html else '(empty — generate fresh content)'}\n\nInstruction: {instruction}"
+
+    try:
+        client = OpenAI(api_key=analyzer.get_openai_api_key(), timeout=analyzer.get_client_timeout(), max_retries=analyzer.CLIENT_MAX_RETRIES)
+        resp = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "system", "content": system}, {"role": "user", "content": prompt}],
+            max_tokens=1600,
+            response_format={"type": "json_object"},
+        )
+        raw = resp.choices[0].message.content.strip()
+        try:
+            parsed = json.loads(raw)
+            updated = parsed.get("html", "")
+            description = parsed.get("description", "Done.")
+        except Exception:
+            updated = raw
+            description = "Done."
+        if updated.startswith("```"):
+            updated = updated.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+        updated = _re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', updated)
+        updated = _re.sub(r'\*(.+?)\*', r'<em>\1</em>', updated)
+        return jsonify({"updated_html": updated, "description": description})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/api/chat", methods=["POST"])

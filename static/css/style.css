@@ -4600,6 +4600,190 @@ button.auth-tab.active {
 }
 
 /* ==========================================================================
+   Builder
+   ========================================================================== */
+
+.builder-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 24px;
+}
+
+.builder-type-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 8px 16px;
+}
+
+.builder-type-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 20px 12px;
+  background: var(--card-bg);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  transition: transform 0.1s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.builder-type-block:active {
+  transform: scale(0.97);
+}
+
+.builder-type-block svg {
+  width: 26px;
+  height: 26px;
+}
+
+.builder-type-block.is-selected {
+  color: var(--fg);
+  border-color: var(--fg);
+}
+
+.builder-template-row {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 16px 4px;
+}
+
+.builder-template-row[hidden] {
+  display: none;
+}
+
+.builder-template-chip {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--card-bg);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 7px 14px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: transform 0.1s ease;
+}
+
+.builder-template-chip:active {
+  transform: scale(0.95);
+}
+
+.builder-template-chip.is-selected {
+  color: var(--bg);
+  background: var(--fg);
+  border-color: var(--fg);
+}
+
+.builder-instruction-row {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 16px;
+}
+
+.builder-instruction-input {
+  background: var(--card-bg);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  outline: none;
+  resize: none;
+  color: var(--fg);
+  font-size: 14.5px;
+  line-height: 1.5;
+  font-family: inherit;
+  padding: 12px 14px;
+  min-height: 64px;
+}
+
+.builder-instruction-input::placeholder {
+  color: var(--muted);
+}
+
+.builder-status-line {
+  flex-shrink: 0;
+  font-size: 13px;
+  color: var(--muted);
+  padding: 0 16px 8px;
+}
+
+.builder-status-line[hidden] {
+  display: none;
+}
+
+.builder-status-error {
+  color: #ec4899;
+}
+
+.builder-preview-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  font-size: 14px;
+  padding: 24px;
+  text-align: center;
+}
+
+.builder-preview-empty[hidden] {
+  display: none;
+}
+
+.builder-preview-wrap {
+  padding: 0 16px;
+}
+
+.builder-preview-wrap[hidden] {
+  display: none;
+}
+
+.builder-preview {
+  background: var(--card-bg);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 20px;
+  color: var(--fg);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.builder-preview h1, .builder-preview h2, .builder-preview h3 {
+  margin: 0 0 8px;
+  font-weight: 700;
+}
+
+.builder-preview p {
+  margin: 0 0 10px;
+}
+
+.builder-preview ul {
+  margin: 0 0 10px;
+  padding-left: 20px;
+}
+
+.builder-preview hr {
+  border: none;
+  border-top: 1px solid var(--line);
+  margin: 10px 0;
+}
+
+.builder-actions {
+  display: flex;
+  gap: 10px;
+  padding: 14px 0 4px;
+}
+
+/* ==========================================================================
    Attach sheet ("Add context": Camera / Photos / Files / Use Notes)
    ========================================================================== */
 
