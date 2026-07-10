@@ -566,25 +566,204 @@ def dashboard():
 
 
 # ---------------- New tool sections (Qualify / Builder / Trackers / Notes) ----------------
-# All 4 are brand-new, not yet built out -- these render a shared
-# placeholder page so the drawer's navigation is fully real and
-# clickable tonight, ahead of each tool actually getting built.
 
-_TOOL_STUBS = {
-    "qualify": {"title": "Qualify", "blurb": "This is where Qualify will live."},
-    "builder": {"title": "Builder", "blurb": "This is where Builder will live."},
-    "trackers": {"title": "Trackers", "blurb": "This is where Trackers will live."},
-    "notes": {"title": "Notes", "blurb": "This is where Notes will live."},
-}
-
-
-@app.route("/tool/<name>")
+@app.route("/qualify")
 @auth.login_required
-def tool_stub(name):
-    tool = _TOOL_STUBS.get(name)
-    if not tool:
-        return redirect(url_for("dashboard"))
-    return render_template("tool_stub.html", tool=tool, tool_name=name)
+def qualify_page():
+    user = auth.current_user()
+    has_documents = len(db.get_documents_for_user(user["id"])) > 0
+    return render_template("qualify.html", has_documents=has_documents)
+
+
+@app.route("/api/qualify", methods=["POST"])
+@auth.login_required
+def api_qualify():
+    from openai import OpenAI
+    user = auth.current_user()
+    data = request.get_json(force=True)
+    job_title = (data.get("job_title") or "").strip()[:200]
+    salary_expectation = (data.get("salary_expectation") or "").strip()[:100]
+    location = (data.get("location") or "").strip()[:200]
+    if not job_title:
+        return jsonify({"ok": False, "error": "Missing job title."}), 400
+
+    full_docs = db.get_documents_for_user(user["id"])
+    doc_texts = []
+    total_chars = 0
+    DOC_CHAR_CAP = 3000
+    TOTAL_CHAR_CAP = 20000
+    for d in full_docs:
+        if total_chars >= TOTAL_CHAR_CAP:
+            break
+        try:
+            txt = (d.get("content") or "").strip()
+            if not txt and d.get("stored_path") and os.path.exists(d["stored_path"]):
+                txt = (extract.extract_text(d["stored_path"]) or "").strip()
+            if txt:
+                snippet = txt[:DOC_CHAR_CAP]
+                doc_texts.append(f"[{d['filename']}]\n{snippet}")
+                total_chars += len(snippet)
+        except Exception:
+            pass
+    doc_content_block = "\n\n---\n\n".join(doc_texts) if doc_texts else "No documents uploaded yet."
+
+    system = (
+        "You are a blunt, accurate career-fit evaluator built into the Employable platform. "
+        "Given a role the user is considering and the real content of their uploaded documents "
+        "(CV, certificates, references), decide whether they are currently a strong candidate for "
+        "that specific role, at that specific salary expectation if one is given.\n\n"
+        "GROUNDING: base your verdict only on what's actually in the documents below. Never invent "
+        "experience, skills, or qualifications that aren't there. If there isn't enough real document "
+        "content to judge, say so directly in 'reasoning' and set 'qualifies' to false.\n\n"
+        "OUTPUT RULES — return a JSON object with exactly these keys:\n"
+        "- 'qualifies': true or false.\n"
+        "- 'headline': one short, direct sentence stating the verdict (e.g. 'You're a strong match for this role.' "
+        "or 'You're not quite there yet for this role.').\n"
+        "- 'reasoning': 2-4 sentences explaining exactly why, citing specifics from their real documents "
+        "(name the actual skills/experience/employers that support or undercut the verdict).\n"
+        "- 'next_steps': 2-4 sentences. If they qualify, explain how to double down and stand out further "
+        "for this specific role. If they don't qualify yet, give concrete, specific steps to close the gap.\n\n"
+        "Use **double asterisks** to bold a key phrase or two per section, nothing else. No markdown "
+        "headers, no bullet lists, no code fences."
+    )
+    prompt = (
+        f"Role the user wants to qualify for: {job_title}\n"
+        f"Salary expectation: {salary_expectation or 'Not specified'}\n"
+        f"Location: {location or 'Not specified'}\n\n"
+        f"Full content of the user's actual uploaded documents:\n{doc_content_block}"
+    )
+
+    try:
+        client = OpenAI(api_key=analyzer.get_openai_api_key(), timeout=analyzer.get_client_timeout(), max_retries=analyzer.CLIENT_MAX_RETRIES)
+        resp = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "system", "content": system}, {"role": "user", "content": prompt}],
+            max_tokens=900,
+            response_format={"type": "json_object"},
+        )
+        raw = resp.choices[0].message.content.strip()
+        parsed = json.loads(raw)
+        return jsonify({
+            "ok": True,
+            "qualifies": bool(parsed.get("qualifies")),
+            "headline": parsed.get("headline", ""),
+            "reasoning": parsed.get("reasoning", ""),
+            "next_steps": parsed.get("next_steps", ""),
+        })
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+# ---------------- Notes ----------------
+
+@app.route("/notes")
+@auth.login_required
+def notes_page():
+    return render_template("notes.html")
+
+
+@app.route("/api/notes", methods=["GET"])
+@auth.login_required
+def api_get_notes():
+    user = auth.current_user()
+    return jsonify({"ok": True, "notes": db.get_notes_for_user(user["id"])})
+
+
+@app.route("/api/notes", methods=["POST"])
+@auth.login_required
+def api_create_note():
+    user = auth.current_user()
+    data = request.get_json(force=True)
+    note_id = db.create_note(
+        user["id"],
+        title=(data.get("title") or "").strip()[:200],
+        body=(data.get("body") or "").strip()[:20000],
+        color=(data.get("color") or "default").strip()[:20],
+    )
+    return jsonify({"ok": True, "note": db.get_note(note_id, user["id"])})
+
+
+@app.route("/api/notes/<int:note_id>", methods=["PUT"])
+@auth.login_required
+def api_update_note(note_id):
+    user = auth.current_user()
+    if not db.get_note(note_id, user["id"]):
+        return jsonify({"ok": False, "error": "Note not found."}), 404
+    data = request.get_json(force=True)
+    db.update_note(
+        note_id,
+        user["id"],
+        title=(data.get("title") or "").strip()[:200],
+        body=(data.get("body") or "").strip()[:20000],
+        color=(data.get("color") or "default").strip()[:20],
+    )
+    return jsonify({"ok": True, "note": db.get_note(note_id, user["id"])})
+
+
+@app.route("/api/notes/<int:note_id>", methods=["DELETE"])
+@auth.login_required
+def api_delete_note(note_id):
+    user = auth.current_user()
+    db.delete_note(note_id, user["id"])
+    return jsonify({"ok": True})
+
+
+# ---------------- Trackers ----------------
+
+@app.route("/trackers")
+@auth.login_required
+def trackers_page():
+    return render_template("trackers.html")
+
+
+@app.route("/api/trackers", methods=["GET"])
+@auth.login_required
+def api_get_trackers():
+    user = auth.current_user()
+    return jsonify({"ok": True, "trackers": db.get_trackers_for_user(user["id"])})
+
+
+@app.route("/api/trackers", methods=["POST"])
+@auth.login_required
+def api_create_tracker():
+    user = auth.current_user()
+    data = request.get_json(force=True)
+    tracker_id = db.create_tracker(
+        user["id"],
+        job_title=(data.get("job_title") or "").strip()[:200],
+        company=(data.get("company") or "").strip()[:200],
+        date_applied=(data.get("date_applied") or "").strip()[:20],
+        status=(data.get("status") or "applied").strip()[:20],
+        notes=(data.get("notes") or "").strip()[:5000],
+    )
+    return jsonify({"ok": True, "tracker": db.get_tracker(tracker_id, user["id"])})
+
+
+@app.route("/api/trackers/<int:tracker_id>", methods=["PUT"])
+@auth.login_required
+def api_update_tracker(tracker_id):
+    user = auth.current_user()
+    if not db.get_tracker(tracker_id, user["id"]):
+        return jsonify({"ok": False, "error": "Tracker entry not found."}), 404
+    data = request.get_json(force=True)
+    db.update_tracker(
+        tracker_id,
+        user["id"],
+        job_title=(data.get("job_title") or "").strip()[:200],
+        company=(data.get("company") or "").strip()[:200],
+        date_applied=(data.get("date_applied") or "").strip()[:20],
+        status=(data.get("status") or "applied").strip()[:20],
+        notes=(data.get("notes") or "").strip()[:5000],
+    )
+    return jsonify({"ok": True, "tracker": db.get_tracker(tracker_id, user["id"])})
+
+
+@app.route("/api/trackers/<int:tracker_id>", methods=["DELETE"])
+@auth.login_required
+def api_delete_tracker(tracker_id):
+    user = auth.current_user()
+    db.delete_tracker(tracker_id, user["id"])
+    return jsonify({"ok": True})
 
 
 @app.route("/api/dashboard-state")
@@ -1286,8 +1465,6 @@ def api_cv_edit():
     if not instruction:
         return jsonify({"error": "Missing instruction."}), 400
 
-    client = OpenAI(api_key=analyzer.get_openai_api_key(), timeout=analyzer.get_client_timeout(), max_retries=analyzer.CLIENT_MAX_RETRIES)
-
     # Same grounding the main chat endpoint uses (see api_chat) -- without
     # this, an empty editor + an instruction like "write me a CV like
     # mine" had nothing real to draw from, and the model would invent a
@@ -1355,6 +1532,7 @@ def api_cv_edit():
     prompt = f"Current document HTML:\n{cv_html if cv_html else '(empty — generate fresh content)'}\n\nInstruction: {instruction}"
 
     try:
+        client = OpenAI(api_key=analyzer.get_openai_api_key(), timeout=analyzer.get_client_timeout(), max_retries=analyzer.CLIENT_MAX_RETRIES)
         resp = client.chat.completions.create(
             model="gpt-4o",
             messages=[{"role": "system", "content": system}, {"role": "user", "content": prompt}],
@@ -1559,6 +1737,109 @@ def api_cv_download_pdf():
                      as_attachment=True, download_name="my-cv.pdf")
 
 
+# ---------------- Builder (CV / cover letter drafting) ----------------
+
+@app.route("/builder")
+@auth.login_required
+def builder_page():
+    return render_template("builder.html")
+
+
+@app.route("/api/letter-edit", methods=["POST"])
+@auth.login_required
+def api_letter_edit():
+    """Same grounded-generation approach as /api/cv-edit, but for cover
+    letters -- kept as its own endpoint (rather than a branch inside
+    cv-edit) since the design guidance and system prompt are genuinely
+    different documents, not just a formatting variant."""
+    from openai import OpenAI
+    user = auth.current_user()
+    data = request.get_json(force=True)
+    instruction = (data.get("instruction") or "").strip()
+    letter_html = (data.get("letter_html") or "").strip()
+    if not instruction:
+        return jsonify({"error": "Missing instruction."}), 400
+
+    state = pipeline.get_dashboard_state(user["id"])
+    profile = state.get("profile", {})
+    full_docs = db.get_documents_for_user(user["id"])
+    doc_texts = []
+    total_chars = 0
+    DOC_CHAR_CAP = 3000
+    TOTAL_CHAR_CAP = 20000
+    for d in full_docs:
+        if total_chars >= TOTAL_CHAR_CAP:
+            break
+        try:
+            txt = (d.get("content") or "").strip()
+            if not txt and d.get("stored_path") and os.path.exists(d["stored_path"]):
+                txt = (extract.extract_text(d["stored_path"]) or "").strip()
+            if txt:
+                snippet = txt[:DOC_CHAR_CAP]
+                doc_texts.append(f"[{d['filename']}]\n{snippet}")
+                total_chars += len(snippet)
+        except Exception:
+            pass
+    doc_content_block = "\n\n---\n\n".join(doc_texts) if doc_texts else "No documents uploaded yet."
+    skill_names = [s["label"] for s in state.get("skills", [])]
+
+    import re as _re
+    system = (
+        "You are an expert cover letter writer built into the Employable platform. "
+        "CRITICAL: Always attempt to understand and fulfill the user's intent, even if their instruction contains spelling mistakes, typos, or imprecise phrasing. "
+        "Never refuse, do nothing, or ask for clarification — silently make your best reasonable interpretation and act on it. "
+        "OUTPUT RULES — you MUST follow these exactly:\n"
+        "- Return a JSON object with exactly two keys: 'html' and 'description'.\n"
+        "- 'html': the full updated cover letter as valid HTML. Use <p>, <strong>, <em>, <br> tags only "
+        "(no lists, headings, or <hr> — a cover letter is plain prose paragraphs). "
+        "NEVER use markdown asterisks, hyphens for bullets, --- separators, or backticks. "
+        "No <html>, <head>, <body> wrappers. No code fences.\n"
+        "- 'description': one short, specific sentence (max 20 words) describing exactly what you changed.\n\n"
+        "DESIGN — a strong cover letter: a specific, non-generic opening line (never 'I am writing to "
+        "apply for...'), 2-3 short paragraphs connecting the person's real, specific experience to what "
+        "the role likely needs, and a brief confident closing with a call to action. Keep the whole letter "
+        "under 300 words. Never pad with filler or generic enthusiasm ('I am a hard worker who is passionate "
+        "about...') — every sentence should carry real information.\n\n"
+        "GROUNDING — this is the most important rule, above all others: every fact in the letter "
+        "(employer names, job titles, dates, achievements) must come from the user's real profile/documents "
+        "below, or already be present in the current letter HTML. NEVER invent a person, career, employer, "
+        "achievement, or biography that isn't actually theirs. If there isn't enough real information to "
+        "write a grounded letter (no documents uploaded, or nothing usable in them), say so plainly in "
+        "'description' and return the document unchanged rather than fabricating one.\n\n"
+        f"This user's real profile:\n"
+        f"- Name: {profile.get('full_name') or 'Unknown'}\n"
+        f"- Location: {profile.get('location') or 'Not specified'}\n"
+        f"- Skills: {', '.join(skill_names) if skill_names else 'None listed.'}\n\n"
+        f"Full content of this user's actual uploaded documents (the ONLY source of truth for any letter "
+        f"content you write):\n{doc_content_block}"
+    )
+    prompt = f"Current letter HTML:\n{letter_html if letter_html else '(empty — generate fresh content)'}\n\nInstruction: {instruction}"
+
+    try:
+        client = OpenAI(api_key=analyzer.get_openai_api_key(), timeout=analyzer.get_client_timeout(), max_retries=analyzer.CLIENT_MAX_RETRIES)
+        resp = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "system", "content": system}, {"role": "user", "content": prompt}],
+            max_tokens=1600,
+            response_format={"type": "json_object"},
+        )
+        raw = resp.choices[0].message.content.strip()
+        try:
+            parsed = json.loads(raw)
+            updated = parsed.get("html", "")
+            description = parsed.get("description", "Done.")
+        except Exception:
+            updated = raw
+            description = "Done."
+        if updated.startswith("```"):
+            updated = updated.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+        updated = _re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', updated)
+        updated = _re.sub(r'\*(.+?)\*', r'<em>\1</em>', updated)
+        return jsonify({"updated_html": updated, "description": description})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/chat", methods=["POST"])
 @auth.login_required
 def api_chat():
@@ -1621,6 +1902,22 @@ def api_chat():
     skill_names = [s if isinstance(s, str) else s.get("name", str(s)) for s in skills]
     skill_list = ", ".join(skill_names) if skill_names else "None listed."
 
+    # Notes are private by default -- this block is only ever built (and
+    # only ever reaches the prompt below) when the client explicitly
+    # sends use_notes: true for THIS message, matching the "Use Notes"
+    # toggle in the attach sheet. Omitted entirely otherwise, not just
+    # hidden -- the model never sees note content unless the user turned
+    # this on for that specific message.
+    notes_section = ""
+    if data.get("use_notes"):
+        user_notes = db.get_notes_for_user(user["id"])
+        if user_notes:
+            notes_lines = "\n\n".join(
+                f"[{n.get('title') or 'Untitled'}]\n{(n.get('body') or '').strip()[:2000]}"
+                for n in user_notes[:30] if (n.get("title") or n.get("body"))
+            )
+            notes_section = f"\n\nThe user has turned on \"Use Notes\" for this message, so you may refer to their personal notes below when relevant:\n{notes_lines}\n"
+
     system_prompt = f"""You are the Employable AI — a sharp, warm, genuinely helpful career intelligence assistant built into the Employable platform. You feel like a brilliant friend who happens to know everything about getting hired, not a corporate chatbot.
 
 Personality:
@@ -1670,7 +1967,7 @@ Top Improvement Priorities:
 
 Full content of user's uploaded documents (use this to give specific, accurate advice about their actual CV and experience):
 {doc_content_block}
-
+{notes_section}
 Use this context naturally when relevant. Don't dump it all at once — weave it in when it helps. When it actually strengthens a point, quote or paraphrase the specific line from their documents ("your CV says you led a 6-person team at X" beats "you have leadership experience") — that specificity is exactly what makes you useful instead of generic. Never claim you can't see their documents; if doc_content_block above says no content is available, say that plainly instead of guessing. If the user asks something general ("how are you", "what's the weather"), respond naturally like a human would. If they go off-topic in a fun way, engage briefly then gently steer back to career topics if appropriate. Never say "I can only discuss employment topics" — just be human."""
 
     import re as _re, base64 as _b64

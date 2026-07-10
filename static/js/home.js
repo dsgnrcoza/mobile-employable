@@ -1,6 +1,25 @@
 (function () {
   "use strict";
 
+  // ---------- Smooth keyboard open/close ----------
+  // The on-screen keyboard shrinks the visual viewport without firing
+  // any layout event the CSS box model reacts to on its own -- without
+  // this, the input bar either stays hidden behind the keyboard or
+  // snaps into place the instant the keyboard finishes animating.
+  // Mirroring the visual viewport's shrinkage into a CSS custom
+  // property (which .home-shell transitions smoothly) makes the whole
+  // page glide up in sync with the keyboard instead.
+  if (window.visualViewport) {
+    var vv = window.visualViewport;
+    var updateKeyboardOffset = function () {
+      var offset = window.innerHeight - vv.height - vv.offsetTop;
+      document.documentElement.style.setProperty("--kb-offset", Math.max(0, offset).toFixed(1) + "px");
+    };
+    vv.addEventListener("resize", updateKeyboardOffset);
+    vv.addEventListener("scroll", updateKeyboardOffset);
+    updateKeyboardOffset();
+  }
+
   var state = window.HOME_STATE || {};
   var profile = state.profile || {};
 
@@ -100,13 +119,67 @@
       .catch(function () {});
   }
 
+  // ---------- Pending attachments (staged before the next send) ----------
+
+  var pendingAttachmentsEl = document.getElementById("pending-attachments");
+  var pendingAttachments = []; // { id, name, is_image }
+
+  function renderPendingAttachments() {
+    pendingAttachmentsEl.innerHTML = "";
+    pendingAttachmentsEl.hidden = pendingAttachments.length === 0;
+    pendingAttachments.forEach(function (att) {
+      var chip = document.createElement("span");
+      chip.className = "attachment-chip";
+      chip.innerHTML =
+        '<span class="attachment-chip-name"></span>' +
+        '<button type="button" class="attachment-chip-remove" aria-label="Remove">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>';
+      chip.querySelector(".attachment-chip-name").textContent = att.name;
+      chip.querySelector(".attachment-chip-remove").addEventListener("click", function () {
+        pendingAttachments = pendingAttachments.filter(function (a) { return a.id !== att.id; });
+        renderPendingAttachments();
+      });
+      pendingAttachmentsEl.appendChild(chip);
+    });
+  }
+
+  function uploadFile(file) {
+    if (!file) return;
+    var formData = new FormData();
+    formData.append("file", file);
+    fetch("/api/chat/upload", { method: "POST", body: formData })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.ok) {
+          pendingAttachments.push({ id: data.id, name: data.name, is_image: data.is_image });
+          renderPendingAttachments();
+        }
+      });
+  }
+
+  ["attach-camera-input", "attach-photos-input", "attach-files-input"].forEach(function (id) {
+    document.getElementById(id).addEventListener("change", function (e) {
+      if (e.target.files && e.target.files[0]) uploadFile(e.target.files[0]);
+      e.target.value = "";
+    });
+  });
+
+  // ---------- Send ----------
+
   function sendChatMessage() {
     var text = chatInput.value.trim();
-    if (!text || chatSending) return;
+    if ((!text && pendingAttachments.length === 0) || chatSending) return;
+    var attachmentIds = pendingAttachments.map(function (a) { return a.id; });
+    var displayText = text;
+    if (pendingAttachments.length) {
+      displayText += pendingAttachments.map(function (a) { return " [Attached: " + a.name + "]"; }).join("");
+    }
     chatInput.value = "";
+    pendingAttachments = [];
+    renderPendingAttachments();
     showEmptyState(false);
-    appendChatMessage("user", text);
-    chatHistory.push({ role: "user", text: text });
+    appendChatMessage("user", displayText);
+    chatHistory.push({ role: "user", text: displayText, attachment_ids: attachmentIds });
 
     var typingEl = document.createElement("div");
     typingEl.className = "chat-msg-typing";
@@ -118,7 +191,7 @@
     fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages: chatHistory }),
+      body: JSON.stringify({ messages: chatHistory, use_notes: isUseNotesEnabled() }),
     })
       .then(function (r) { return r.json(); })
       .then(function (data) {
@@ -145,16 +218,80 @@
     if (e.key === "Enter") sendChatMessage();
   });
 
-  // The attach endpoint (/api/chat/upload) already exists server-side
-  // from before this redesign -- this button is wired to the file
-  // picker as a placeholder for tonight; actually uploading and
-  // attaching the result to the next message is follow-up work, not
-  // part of this navigation/shell pass.
-  if (chatAttachBtn) {
-    chatAttachBtn.addEventListener("click", function () {
-      chatInput.focus();
-    });
+  // ---------- Attach sheet ("Add context") ----------
+
+  var attachSheetOverlay = document.getElementById("attach-sheet-overlay");
+
+  function openAttachSheet() {
+    attachSheetOverlay.hidden = false;
   }
+  function closeAttachSheet() {
+    attachSheetOverlay.hidden = true;
+  }
+
+  if (chatAttachBtn) {
+    chatAttachBtn.addEventListener("click", openAttachSheet);
+  }
+  document.getElementById("attach-sheet-close-btn").addEventListener("click", closeAttachSheet);
+  attachSheetOverlay.addEventListener("click", function (e) {
+    if (e.target === attachSheetOverlay) closeAttachSheet();
+  });
+
+  document.getElementById("attach-camera-btn").addEventListener("click", function () {
+    document.getElementById("attach-camera-input").click();
+  });
+  document.getElementById("attach-photos-btn").addEventListener("click", function () {
+    document.getElementById("attach-photos-input").click();
+  });
+  document.getElementById("attach-files-btn").addEventListener("click", function () {
+    document.getElementById("attach-files-input").click();
+  });
+  document.getElementById("attach-camera-btn").addEventListener("click", closeAttachSheet);
+  document.getElementById("attach-photos-btn").addEventListener("click", closeAttachSheet);
+  document.getElementById("attach-files-btn").addEventListener("click", closeAttachSheet);
+
+  // ---------- "Use Notes" toggle ----------
+  // Off by default and never sent to the server at all unless it's
+  // explicitly on for that message (see the use_notes flag in
+  // sendChatMessage above) -- notes stay private between the app and
+  // the user unless this is switched on.
+
+  var useNotesToggle = document.getElementById("use-notes-toggle");
+  var useNotesTooltip = document.getElementById("use-notes-tooltip");
+  var useNotesTooltipGotIt = document.getElementById("use-notes-tooltip-got-it");
+  var USE_NOTES_TOOLTIP_MAX_SHOWS = 3;
+
+  function isUseNotesEnabled() {
+    return localStorage.getItem("useNotesEnabled") === "true";
+  }
+
+  function tooltipShowCount() {
+    return parseInt(localStorage.getItem("useNotesTooltipCount") || "0", 10);
+  }
+
+  function applyUseNotesToggleUI() {
+    var on = isUseNotesEnabled();
+    useNotesToggle.classList.toggle("is-on", on);
+    useNotesToggle.setAttribute("aria-checked", String(on));
+  }
+  applyUseNotesToggleUI();
+
+  useNotesToggle.addEventListener("click", function () {
+    var goingOn = !isUseNotesEnabled();
+    localStorage.setItem("useNotesEnabled", goingOn ? "true" : "false");
+    applyUseNotesToggleUI();
+
+    if (goingOn && tooltipShowCount() < USE_NOTES_TOOLTIP_MAX_SHOWS) {
+      useNotesTooltip.hidden = false;
+    } else {
+      useNotesTooltip.hidden = true;
+    }
+  });
+
+  useNotesTooltipGotIt.addEventListener("click", function () {
+    localStorage.setItem("useNotesTooltipCount", String(tooltipShowCount() + 1));
+    useNotesTooltip.hidden = true;
+  });
 
   function loadConversation(convId) {
     fetch("/api/chat/conversations/" + convId)
@@ -253,6 +390,8 @@
     if (!drawerEl.classList.contains("is-open")) {
       drawerEl.hidden = true;
       drawerBackdropEl.hidden = true;
+    } else {
+      maybeRunDrawerTour();
     }
   });
 
@@ -263,11 +402,44 @@
     closeDrawer();
   });
   document.getElementById("home-notepad-btn").addEventListener("click", function () {
-    window.location.href = "/tool/notes";
+    window.location.href = "/notes";
   });
   document.getElementById("drawer-profile-btn").addEventListener("click", function () {
-    window.location.href = "/tool/notes";
+    window.location.href = "/notes";
   });
+
+  // ---------- First-time tours ----------
+  // Chat screen: runs once ever, the very first time this page loads.
+  // Drawer tools: runs once ever, the first time the drawer is opened.
+
+  if (window.runTour) {
+    window.runTour("tourChatSeen", [
+      { target: document.getElementById("home-ghost-btn"), text: "Start a brand new conversation anytime.", direction: "down" },
+      { target: document.getElementById("home-notepad-btn"), text: "Jump straight to your notes.", direction: "down" },
+      { target: document.getElementById("chat-attach-btn"), text: "Attach photos or files, or let the chat refer to your notes.", direction: "up" },
+    ]);
+  }
+
+  var drawerTourShown = false;
+  function maybeRunDrawerTour() {
+    if (drawerTourShown || !window.runTour) return;
+    drawerTourShown = true;
+    var toolRows = document.querySelectorAll(".drawer-tool-row");
+    // All 4 steps share one fixed landing spot, well clear of the row
+    // list, so the tooltip never covers the next tool while explaining
+    // the current one -- only the connecting line's length differs.
+    // Anchored to the always-present "Recents" label rather than the
+    // list itself, which fills in asynchronously and could still be
+    // empty (height 0) when this runs right after the drawer's open
+    // transition ends.
+    var landingTop = document.querySelector(".drawer-recents-label").getBoundingClientRect().bottom + 48;
+    window.runTour("tourDrawerSeen", [
+      { target: toolRows[0], text: "See if you qualify for a role you're eyeing, based on your real documents.", direction: "down", tooltipTop: landingTop },
+      { target: toolRows[1], text: "Draft a CV or cover letter from your documents.", direction: "down", tooltipTop: landingTop },
+      { target: toolRows[2], text: "Keep track of every role you've applied for.", direction: "down", tooltipTop: landingTop },
+      { target: toolRows[3], text: "Jot down notes the chat can refer to when you turn it on.", direction: "down", tooltipTop: landingTop },
+    ]);
+  }
 
   // ---------- Initial load ----------
 
