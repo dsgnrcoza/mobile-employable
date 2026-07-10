@@ -1229,6 +1229,10 @@ button.auth-tab.active {
   padding: 20px 20px 8px;
 }
 
+.dash-header[hidden] {
+  display: none;
+}
+
 .dash-header-left {
   display: flex;
   align-items: center;
@@ -1446,8 +1450,9 @@ button.auth-tab.active {
   .ob-preview-overlay,
   .ob-preview-overlay[hidden],
   .ob-preview-modal,
-  .chat-history-overlay,
-  .chat-history-overlay[hidden],
+  .claude-sidebar-overlay,
+  .claude-sidebar-overlay[hidden],
+  .claude-sidebar,
   .crop-overlay,
   .crop-overlay[hidden],
   .download-app-menu,
@@ -2394,39 +2399,109 @@ button.auth-tab.active {
   padding: 4px 14px;
 }
 
-.chat-input-row {
+/* ==========================================================================
+   Claude app UI replica — home screen, input bar, sidebar drawer
+   ========================================================================== */
+
+.claude-topbar {
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 12px 16px;
-  padding-bottom: max(12px, env(safe-area-inset-bottom));
-  border-top: 1px solid var(--line);
+  justify-content: space-between;
+  padding: 16px 16px 0;
 }
 
-.chat-input-row input {
-  flex: 1;
-  background: transparent;
-  border: 1px solid var(--line-strong);
-  border-radius: 20px;
-  padding: 10px 16px;
+.claude-icon-btn {
+  background: none;
+  border: none;
   color: var(--fg);
-  font-size: 14px;
+  cursor: pointer;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.claude-icon-btn svg {
+  width: 22px;
+  height: 22px;
+}
+
+.claude-home {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  padding: 20px 32px 80px;
+  text-align: center;
+}
+
+.claude-home[hidden] {
+  display: none;
+}
+
+.claude-sunburst {
+  width: 56px;
+  height: 56px;
+}
+
+.claude-greeting {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 400;
+  font-size: 26px;
+  line-height: 1.3;
+  color: var(--fg);
+}
+
+.claude-input-bar {
+  flex-shrink: 0;
+  padding: 10px 14px;
+  padding-bottom: max(14px, env(safe-area-inset-bottom));
+}
+
+.claude-input-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 26px;
+  padding: 14px 14px 10px;
+}
+
+.claude-input-field {
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: var(--fg);
+  font-size: 15px;
   font-family: inherit;
   outline: none;
+  padding: 0 2px 12px;
 }
 
-.chat-input-row input::placeholder {
+.claude-input-field::placeholder {
   color: var(--muted);
 }
 
-.chat-input-row button {
-  background: var(--fg);
-  color: var(--bg);
-  border: none;
+.claude-input-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.claude-input-toolbar-spacer {
+  flex: 1;
+}
+
+.claude-round-btn {
+  background: none;
+  border: 1px solid var(--line-strong);
+  color: var(--fg);
   border-radius: 50%;
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -2434,109 +2509,179 @@ button.auth-tab.active {
   cursor: pointer;
 }
 
-.chat-input-row button svg {
-  width: 17px;
-  height: 17px;
+.claude-round-btn svg {
+  width: 16px;
+  height: 16px;
 }
 
-#chat-history-btn {
+.claude-round-btn:active,
+.claude-model-pill:active {
+  background: var(--surface);
+}
+
+.claude-model-pill {
+  display: flex;
+  align-items: center;
+  gap: 5px;
   background: none;
-  color: var(--muted);
+  border: 1px solid var(--line-strong);
+  border-radius: 18px;
+  padding: 7px 12px;
+  color: var(--fg);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
 }
 
-#chat-history-btn:hover {
-  color: var(--fg);
+.claude-model-sub {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.claude-send-btn {
+  background: var(--fg);
+  border-color: var(--fg);
+  color: var(--bg);
+}
+
+.claude-send-btn:active {
+  background: var(--fg);
+  opacity: 0.8;
 }
 
 /* ==========================================================================
-   Chat history panel
+   Claude sidebar drawer
    ========================================================================== */
 
-.chat-history-overlay {
+.claude-sidebar-overlay {
   position: fixed;
   inset: 0;
-  background: var(--bg);
   z-index: 9999;
   display: flex;
-  flex-direction: column;
+  background: rgba(0, 0, 0, 0.5);
   opacity: 1;
   transition: opacity 0.2s ease, display 0.2s allow-discrete;
 }
 
-.chat-history-overlay[hidden] {
+.claude-sidebar-overlay[hidden] {
   display: none;
   opacity: 0;
   transition: opacity 0.2s ease, display 0.2s allow-discrete;
 }
 
 @starting-style {
-  .chat-history-overlay:not([hidden]) {
+  .claude-sidebar-overlay:not([hidden]) {
     opacity: 0;
   }
 }
 
-.chat-history-header {
+.claude-sidebar {
+  width: 86%;
+  max-width: 340px;
+  height: 100%;
+  background: var(--card-bg);
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  transform: translateX(0);
+  transition: transform 0.25s ease;
+}
+
+@starting-style {
+  .claude-sidebar-overlay:not([hidden]) .claude-sidebar {
+    transform: translateX(-100%);
+  }
+}
+
+.claude-sidebar-scrim {
+  flex: 1;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+.claude-sidebar-top {
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 16px 12px;
-  font-size: 15px;
+  padding: 20px 18px 16px;
+}
+
+.claude-sidebar-logo {
+  font-size: 20px;
   font-weight: 700;
 }
 
-.chat-history-header button {
-  background: none;
-  border: none;
-  color: var(--fg);
-  cursor: pointer;
-  padding: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.chat-history-header button svg {
-  width: 20px;
-  height: 20px;
-}
-
-.chat-history-search-row {
+.claude-sidebar-nav {
   flex-shrink: 0;
-  padding: 4px 16px 14px;
-}
-
-.chat-history-search-row input {
-  width: 100%;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 20px;
-  padding: 10px 16px;
-  color: var(--fg);
-  font-size: 14px;
-  font-family: inherit;
-  outline: none;
-}
-
-.chat-history-search-row input::placeholder {
-  color: var(--muted);
-}
-
-.chat-history-list {
-  flex: 1;
-  overflow-y: auto;
-  padding: 0 8px 20px;
-}
-
-.chat-history-item {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  padding: 0 10px;
+}
+
+.claude-sidebar-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: none;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 10px;
+  color: var(--fg);
+  font-size: 15px;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.claude-sidebar-nav-item svg {
+  width: 19px;
+  height: 19px;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.claude-sidebar-nav-item:hover,
+.claude-sidebar-nav-item.active {
+  background: var(--surface);
+}
+
+.claude-sidebar-nav-item.active svg {
+  color: var(--fg);
+}
+
+.claude-sidebar-divider {
+  flex-shrink: 0;
+  height: 1px;
+  background: var(--line);
+  margin: 14px 18px;
+}
+
+.claude-sidebar-recents-label {
+  flex-shrink: 0;
+  padding: 0 20px 8px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.claude-sidebar-recents {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 10px 12px;
+}
+
+.chat-history-item {
+  display: block;
   width: 100%;
   background: none;
   border: none;
   text-align: left;
-  padding: 12px 12px;
+  padding: 10px 10px;
   border-radius: 10px;
   cursor: pointer;
   font-family: inherit;
@@ -2554,39 +2699,61 @@ button.auth-tab.active {
 }
 
 .chat-history-item-title {
+  display: block;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 400;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.chat-history-new-fab {
-  position: absolute;
-  bottom: 20px;
-  right: 16px;
+.claude-sidebar-bottom {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  padding-bottom: max(14px, env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line);
+}
+
+.claude-sidebar-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: none;
+  background: linear-gradient(135deg, #8b7cf6, #6d5bd0);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.claude-sidebar-newchat {
   display: flex;
   align-items: center;
   gap: 6px;
   background: var(--fg);
   color: var(--bg);
   border: none;
-  border-radius: 24px;
-  padding: 12px 20px;
+  border-radius: 20px;
+  padding: 10px 16px;
   font-size: 14px;
   font-weight: 700;
   font-family: inherit;
   cursor: pointer;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
 }
 
-.chat-history-new-fab:hover {
+.claude-sidebar-newchat:hover {
   opacity: 0.85;
 }
 
-.chat-history-new-fab svg {
-  width: 16px;
-  height: 16px;
+.claude-sidebar-newchat svg {
+  width: 15px;
+  height: 15px;
 }
 
 /* ---------- Auth pages: small centered "Download App" button ----------
@@ -2698,11 +2865,6 @@ button.auth-tab.active {
   color: var(--muted);
   padding: 8px 10px 4px;
   white-space: normal;
-}
-
-.chat-history-item-time {
-  font-size: 12px;
-  color: var(--muted);
 }
 
 .chat-history-empty {
