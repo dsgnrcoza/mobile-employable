@@ -29,6 +29,7 @@ import uuid
 import json
 from dotenv import load_dotenv
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, Response
+from werkzeug.security import generate_password_hash
 
 import db
 import auth
@@ -89,6 +90,43 @@ def _ensure_db():
     if not _db_initialized:
         db.init_db()
         _db_initialized = True
+
+
+# Sign-up/login is bypassed for now (per product direction while the
+# redesign is in progress) -- every request is auto-logged-in as one
+# shared guest account instead, created once (idempotently -- looked
+# up by its fixed username, never re-inserted) with the terms/
+# onboarding gates pre-satisfied so it never gets redirected into either
+# of those flows. The actual signup/login routes and login_required
+# decorator are untouched underneath this, so restoring real auth later
+# is just a matter of removing this one hook.
+_GUEST_USERNAME = "guest"
+
+
+def _get_or_create_guest_user():
+    user = db.get_user_by_username(_GUEST_USERNAME)
+    if user:
+        return user
+    user_id = db.create_user(
+        _GUEST_USERNAME,
+        generate_password_hash(uuid.uuid4().hex),
+        auth.SECURITY_QUESTIONS[0],
+        generate_password_hash(uuid.uuid4().hex),
+        full_name="there",
+    )
+    db.set_disclaimer_accepted(user_id)
+    db.set_documents_confirmed(user_id, "")
+    return db.get_user_by_id(user_id)
+
+
+@app.before_request
+def _auto_guest_login():
+    if request.endpoint in ("static", "service_worker", "android_asset_links"):
+        return
+    if auth.current_user() is not None:
+        return
+    guest = _get_or_create_guest_user()
+    auth.log_in_user(guest["id"])
 
 
 # Endpoints reachable even before a user has accepted the terms
@@ -506,9 +544,47 @@ def api_onboarding_confirm():
 @app.route("/dashboard")
 @auth.login_required
 def dashboard():
+    # Now the new Claude-style chat home screen (see home.html) instead
+    # of the old 3-tab dashboard -- kept at this same route/endpoint
+    # name since every login/onboarding redirect in this file targets
+    # url_for("dashboard"). The old dashboard.html template (Cubic-Metric
+    # score, CV Workshop, etc.) is untouched on disk, just no longer
+    # rendered from here.
     user = auth.current_user()
-    state = pipeline.get_dashboard_state(user["id"])
-    return render_template("dashboard.html", state=state)
+    avatar_path = user.get("avatar_path") or ""
+    if avatar_path.startswith("data:"):
+        avatar_url = avatar_path
+    elif avatar_path:
+        avatar_url = f"/static/{avatar_path}"
+    else:
+        avatar_url = ""
+    profile = {
+        "full_name": user.get("full_name") or "",
+        "avatar_url": avatar_url,
+    }
+    return render_template("home.html", profile=profile)
+
+
+# ---------------- New tool sections (Qualify / Builder / Trackers / Notes) ----------------
+# All 4 are brand-new, not yet built out -- these render a shared
+# placeholder page so the drawer's navigation is fully real and
+# clickable tonight, ahead of each tool actually getting built.
+
+_TOOL_STUBS = {
+    "qualify": {"title": "Qualify", "blurb": "This is where Qualify will live."},
+    "builder": {"title": "Builder", "blurb": "This is where Builder will live."},
+    "trackers": {"title": "Trackers", "blurb": "This is where Trackers will live."},
+    "notes": {"title": "Notes", "blurb": "This is where Notes will live."},
+}
+
+
+@app.route("/tool/<name>")
+@auth.login_required
+def tool_stub(name):
+    tool = _TOOL_STUBS.get(name)
+    if not tool:
+        return redirect(url_for("dashboard"))
+    return render_template("tool_stub.html", tool=tool, tool_name=name)
 
 
 @app.route("/api/dashboard-state")
