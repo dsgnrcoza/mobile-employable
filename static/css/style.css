@@ -5074,3 +5074,90 @@ button.auth-tab.active {
   line-height: 1.45;
   margin: 0 0 10px;
 }
+
+/* ==========================================================================
+   First-time coach-mark tour (sequential, one step visible at a time)
+   ========================================================================== */
+
+.tour-line {
+  position: fixed;
+  background: var(--fg);
+  z-index: 10000;
+  opacity: 0;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  pointer-events: none;
+}
+
+.tour-line-down {
+  width: 2px;
+  transform: scaleY(0);
+  transform-origin: top;
+}
+
+.tour-line-down.is-visible {
+  opacity: 0.6;
+  transform: scaleY(1);
+}
+
+.tour-line-up {
+  width: 2px;
+  transform: scaleY(0);
+  transform-origin: bottom;
+}
+
+.tour-line-up.is-visible {
+  opacity: 0.6;
+  transform: scaleY(1);
+}
+
+.tour-line-right {
+  height: 2px;
+  transform: scaleX(0);
+  transform-origin: left;
+}
+
+.tour-line-right.is-visible {
+  opacity: 0.6;
+  transform: scaleX(1);
+}
+
+.tour-tooltip {
+  position: fixed;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 220px;
+  background: var(--card-bg);
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  padding: 12px 14px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.tour-tooltip.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.tour-tooltip-text {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--fg);
+  margin: 0;
+}
+
+.tour-tooltip-got-it {
+  align-self: flex-start;
+  padding: 6px 14px;
+  font-size: 13px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tour-line, .tour-tooltip {
+    transition: none;
+  }
+}

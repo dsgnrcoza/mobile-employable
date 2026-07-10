@@ -390,6 +390,8 @@
     if (!drawerEl.classList.contains("is-open")) {
       drawerEl.hidden = true;
       drawerBackdropEl.hidden = true;
+    } else {
+      maybeRunDrawerTour();
     }
   });
 
@@ -405,6 +407,39 @@
   document.getElementById("drawer-profile-btn").addEventListener("click", function () {
     window.location.href = "/notes";
   });
+
+  // ---------- First-time tours ----------
+  // Chat screen: runs once ever, the very first time this page loads.
+  // Drawer tools: runs once ever, the first time the drawer is opened.
+
+  if (window.runTour) {
+    window.runTour("tourChatSeen", [
+      { target: document.getElementById("home-ghost-btn"), text: "Start a brand new conversation anytime.", direction: "down" },
+      { target: document.getElementById("home-notepad-btn"), text: "Jump straight to your notes.", direction: "down" },
+      { target: document.getElementById("chat-attach-btn"), text: "Attach photos or files, or let the chat refer to your notes.", direction: "up" },
+    ]);
+  }
+
+  var drawerTourShown = false;
+  function maybeRunDrawerTour() {
+    if (drawerTourShown || !window.runTour) return;
+    drawerTourShown = true;
+    var toolRows = document.querySelectorAll(".drawer-tool-row");
+    // All 4 steps share one fixed landing spot, well clear of the row
+    // list, so the tooltip never covers the next tool while explaining
+    // the current one -- only the connecting line's length differs.
+    // Anchored to the always-present "Recents" label rather than the
+    // list itself, which fills in asynchronously and could still be
+    // empty (height 0) when this runs right after the drawer's open
+    // transition ends.
+    var landingTop = document.querySelector(".drawer-recents-label").getBoundingClientRect().bottom + 48;
+    window.runTour("tourDrawerSeen", [
+      { target: toolRows[0], text: "See if you qualify for a role you're eyeing, based on your real documents.", direction: "down", tooltipTop: landingTop },
+      { target: toolRows[1], text: "Draft a CV or cover letter from your documents.", direction: "down", tooltipTop: landingTop },
+      { target: toolRows[2], text: "Keep track of every role you've applied for.", direction: "down", tooltipTop: landingTop },
+      { target: toolRows[3], text: "Jot down notes the chat can refer to when you turn it on.", direction: "down", tooltipTop: landingTop },
+    ]);
+  }
 
   // ---------- Initial load ----------
 
