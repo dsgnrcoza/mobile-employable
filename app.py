@@ -566,15 +566,14 @@ def dashboard():
 
 
 # ---------------- New tool sections (Qualify / Builder / Trackers / Notes) ----------------
-# Qualify/Builder/Trackers are still brand-new/not built out -- these
-# render a shared placeholder page so the drawer's navigation is fully
-# real and clickable, ahead of each tool actually getting built. Notes
-# is a real, separate feature now (see /notes below).
+# Qualify/Builder are still brand-new/not built out -- these render a
+# shared placeholder page so the drawer's navigation is fully real and
+# clickable, ahead of each tool actually getting built. Notes and
+# Trackers are real, separate features now (see below).
 
 _TOOL_STUBS = {
     "qualify": {"title": "Qualify", "blurb": "This is where Qualify will live."},
     "builder": {"title": "Builder", "blurb": "This is where Builder will live."},
-    "trackers": {"title": "Trackers", "blurb": "This is where Trackers will live."},
 }
 
 
@@ -638,6 +637,64 @@ def api_update_note(note_id):
 def api_delete_note(note_id):
     user = auth.current_user()
     db.delete_note(note_id, user["id"])
+    return jsonify({"ok": True})
+
+
+# ---------------- Trackers ----------------
+
+@app.route("/trackers")
+@auth.login_required
+def trackers_page():
+    return render_template("trackers.html")
+
+
+@app.route("/api/trackers", methods=["GET"])
+@auth.login_required
+def api_get_trackers():
+    user = auth.current_user()
+    return jsonify({"ok": True, "trackers": db.get_trackers_for_user(user["id"])})
+
+
+@app.route("/api/trackers", methods=["POST"])
+@auth.login_required
+def api_create_tracker():
+    user = auth.current_user()
+    data = request.get_json(force=True)
+    tracker_id = db.create_tracker(
+        user["id"],
+        job_title=(data.get("job_title") or "").strip()[:200],
+        company=(data.get("company") or "").strip()[:200],
+        date_applied=(data.get("date_applied") or "").strip()[:20],
+        status=(data.get("status") or "applied").strip()[:20],
+        notes=(data.get("notes") or "").strip()[:5000],
+    )
+    return jsonify({"ok": True, "tracker": db.get_tracker(tracker_id, user["id"])})
+
+
+@app.route("/api/trackers/<int:tracker_id>", methods=["PUT"])
+@auth.login_required
+def api_update_tracker(tracker_id):
+    user = auth.current_user()
+    if not db.get_tracker(tracker_id, user["id"]):
+        return jsonify({"ok": False, "error": "Tracker entry not found."}), 404
+    data = request.get_json(force=True)
+    db.update_tracker(
+        tracker_id,
+        user["id"],
+        job_title=(data.get("job_title") or "").strip()[:200],
+        company=(data.get("company") or "").strip()[:200],
+        date_applied=(data.get("date_applied") or "").strip()[:20],
+        status=(data.get("status") or "applied").strip()[:20],
+        notes=(data.get("notes") or "").strip()[:5000],
+    )
+    return jsonify({"ok": True, "tracker": db.get_tracker(tracker_id, user["id"])})
+
+
+@app.route("/api/trackers/<int:tracker_id>", methods=["DELETE"])
+@auth.login_required
+def api_delete_tracker(tracker_id):
+    user = auth.current_user()
+    db.delete_tracker(tracker_id, user["id"])
     return jsonify({"ok": True})
 
 

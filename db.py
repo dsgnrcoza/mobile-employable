@@ -254,6 +254,18 @@ def init_db():
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS trackers (
+            id {_PK},
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            job_title TEXT NOT NULL DEFAULT '',
+            company TEXT NOT NULL DEFAULT '',
+            date_applied TEXT NOT NULL DEFAULT '',
+            status TEXT NOT NULL DEFAULT 'applied',
+            notes TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
     """)
     conn.commit()
 
@@ -969,6 +981,66 @@ def delete_note(note_id, user_id):
     conn = get_db()
     try:
         conn.execute("DELETE FROM notes WHERE id = ? AND user_id = ?", (note_id, user_id))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def create_tracker(user_id, job_title="", company="", date_applied="", status="applied", notes=""):
+    conn = get_db()
+    try:
+        now = now_iso()
+        cur = conn.execute(
+            "INSERT INTO trackers (user_id, job_title, company, date_applied, status, notes, created_at, updated_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (user_id, job_title, company, date_applied, status, notes, now, now),
+        )
+        conn.commit()
+        return cur.lastrowid
+    finally:
+        conn.close()
+
+
+def get_trackers_for_user(user_id):
+    conn = get_db()
+    try:
+        rows = conn.execute(
+            "SELECT * FROM trackers WHERE user_id = ? ORDER BY date_applied DESC, id DESC",
+            (user_id,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def get_tracker(tracker_id, user_id):
+    conn = get_db()
+    try:
+        row = conn.execute(
+            "SELECT * FROM trackers WHERE id = ? AND user_id = ?", (tracker_id, user_id)
+        ).fetchone()
+        return dict(row) if row else None
+    finally:
+        conn.close()
+
+
+def update_tracker(tracker_id, user_id, job_title, company, date_applied, status, notes):
+    conn = get_db()
+    try:
+        conn.execute(
+            "UPDATE trackers SET job_title = ?, company = ?, date_applied = ?, status = ?, notes = ?, "
+            "updated_at = ? WHERE id = ? AND user_id = ?",
+            (job_title, company, date_applied, status, notes, now_iso(), tracker_id, user_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def delete_tracker(tracker_id, user_id):
+    conn = get_db()
+    try:
+        conn.execute("DELETE FROM trackers WHERE id = ? AND user_id = ?", (tracker_id, user_id))
         conn.commit()
     finally:
         conn.close()

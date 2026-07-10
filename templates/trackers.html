@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Trackers — Employable{% endblock %}
+{% block content %}
+<div class="trackers-shell">
+  <header class="stub-header">
+    <a href="{{ url_for('dashboard') }}" class="stub-back-btn" aria-label="Back">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+    </a>
+    <span class="stub-header-title">Trackers</span>
+    <button type="button" class="notes-new-btn" id="tracker-new-btn" aria-label="New tracker entry">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    </button>
+  </header>
+
+  <div class="trackers-empty" id="trackers-empty" hidden>
+    <p>No applications tracked yet — tap + to add one.</p>
+  </div>
+
+  <div class="trackers-list" id="trackers-list"></div>
+</div>
+
+<div class="tracker-editor-overlay" id="tracker-editor-overlay" hidden>
+  <div class="tracker-editor-sheet">
+    <div class="tracker-editor-header">
+      <button type="button" class="stub-back-btn" id="tracker-editor-close-btn" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+      <span class="tracker-editor-title">Application</span>
+      <button type="button" class="note-editor-delete-btn" id="tracker-editor-delete-btn" aria-label="Delete entry" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+      </button>
+    </div>
+
+    <input type="text" id="tracker-job-title-input" class="tracker-field-input" placeholder="Job title" autocomplete="off">
+    <input type="text" id="tracker-company-input" class="tracker-field-input" placeholder="Company" autocomplete="off">
+
+    <div class="tracker-field-row">
+      <label class="tracker-field-label" for="tracker-date-input">Date applied</label>
+      <input type="date" id="tracker-date-input" class="tracker-date-input">
+    </div>
+
+    <div class="tracker-status-row" id="tracker-status-row">
+      <button type="button" class="tracker-status-chip" data-status="applied">Applied</button>
+      <button type="button" class="tracker-status-chip" data-status="interviewing">Interviewing</button>
+      <button type="button" class="tracker-status-chip" data-status="offer">Offer</button>
+      <button type="button" class="tracker-status-chip" data-status="rejected">Rejected</button>
+    </div>
+
+    <textarea id="tracker-notes-input" class="tracker-notes-input" placeholder="Notes (optional)"></textarea>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/trackers.js') }}"></script>
+{% endblock %}
