@@ -447,41 +447,110 @@
     </div>
   </div>
 
-  <!-- AI chat view -->
-  <div class="dash-view dash-view-full" id="dash-view-chat" hidden>
-    <div class="chat-messages" id="chat-messages">
-      <div class="chat-msg chat-msg-bot">Hey! I'm here to help with the app, your documents, or anything about getting hired. What's up?</div>
+  <!-- AI chat view — replica of the Claude mobile app home/chat screen -->
+  <div class="dash-view dash-view-full claude-view" id="dash-view-chat" hidden>
+
+    <div class="claude-topbar">
+      <button type="button" class="claude-icon-btn" id="chat-history-btn" aria-label="Open menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="14" y2="17"/></svg>
+      </button>
+      <button type="button" class="claude-icon-btn" id="claude-newchat-topbtn" aria-label="New chat">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17.5c-4.4 0-8-2.9-8-6.5s3.6-6.5 8-6.5 8 2.9 8 6.5c0 1.5-.6 2.9-1.6 4 .2.9.7 1.7 1.5 2.4-1.2.3-2.5 0-3.5-.6-1.3.5-2.7.7-4.4.7z"/></svg>
+      </button>
     </div>
-    <div class="chat-input-row">
-      <button type="button" id="chat-history-btn" aria-label="Chat history">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 2.6-6.4"/><polyline points="3 4 3 9 8 9"/><polyline points="12 7 12 12 15 14"/></svg>
-      </button>
-      <input type="text" id="chat-input" placeholder="Ask me anything…" autocomplete="off">
-      <button type="button" id="chat-send-btn" aria-label="Send">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-      </button>
+
+    <!-- Empty-state greeting, shown until the first message is sent -->
+    <div class="claude-home" id="claude-home">
+      <svg class="claude-sunburst" viewBox="0 0 100 100" aria-hidden="true">
+        <g fill="#d97757">
+          <path d="M50 50 C47 40, 44 25, 50 8 C56 25, 53 40, 50 50 Z"/>
+          <path d="M50 50 C47 40, 44 25, 50 8 C56 25, 53 40, 50 50 Z" transform="rotate(30 50 50)"/>
+          <path d="M50 50 C47 40, 44 25, 50 8 C56 25, 53 40, 50 50 Z" transform="rotate(60 50 50)"/>
+          <path d="M50 50 C47 40, 44 25, 50 8 C56 25, 53 40, 50 50 Z" transform="rotate(90 50 50)"/>
+          <path d="M50 50 C47 40, 44 25, 50 8 C56 25, 53 40, 50 50 Z" transform="rotate(120 50 50)"/>
+          <path d="M50 50 C47 40, 44 25, 50 8 C56 25, 53 40, 50 50 Z" transform="rotate(150 50 50)"/>
+          <path d="M50 50 C47 40, 44 25, 50 8 C56 25, 53 40, 50 50 Z" transform="rotate(180 50 50)"/>
+          <path d="M50 50 C47 40, 44 25, 50 8 C56 25, 53 40, 50 50 Z" transform="rotate(210 50 50)"/>
+          <path d="M50 50 C47 40, 44 25, 50 8 C56 25, 53 40, 50 50 Z" transform="rotate(240 50 50)"/>
+          <path d="M50 50 C47 40, 44 25, 50 8 C56 25, 53 40, 50 50 Z" transform="rotate(270 50 50)"/>
+          <path d="M50 50 C47 40, 44 25, 50 8 C56 25, 53 40, 50 50 Z" transform="rotate(300 50 50)"/>
+          <path d="M50 50 C47 40, 44 25, 50 8 C56 25, 53 40, 50 50 Z" transform="rotate(330 50 50)"/>
+        </g>
+      </svg>
+      <h1 class="claude-greeting" id="claude-greeting">Hi there</h1>
+    </div>
+
+    <div class="chat-messages" id="chat-messages" hidden></div>
+
+    <div class="claude-input-bar">
+      <div class="claude-input-card">
+        <input type="text" id="chat-input" class="claude-input-field" placeholder="Chat with Claude…" autocomplete="off">
+        <div class="claude-input-toolbar">
+          <button type="button" class="claude-round-btn" id="claude-plus-btn" aria-label="Add">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+          <button type="button" class="claude-model-pill" id="claude-model-btn">
+            <span>Sonnet 5</span><span class="claude-model-sub">Thinking</span>
+          </button>
+          <div class="claude-input-toolbar-spacer"></div>
+          <button type="button" class="claude-round-btn" id="claude-mic-btn" aria-label="Voice input">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3z"/><path d="M19 11a7 7 0 0 1-14 0"/><line x1="12" y1="18" x2="12" y2="22"/></svg>
+          </button>
+          <button type="button" class="claude-round-btn claude-send-btn" id="chat-send-btn" aria-label="Send">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="12" x2="10" y2="12"/><line x1="9" y1="7" x2="9" y2="17"/><line x1="13" y1="4" x2="13" y2="20"/><line x1="17" y1="9" x2="17" y2="15"/></svg>
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 
-  <!-- Chat history panel -->
-  <div class="chat-history-overlay" id="chat-history-overlay" hidden>
-    <div class="chat-history-header">
-      <button type="button" class="chat-close-btn" id="chat-history-close-btn" aria-label="Close">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
-      <span>Chat History</span>
-      <button type="button" id="chat-history-new-btn" aria-label="New chat">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      </button>
+  <!-- Sidebar drawer — replica of the Claude mobile app menu -->
+  <div class="claude-sidebar-overlay" id="chat-history-overlay" hidden>
+    <div class="claude-sidebar" id="claude-sidebar">
+      <div class="claude-sidebar-top">
+        <span class="claude-sidebar-logo">Claude</span>
+        <button type="button" class="chat-close-btn" id="chat-history-close-btn" aria-label="Close menu">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><line x1="9.5" y1="4" x2="9.5" y2="20"/></svg>
+        </button>
+      </div>
+
+      <nav class="claude-sidebar-nav">
+        <button type="button" class="claude-sidebar-nav-item active" data-section="chats">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H8l-4 4V5z"/></svg>
+          <span>Chats</span>
+        </button>
+        <button type="button" class="claude-sidebar-nav-item" data-section="projects">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7z"/></svg>
+          <span>Projects</span>
+        </button>
+        <button type="button" class="claude-sidebar-nav-item" data-section="artifacts">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 15 6 12 9 9 6Z"/><path d="M12 15 15 18 12 21 9 18Z"/><rect x="3.3" y="12.3" width="5.4" height="5.4" rx="1" transform="rotate(45 6 15)"/></svg>
+          <span>Artifacts</span>
+        </button>
+        <button type="button" class="claude-sidebar-nav-item" data-section="code">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 3 12 9 6"/><polyline points="15 6 21 12 15 18"/></svg>
+          <span>Code</span>
+        </button>
+        <button type="button" class="claude-sidebar-nav-item" data-section="dispatch">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="3" width="12" height="18" rx="2"/><line x1="10" y1="18" x2="14" y2="18"/></svg>
+          <span>Dispatch</span>
+        </button>
+      </nav>
+
+      <div class="claude-sidebar-divider"></div>
+
+      <div class="claude-sidebar-recents-label">Recents</div>
+      <div class="chat-history-list claude-sidebar-recents" id="chat-history-list"></div>
+
+      <div class="claude-sidebar-bottom">
+        <button type="button" class="claude-sidebar-avatar" id="claude-sidebar-avatar-btn" aria-label="Profile"></button>
+        <button type="button" class="claude-sidebar-newchat" id="chat-history-new-btn-fab">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          New chat
+        </button>
+      </div>
     </div>
-    <div class="chat-history-search-row">
-      <input type="text" id="chat-history-search" placeholder="Search chats">
-    </div>
-    <div class="chat-history-list" id="chat-history-list"></div>
-    <button type="button" class="chat-history-new-fab" id="chat-history-new-btn-fab">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      New Chat
-    </button>
+    <button type="button" class="claude-sidebar-scrim" id="claude-sidebar-scrim" aria-label="Close menu"></button>
   </div>
 
   <!-- Bottom tab bar: always visible, switches between the 4 views above -->

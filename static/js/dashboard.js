@@ -742,6 +742,10 @@
     document.querySelectorAll(".tabbar-btn").forEach(function (btn) {
       btn.classList.toggle("active", btn.dataset.view === name);
     });
+    // The Claude-style chat screen has its own topbar (hamburger + new
+    // chat), so the regular dashboard header is redundant there.
+    var dashHeader = document.getElementById("dash-header");
+    if (dashHeader) dashHeader.hidden = name === "chat";
     if (name === "chat") scrollChatToBottom();
     if (name === "cv") loadCvContent();
   }
@@ -1647,9 +1651,34 @@
   var chatMessagesEl = document.getElementById("chat-messages");
   var chatInput = document.getElementById("chat-input");
   var chatSendBtn = document.getElementById("chat-send-btn");
+  var claudeHomeEl = document.getElementById("claude-home");
   var chatHistory = []; // [{role, text}]
   var chatConversationId = null;
   var chatSending = false;
+
+  // Claude's home screen (greeting + centered logo) shows until the
+  // first message exists, then gives way to the scrolling transcript --
+  // matches the replica screenshot, where the two never appear together.
+  function updateChatViewMode() {
+    var hasMessages = chatHistory.length > 0;
+    claudeHomeEl.hidden = hasMessages;
+    chatMessagesEl.hidden = !hasMessages;
+  }
+
+  function computeGreeting() {
+    var now = new Date();
+    var day = now.getDay();
+    var hour = now.getHours();
+    var name = firstName();
+    if (day === 5) return "Happy Friday, " + name;
+    if (day === 0 || day === 6) return "Happy Weekend, " + name;
+    if (hour < 12) return "Good morning, " + name;
+    if (hour < 18) return "Good afternoon, " + name;
+    return "Good evening, " + name;
+  }
+
+  var claudeGreetingEl = document.getElementById("claude-greeting");
+  if (claudeGreetingEl) claudeGreetingEl.textContent = computeGreeting();
 
   function scrollChatToBottom() {
     chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
@@ -1742,8 +1771,9 @@
     var text = chatInput.value.trim();
     if (!text || chatSending) return;
     chatInput.value = "";
-    appendChatMessage("user", text);
     chatHistory.push({ role: "user", text: text });
+    updateChatViewMode();
+    appendChatMessage("user", text);
 
     var typingEl = document.createElement("div");
     typingEl.className = "chat-msg-typing";
@@ -1798,8 +1828,11 @@
           chatMessagesEl.innerHTML = "";
           chatHistory = [];
           msgData.messages.forEach(function (m) {
-            appendChatMessage(m.role === "user" ? "user" : "assistant", m.text);
             chatHistory.push({ role: m.role, text: m.text });
+          });
+          updateChatViewMode();
+          msgData.messages.forEach(function (m) {
+            appendChatMessage(m.role === "user" ? "user" : "assistant", m.text);
           });
         });
     })
@@ -1807,57 +1840,30 @@
 
   // ---------- Chat history panel ----------
 
-  function formatRelativeTime(isoString) {
-    var then = new Date(isoString).getTime();
-    if (isNaN(then)) return "";
-    var diffSec = Math.max(0, Math.round((Date.now() - then) / 1000));
-    if (diffSec < 60) return "Just now";
-    var diffMin = Math.round(diffSec / 60);
-    if (diffMin < 60) return diffMin + (diffMin === 1 ? " minute ago" : " minutes ago");
-    var diffHr = Math.round(diffMin / 60);
-    if (diffHr < 24) return diffHr + (diffHr === 1 ? " hour ago" : " hours ago");
-    var diffDay = Math.round(diffHr / 24);
-    if (diffDay < 7) return diffDay + (diffDay === 1 ? " day ago" : " days ago");
-    var diffWeek = Math.round(diffDay / 7);
-    if (diffWeek < 5) return diffWeek + (diffWeek === 1 ? " week ago" : " weeks ago");
-    var diffMonth = Math.round(diffDay / 30);
-    return diffMonth + (diffMonth === 1 ? " month ago" : " months ago");
-  }
-
   var chatHistoryOverlay = document.getElementById("chat-history-overlay");
   var chatHistoryBtn = document.getElementById("chat-history-btn");
   var chatHistoryCloseBtn = document.getElementById("chat-history-close-btn");
-  var chatHistoryNewBtn = document.getElementById("chat-history-new-btn");
   var chatHistoryNewBtnFab = document.getElementById("chat-history-new-btn-fab");
   var chatHistoryListEl = document.getElementById("chat-history-list");
-  var chatHistorySearchInput = document.getElementById("chat-history-search");
   var chatHistoryConversations = [];
 
-  function renderChatHistoryList(filterText) {
-    var q = (filterText || "").trim().toLowerCase();
-    var items = chatHistoryConversations.filter(function (c) {
-      return !q || (c.title || "").toLowerCase().indexOf(q) !== -1;
-    });
+  function renderChatHistoryList() {
     chatHistoryListEl.innerHTML = "";
-    if (!items.length) {
+    if (!chatHistoryConversations.length) {
       var empty = document.createElement("div");
       empty.className = "chat-history-empty";
-      empty.textContent = q ? "No chats match that search." : "No conversations yet.";
+      empty.textContent = "No conversations yet.";
       chatHistoryListEl.appendChild(empty);
       return;
     }
-    items.forEach(function (c) {
+    chatHistoryConversations.forEach(function (c) {
       var row = document.createElement("button");
       row.type = "button";
       row.className = "chat-history-item" + (c.id === chatConversationId ? " active" : "");
       var title = document.createElement("span");
       title.className = "chat-history-item-title";
       title.textContent = c.title || "New conversation";
-      var time = document.createElement("span");
-      time.className = "chat-history-item-time";
-      time.textContent = formatRelativeTime(c.updated_at || c.created_at);
       row.appendChild(title);
-      row.appendChild(time);
       row.addEventListener("click", function () { loadConversation(c.id); });
       chatHistoryListEl.appendChild(row);
     });
@@ -1872,8 +1878,11 @@
         chatMessagesEl.innerHTML = "";
         chatHistory = [];
         (data.messages || []).forEach(function (m) {
-          appendChatMessage(m.role === "user" ? "user" : "assistant", m.text);
           chatHistory.push({ role: m.role, text: m.text });
+        });
+        updateChatViewMode();
+        (data.messages || []).forEach(function (m) {
+          appendChatMessage(m.role === "user" ? "user" : "assistant", m.text);
         });
         chatHistoryOverlay.hidden = true;
         scrollChatToBottom();
@@ -1882,34 +1891,65 @@
   }
 
   function openChatHistory() {
-    chatHistorySearchInput.value = "";
     fetch("/api/chat/conversations")
       .then(function (r) { return r.json(); })
       .then(function (data) {
         chatHistoryConversations = (data.ok && data.conversations) || [];
-        renderChatHistoryList("");
+        renderChatHistoryList();
       })
       .catch(function () {
         chatHistoryConversations = [];
-        renderChatHistoryList("");
+        renderChatHistoryList();
       });
     chatHistoryOverlay.hidden = false;
   }
 
   chatHistoryBtn.addEventListener("click", openChatHistory);
   chatHistoryCloseBtn.addEventListener("click", function () { chatHistoryOverlay.hidden = true; });
-  chatHistorySearchInput.addEventListener("input", function () { renderChatHistoryList(chatHistorySearchInput.value); });
+
+  var claudeSidebarScrim = document.getElementById("claude-sidebar-scrim");
+  if (claudeSidebarScrim) {
+    claudeSidebarScrim.addEventListener("click", function () { chatHistoryOverlay.hidden = true; });
+  }
 
   function startNewChat() {
     chatConversationId = null;
     chatHistory = [];
     chatMessagesEl.innerHTML = "";
-    appendChatMessage("assistant", "Hey! I'm here to help with the app, your documents, or anything about getting hired. What's up?");
+    updateChatViewMode();
     chatHistoryOverlay.hidden = true;
   }
 
-  chatHistoryNewBtn.addEventListener("click", startNewChat);
   if (chatHistoryNewBtnFab) chatHistoryNewBtnFab.addEventListener("click", startNewChat);
+
+  var claudeNewChatTopBtn = document.getElementById("claude-newchat-topbtn");
+  if (claudeNewChatTopBtn) claudeNewChatTopBtn.addEventListener("click", startNewChat);
+
+  // Sidebar nav rows: only "Chats" is a real, implemented view for now --
+  // the rest just take the visual selected state and close the drawer,
+  // matching the replica until they're wired up to real features.
+  var claudeSidebarNavItems = Array.prototype.slice.call(document.querySelectorAll(".claude-sidebar-nav-item"));
+  claudeSidebarNavItems.forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      claudeSidebarNavItems.forEach(function (b) { b.classList.toggle("active", b === btn); });
+      chatHistoryOverlay.hidden = true;
+    });
+  });
+
+  var claudeSidebarAvatarBtn = document.getElementById("claude-sidebar-avatar-btn");
+  if (claudeSidebarAvatarBtn) {
+    if (profile.avatar_url) {
+      claudeSidebarAvatarBtn.style.backgroundImage = "url('" + profile.avatar_url + "')";
+      claudeSidebarAvatarBtn.style.backgroundSize = "cover";
+      claudeSidebarAvatarBtn.style.backgroundPosition = "center";
+    } else {
+      claudeSidebarAvatarBtn.textContent = firstName().charAt(0).toUpperCase();
+    }
+    claudeSidebarAvatarBtn.addEventListener("click", function () {
+      chatHistoryOverlay.hidden = true;
+      openActionSheet("profile");
+    });
+  }
 
   // ---------- CV Workshop: Google-Docs-style editor ----------
 
