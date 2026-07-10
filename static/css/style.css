@@ -3711,14 +3711,8 @@ button.auth-tab.active {
 }
 
 /* ==========================================================================
-   Tool stub pages (Qualify / Builder / Trackers / Notes placeholders)
+   Shared sub-page header (Notes / Trackers / Builder / Qualify)
    ========================================================================== */
-
-.stub-shell {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-}
 
 .stub-header {
   flex-shrink: 0;
@@ -3760,39 +3754,6 @@ button.auth-tab.active {
 .stub-header-spacer {
   width: 40px;
   flex-shrink: 0;
-}
-
-.stub-body {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 18px;
-  padding: 24px;
-  text-align: center;
-}
-
-.stub-icon {
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  border: 1px solid var(--line-strong);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--fg);
-}
-
-.stub-icon svg {
-  width: 30px;
-  height: 30px;
-}
-
-.stub-blurb {
-  color: var(--muted);
-  font-size: 14px;
-  max-width: 260px;
 }
 
 /* ==========================================================================
@@ -4781,6 +4742,117 @@ button.auth-tab.active {
   display: flex;
   gap: 10px;
   padding: 14px 0 4px;
+}
+
+/* ==========================================================================
+   Qualify
+   ========================================================================== */
+
+.qualify-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.qualify-upload-block {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 24px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.qualify-upload-block[hidden] {
+  display: none;
+}
+
+.qualify-upload-block svg {
+  width: 40px;
+  height: 40px;
+}
+
+.qualify-upload-block p {
+  font-size: 14px;
+  max-width: 260px;
+}
+
+.qualify-upload-status {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.qualify-upload-status[hidden] {
+  display: none;
+}
+
+.qualify-form-block {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 8px 16px 24px;
+}
+
+.qualify-form-block[hidden] {
+  display: none;
+}
+
+.qualify-form-block .btn {
+  margin-top: 16px;
+}
+
+.qualify-result {
+  margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.qualify-result[hidden] {
+  display: none;
+}
+
+.qualify-verdict-badge {
+  align-self: flex-start;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 5px 14px;
+  border-radius: 999px;
+}
+
+.qualify-verdict-badge[hidden] {
+  display: none;
+}
+
+.qualify-verdict-yes { color: #2dd4bf; background: color-mix(in srgb, #2dd4bf 16%, transparent); }
+.qualify-verdict-no { color: #f59e0b; background: color-mix(in srgb, #f59e0b 16%, transparent); }
+
+.qualify-headline {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.qualify-section[hidden] {
+  display: none;
+}
+
+.qualify-section h3 {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  margin: 0 0 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.qualify-section p {
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0;
 }
 
 /* ==========================================================================

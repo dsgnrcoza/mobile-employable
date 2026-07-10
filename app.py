@@ -566,23 +566,92 @@ def dashboard():
 
 
 # ---------------- New tool sections (Qualify / Builder / Trackers / Notes) ----------------
-# Qualify is still brand-new/not built out -- this renders a shared
-# placeholder page so the drawer's navigation is fully real and
-# clickable, ahead of it actually getting built. Builder, Notes, and
-# Trackers are real, separate features now (see below).
 
-_TOOL_STUBS = {
-    "qualify": {"title": "Qualify", "blurb": "This is where Qualify will live."},
-}
-
-
-@app.route("/tool/<name>")
+@app.route("/qualify")
 @auth.login_required
-def tool_stub(name):
-    tool = _TOOL_STUBS.get(name)
-    if not tool:
-        return redirect(url_for("dashboard"))
-    return render_template("tool_stub.html", tool=tool, tool_name=name)
+def qualify_page():
+    user = auth.current_user()
+    has_documents = len(db.get_documents_for_user(user["id"])) > 0
+    return render_template("qualify.html", has_documents=has_documents)
+
+
+@app.route("/api/qualify", methods=["POST"])
+@auth.login_required
+def api_qualify():
+    from openai import OpenAI
+    user = auth.current_user()
+    data = request.get_json(force=True)
+    job_title = (data.get("job_title") or "").strip()[:200]
+    salary_expectation = (data.get("salary_expectation") or "").strip()[:100]
+    location = (data.get("location") or "").strip()[:200]
+    if not job_title:
+        return jsonify({"ok": False, "error": "Missing job title."}), 400
+
+    full_docs = db.get_documents_for_user(user["id"])
+    doc_texts = []
+    total_chars = 0
+    DOC_CHAR_CAP = 3000
+    TOTAL_CHAR_CAP = 20000
+    for d in full_docs:
+        if total_chars >= TOTAL_CHAR_CAP:
+            break
+        try:
+            txt = (d.get("content") or "").strip()
+            if not txt and d.get("stored_path") and os.path.exists(d["stored_path"]):
+                txt = (extract.extract_text(d["stored_path"]) or "").strip()
+            if txt:
+                snippet = txt[:DOC_CHAR_CAP]
+                doc_texts.append(f"[{d['filename']}]\n{snippet}")
+                total_chars += len(snippet)
+        except Exception:
+            pass
+    doc_content_block = "\n\n---\n\n".join(doc_texts) if doc_texts else "No documents uploaded yet."
+
+    system = (
+        "You are a blunt, accurate career-fit evaluator built into the Employable platform. "
+        "Given a role the user is considering and the real content of their uploaded documents "
+        "(CV, certificates, references), decide whether they are currently a strong candidate for "
+        "that specific role, at that specific salary expectation if one is given.\n\n"
+        "GROUNDING: base your verdict only on what's actually in the documents below. Never invent "
+        "experience, skills, or qualifications that aren't there. If there isn't enough real document "
+        "content to judge, say so directly in 'reasoning' and set 'qualifies' to false.\n\n"
+        "OUTPUT RULES — return a JSON object with exactly these keys:\n"
+        "- 'qualifies': true or false.\n"
+        "- 'headline': one short, direct sentence stating the verdict (e.g. 'You're a strong match for this role.' "
+        "or 'You're not quite there yet for this role.').\n"
+        "- 'reasoning': 2-4 sentences explaining exactly why, citing specifics from their real documents "
+        "(name the actual skills/experience/employers that support or undercut the verdict).\n"
+        "- 'next_steps': 2-4 sentences. If they qualify, explain how to double down and stand out further "
+        "for this specific role. If they don't qualify yet, give concrete, specific steps to close the gap.\n\n"
+        "Use **double asterisks** to bold a key phrase or two per section, nothing else. No markdown "
+        "headers, no bullet lists, no code fences."
+    )
+    prompt = (
+        f"Role the user wants to qualify for: {job_title}\n"
+        f"Salary expectation: {salary_expectation or 'Not specified'}\n"
+        f"Location: {location or 'Not specified'}\n\n"
+        f"Full content of the user's actual uploaded documents:\n{doc_content_block}"
+    )
+
+    try:
+        client = OpenAI(api_key=analyzer.get_openai_api_key(), timeout=analyzer.get_client_timeout(), max_retries=analyzer.CLIENT_MAX_RETRIES)
+        resp = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "system", "content": system}, {"role": "user", "content": prompt}],
+            max_tokens=900,
+            response_format={"type": "json_object"},
+        )
+        raw = resp.choices[0].message.content.strip()
+        parsed = json.loads(raw)
+        return jsonify({
+            "ok": True,
+            "qualifies": bool(parsed.get("qualifies")),
+            "headline": parsed.get("headline", ""),
+            "reasoning": parsed.get("reasoning", ""),
+            "next_steps": parsed.get("next_steps", ""),
+        })
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
 
 
 # ---------------- Notes ----------------
