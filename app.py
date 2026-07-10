@@ -566,15 +566,15 @@ def dashboard():
 
 
 # ---------------- New tool sections (Qualify / Builder / Trackers / Notes) ----------------
-# All 4 are brand-new, not yet built out -- these render a shared
-# placeholder page so the drawer's navigation is fully real and
-# clickable tonight, ahead of each tool actually getting built.
+# Qualify/Builder/Trackers are still brand-new/not built out -- these
+# render a shared placeholder page so the drawer's navigation is fully
+# real and clickable, ahead of each tool actually getting built. Notes
+# is a real, separate feature now (see /notes below).
 
 _TOOL_STUBS = {
     "qualify": {"title": "Qualify", "blurb": "This is where Qualify will live."},
     "builder": {"title": "Builder", "blurb": "This is where Builder will live."},
     "trackers": {"title": "Trackers", "blurb": "This is where Trackers will live."},
-    "notes": {"title": "Notes", "blurb": "This is where Notes will live."},
 }
 
 
@@ -585,6 +585,60 @@ def tool_stub(name):
     if not tool:
         return redirect(url_for("dashboard"))
     return render_template("tool_stub.html", tool=tool, tool_name=name)
+
+
+# ---------------- Notes ----------------
+
+@app.route("/notes")
+@auth.login_required
+def notes_page():
+    return render_template("notes.html")
+
+
+@app.route("/api/notes", methods=["GET"])
+@auth.login_required
+def api_get_notes():
+    user = auth.current_user()
+    return jsonify({"ok": True, "notes": db.get_notes_for_user(user["id"])})
+
+
+@app.route("/api/notes", methods=["POST"])
+@auth.login_required
+def api_create_note():
+    user = auth.current_user()
+    data = request.get_json(force=True)
+    note_id = db.create_note(
+        user["id"],
+        title=(data.get("title") or "").strip()[:200],
+        body=(data.get("body") or "").strip()[:20000],
+        color=(data.get("color") or "default").strip()[:20],
+    )
+    return jsonify({"ok": True, "note": db.get_note(note_id, user["id"])})
+
+
+@app.route("/api/notes/<int:note_id>", methods=["PUT"])
+@auth.login_required
+def api_update_note(note_id):
+    user = auth.current_user()
+    if not db.get_note(note_id, user["id"]):
+        return jsonify({"ok": False, "error": "Note not found."}), 404
+    data = request.get_json(force=True)
+    db.update_note(
+        note_id,
+        user["id"],
+        title=(data.get("title") or "").strip()[:200],
+        body=(data.get("body") or "").strip()[:20000],
+        color=(data.get("color") or "default").strip()[:20],
+    )
+    return jsonify({"ok": True, "note": db.get_note(note_id, user["id"])})
+
+
+@app.route("/api/notes/<int:note_id>", methods=["DELETE"])
+@auth.login_required
+def api_delete_note(note_id):
+    user = auth.current_user()
+    db.delete_note(note_id, user["id"])
+    return jsonify({"ok": True})
 
 
 @app.route("/api/dashboard-state")
@@ -1621,6 +1675,22 @@ def api_chat():
     skill_names = [s if isinstance(s, str) else s.get("name", str(s)) for s in skills]
     skill_list = ", ".join(skill_names) if skill_names else "None listed."
 
+    # Notes are private by default -- this block is only ever built (and
+    # only ever reaches the prompt below) when the client explicitly
+    # sends use_notes: true for THIS message, matching the "Use Notes"
+    # toggle in the attach sheet. Omitted entirely otherwise, not just
+    # hidden -- the model never sees note content unless the user turned
+    # this on for that specific message.
+    notes_section = ""
+    if data.get("use_notes"):
+        user_notes = db.get_notes_for_user(user["id"])
+        if user_notes:
+            notes_lines = "\n\n".join(
+                f"[{n.get('title') or 'Untitled'}]\n{(n.get('body') or '').strip()[:2000]}"
+                for n in user_notes[:30] if (n.get("title") or n.get("body"))
+            )
+            notes_section = f"\n\nThe user has turned on \"Use Notes\" for this message, so you may refer to their personal notes below when relevant:\n{notes_lines}\n"
+
     system_prompt = f"""You are the Employable AI — a sharp, warm, genuinely helpful career intelligence assistant built into the Employable platform. You feel like a brilliant friend who happens to know everything about getting hired, not a corporate chatbot.
 
 Personality:
@@ -1670,7 +1740,7 @@ Top Improvement Priorities:
 
 Full content of user's uploaded documents (use this to give specific, accurate advice about their actual CV and experience):
 {doc_content_block}
-
+{notes_section}
 Use this context naturally when relevant. Don't dump it all at once — weave it in when it helps. When it actually strengthens a point, quote or paraphrase the specific line from their documents ("your CV says you led a 6-person team at X" beats "you have leadership experience") — that specificity is exactly what makes you useful instead of generic. Never claim you can't see their documents; if doc_content_block above says no content is available, say that plainly instead of guessing. If the user asks something general ("how are you", "what's the weather"), respond naturally like a human would. If they go off-topic in a fun way, engage briefly then gently steer back to career topics if appropriate. Never say "I can only discuss employment topics" — just be human."""
 
     import re as _re, base64 as _b64
