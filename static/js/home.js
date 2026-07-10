@@ -7,7 +7,7 @@
   // this, the input bar either stays hidden behind the keyboard or
   // snaps into place the instant the keyboard finishes animating.
   // Mirroring the visual viewport's shrinkage into a CSS custom
-  // property (which .home-shell transitions smoothly) makes the whole
+  // property (which .chat-modal transitions smoothly) makes the whole
   // page glide up in sync with the keyboard instead.
   if (window.visualViewport) {
     var vv = window.visualViewport;
@@ -29,18 +29,18 @@
     return raw.split(/\s+/)[0];
   }
 
+  document.getElementById("home-greeting").textContent = "Hi, " + firstName() + "!";
+
   function timeGreeting() {
     var hour = new Date().getHours();
-    if (hour < 12) return "Morning";
-    if (hour < 18) return "Afternoon";
-    return "Evening";
+    if (hour < 12) return "morning";
+    if (hour < 18) return "afternoon";
+    return "evening";
   }
 
-  document.getElementById("home-greeting").textContent = timeGreeting() + ", " + firstName();
+  document.getElementById("chat-empty-greeting").textContent = "How can I help you this " + timeGreeting() + "?";
 
-  // ---------- Chat (same /api/chat + /api/chat/conversations contract ----------
-  // the old dashboard.js chat used -- nothing changed server-side, this
-  // is just a leaner client for the new single-screen home view.
+  // ---------- Chat (same /api/chat + /api/chat/conversations contract) ----------
 
   var emptyEl = document.getElementById("home-empty");
   var messagesEl = document.getElementById("chat-messages");
@@ -51,6 +51,7 @@
   var chatHistory = [];
   var chatConversationId = null;
   var chatSending = false;
+  var chatEverLoaded = false;
 
   function escapeHtml(s) {
     return (s || "").replace(/[&<>"']/g, function (c) {
@@ -111,10 +112,7 @@
     })
       .then(function (r) { return r.json(); })
       .then(function (data) {
-        if (data.ok) {
-          chatConversationId = data.conversation_id;
-          loadRecents();
-        }
+        if (data.ok) chatConversationId = data.conversation_id;
       })
       .catch(function () {});
   }
@@ -319,146 +317,101 @@
     chatInput.focus();
   }
 
-  document.getElementById("home-ghost-btn").addEventListener("click", startNewChat);
+  // ---------- Chat modal (full-screen, slides up from the chat FAB) ----------
 
-  // ---------- Recents (drawer) ----------
+  var chatFabBtn = document.getElementById("chat-fab-btn");
+  var chatModal = document.getElementById("chat-modal");
+  var chatModalCloseBtn = document.getElementById("chat-modal-close-btn");
+  var chatModalNewBtn = document.getElementById("chat-modal-new-btn");
 
-  var recentsListEl = document.getElementById("drawer-recents-list");
+  function openChatModal() {
+    chatModal.hidden = false;
+    // Forces layout before adding the class so the slide-up transition
+    // actually plays instead of the modal snapping open.
+    void chatModal.offsetHeight;
+    chatModal.classList.add("is-open");
 
-  function formatRelativeTime(iso) {
-    if (!iso) return "";
-    var then = new Date(iso.replace(" ", "T") + "Z");
-    var diffMin = Math.round((Date.now() - then.getTime()) / 60000);
-    if (diffMin < 1) return "Just now";
-    if (diffMin < 60) return diffMin + "m ago";
-    var diffHr = Math.round(diffMin / 60);
-    if (diffHr < 24) return diffHr + "h ago";
-    return Math.round(diffHr / 24) + "d ago";
-  }
-
-  function loadRecents() {
-    fetch("/api/chat/conversations")
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        if (!data.ok) return;
-        recentsListEl.innerHTML = "";
-        if (!data.conversations.length) {
-          var empty = document.createElement("div");
-          empty.className = "drawer-recents-empty";
-          empty.textContent = "No conversations yet.";
-          recentsListEl.appendChild(empty);
-          return;
-        }
-        data.conversations.forEach(function (c) {
-          var row = document.createElement("button");
-          row.type = "button";
-          row.className = "drawer-recent-row";
-          row.textContent = c.title || "Conversation";
-          row.title = formatRelativeTime(c.updated_at);
-          row.addEventListener("click", function () {
-            loadConversation(c.id);
-            closeDrawer();
-          });
-          recentsListEl.appendChild(row);
-        });
-      })
-      .catch(function () {});
-  }
-
-  // ---------- Drawer open/close ----------
-
-  var drawerEl = document.getElementById("drawer");
-  var drawerBackdropEl = document.getElementById("drawer-backdrop");
-
-  function openDrawer() {
-    drawerEl.hidden = false;
-    drawerBackdropEl.hidden = false;
-    // Forces layout before adding the class so the transform
-    // transition actually plays instead of the drawer snapping open.
-    void drawerEl.offsetHeight;
-    drawerEl.classList.add("is-open");
-    drawerBackdropEl.classList.add("is-open");
-    loadRecents();
-  }
-
-  function closeDrawer() {
-    drawerEl.classList.remove("is-open");
-    drawerBackdropEl.classList.remove("is-open");
-  }
-
-  drawerEl.addEventListener("transitionend", function () {
-    if (!drawerEl.classList.contains("is-open")) {
-      drawerEl.hidden = true;
-      drawerBackdropEl.hidden = true;
+    if (!chatEverLoaded) {
+      chatEverLoaded = true;
+      fetch("/api/chat/conversations")
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (data.ok && data.conversations.length) {
+            loadConversation(data.conversations[0].id);
+          } else {
+            showEmptyState(true);
+          }
+        })
+        .catch(function () { showEmptyState(true); })
+        .finally(function () { chatInput.focus(); });
     } else {
-      maybeRunDrawerTour();
+      chatInput.focus();
+    }
+  }
+
+  function closeChatModal() {
+    chatModal.classList.remove("is-open");
+  }
+
+  chatModal.addEventListener("transitionend", function (e) {
+    if (e.target !== chatModal) return;
+    if (!chatModal.classList.contains("is-open")) {
+      chatModal.hidden = true;
     }
   });
 
-  document.getElementById("drawer-open-btn").addEventListener("click", openDrawer);
-  drawerBackdropEl.addEventListener("click", closeDrawer);
-  document.getElementById("drawer-new-chat-btn").addEventListener("click", function () {
-    startNewChat();
-    closeDrawer();
-  });
-  document.getElementById("home-notepad-btn").addEventListener("click", function () {
-    window.location.href = "/notes";
-  });
-  document.getElementById("drawer-profile-btn").addEventListener("click", function () {
-    window.location.href = "/notes";
-  });
+  chatFabBtn.addEventListener("click", openChatModal);
+  chatModalCloseBtn.addEventListener("click", closeChatModal);
+  chatModalNewBtn.addEventListener("click", startNewChat);
 
-  // ---------- First-time tours ----------
-  // Chat screen: runs once ever, the very first time this page loads.
-  // Drawer tools: runs once ever, the first time the drawer is opened.
+  // ---------- Voice dictation ----------
+  // Transcribes speech straight into the text field so the user isn't
+  // always required to type -- uses the browser's built-in speech
+  // recognition; the mic button just hides itself on browsers that
+  // don't support it (mainly desktop Firefox/Safari) rather than
+  // showing a control that would only ever fail.
 
-  if (window.runTour) {
-    window.runTour("tourChatSeen", [
-      { target: document.getElementById("home-ghost-btn"), text: "Start a brand new conversation anytime.", direction: "down" },
-      { target: document.getElementById("home-notepad-btn"), text: "Jump straight to your notes.", direction: "down" },
-      { target: document.getElementById("chat-attach-btn"), text: "Attach photos or files, or let the chat refer to your notes.", direction: "up" },
-    ]);
-  }
+  var chatMicBtn = document.getElementById("chat-mic-btn");
+  var SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-  var drawerTourShown = false;
-  function maybeRunDrawerTour() {
-    if (drawerTourShown || !window.runTour) return;
-    drawerTourShown = true;
-    var toolRows = document.querySelectorAll(".drawer-tool-row");
-    // All 4 steps share one fixed landing spot, well clear of the row
-    // list, so the tooltip never covers the next tool while explaining
-    // the current one -- only the connecting line's length differs.
-    // Anchored to the always-present "Recents" label rather than the
-    // list itself, which fills in asynchronously and could still be
-    // empty (height 0) when this runs right after the drawer's open
-    // transition ends.
-    var landingTop = document.querySelector(".drawer-recents-label").getBoundingClientRect().bottom + 48;
-    window.runTour("tourDrawerSeen", [
-      { target: toolRows[0], text: "See if you qualify for a role you're eyeing, based on your real documents.", direction: "down", tooltipTop: landingTop },
-      { target: toolRows[1], text: "Draft a CV or cover letter from your documents.", direction: "down", tooltipTop: landingTop },
-      { target: toolRows[2], text: "Keep track of every role you've applied for.", direction: "down", tooltipTop: landingTop },
-      { target: toolRows[3], text: "Jot down notes the chat can refer to when you turn it on.", direction: "down", tooltipTop: landingTop },
-    ]);
-  }
+  if (!SpeechRecognitionCtor) {
+    chatMicBtn.hidden = true;
+  } else {
+    var recognition = new SpeechRecognitionCtor();
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.lang = "en-US";
+    var listening = false;
+    var baseText = "";
 
-  // ---------- Initial load ----------
+    function setListening(on) {
+      listening = on;
+      chatMicBtn.classList.toggle("is-listening", on);
+    }
 
-  fetch("/api/chat/conversations")
-    .then(function (r) { return r.json(); })
-    .then(function (data) {
-      if (data.ok && data.conversations.length) {
-        loadConversation(data.conversations[0].id);
-      } else {
-        showEmptyState(true);
+    recognition.addEventListener("result", function (e) {
+      var transcript = "";
+      for (var i = 0; i < e.results.length; i++) {
+        transcript += e.results[i][0].transcript;
       }
-    })
-    .catch(function () { showEmptyState(true); })
-    .finally(function () {
-      // Best-effort: mobile browsers generally only honor .focus()
-      // triggering the on-screen keyboard when it runs in direct
-      // response to a user gesture, not on a plain page-load handler --
-      // this still focuses the field itself (cursor + outline) even on
-      // browsers that don't pop the keyboard for it automatically.
-      chatInput.focus();
+      chatInput.value = (baseText ? baseText + " " : "") + transcript;
     });
+
+    recognition.addEventListener("end", function () { setListening(false); });
+    recognition.addEventListener("error", function () { setListening(false); });
+
+    chatMicBtn.addEventListener("click", function () {
+      if (listening) {
+        recognition.stop();
+        return;
+      }
+      baseText = chatInput.value.trim();
+      try {
+        recognition.start();
+        setListening(true);
+      } catch (e) {
+        setListening(false);
+      }
+    });
+  }
 })();

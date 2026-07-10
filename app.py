@@ -29,8 +29,6 @@ import uuid
 import json
 from dotenv import load_dotenv
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, Response
-from werkzeug.security import generate_password_hash
-
 import db
 import auth
 import pipeline
@@ -92,43 +90,6 @@ def _ensure_db():
         _db_initialized = True
 
 
-# Sign-up/login is bypassed for now (per product direction while the
-# redesign is in progress) -- every request is auto-logged-in as one
-# shared guest account instead, created once (idempotently -- looked
-# up by its fixed username, never re-inserted) with the terms/
-# onboarding gates pre-satisfied so it never gets redirected into either
-# of those flows. The actual signup/login routes and login_required
-# decorator are untouched underneath this, so restoring real auth later
-# is just a matter of removing this one hook.
-_GUEST_USERNAME = "guest"
-
-
-def _get_or_create_guest_user():
-    user = db.get_user_by_username(_GUEST_USERNAME)
-    if user:
-        return user
-    user_id = db.create_user(
-        _GUEST_USERNAME,
-        generate_password_hash(uuid.uuid4().hex),
-        auth.SECURITY_QUESTIONS[0],
-        generate_password_hash(uuid.uuid4().hex),
-        full_name="there",
-    )
-    db.set_disclaimer_accepted(user_id)
-    db.set_documents_confirmed(user_id, "")
-    return db.get_user_by_id(user_id)
-
-
-@app.before_request
-def _auto_guest_login():
-    if request.endpoint in ("static", "service_worker", "android_asset_links"):
-        return
-    if auth.current_user() is not None:
-        return
-    guest = _get_or_create_guest_user()
-    auth.log_in_user(guest["id"])
-
-
 # Endpoints reachable even before a user has accepted the terms
 # gate — everything else under login gets redirected to /terms until
 # that's done. This check runs before the onboarding gate below, so a
@@ -164,6 +125,7 @@ def _require_terms():
 # are excluded too since they're not behind login_required anyway.
 _ONBOARDING_EXEMPT_ENDPOINTS = {
     "onboarding_page",
+    "api_onboarding_name",
     "api_onboarding_upload",
     "api_onboarding_check",
     "api_onboarding_confirm",
@@ -292,14 +254,13 @@ def signup_page():
     if request.method == "POST":
         try:
             auth.signup(
-                full_name=request.form.get("full_name", ""),
                 email=request.form.get("email", ""),
                 password=request.form.get("password", ""),
                 confirm_password=request.form.get("confirm_password", ""),
                 security_question=request.form.get("security_question", ""),
                 security_answer=request.form.get("security_answer", ""),
             )
-            flash("Account created. Welcome to Employable.", "success")
+            flash("Account created. Welcome to Ploy.", "success")
             return redirect(url_for("dashboard"))
         except auth.AuthError as e:
             flash(str(e), "error")
@@ -427,7 +388,21 @@ def onboarding_page():
         cv_documents=cv_documents,
         supporting_documents=supporting_documents,
         has_cv=pipeline.any_document_looks_like_cv(user["id"]),
+        full_name=user.get("full_name") or "",
     )
+
+
+@app.route("/api/onboarding/name", methods=["POST"])
+@auth.login_required
+def api_onboarding_name():
+    user = auth.current_user()
+    data = request.json if request.is_json else request.form
+    try:
+        name = auth.validate_full_name(data.get("name") or "")
+    except auth.AuthError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    db.update_profile_fields(user["id"], full_name=name)
+    return jsonify({"ok": True})
 
 
 @app.route("/api/onboarding/upload", methods=["POST"])
@@ -509,7 +484,6 @@ def api_onboarding_confirm():
     identity's files and drop the rest.
     """
     data = request.json if request.is_json else request.form
-    chosen_name = (data.get("name") or "").strip()
     keep_ids = data.get("keep_document_ids") or []
     try:
         keep_ids = [int(i) for i in keep_ids]
@@ -520,6 +494,12 @@ def api_onboarding_confirm():
     documents = db.get_documents_for_user(user["id"])
     if not documents:
         return jsonify({"ok": False, "error": "Please upload at least one document first."}), 400
+
+    # The name the user typed in onboarding's first step is the
+    # source of truth now -- only fall back to a document-guessed name
+    # (via the client-sent "name", populated from the identity-conflict
+    # chooser) if that first step somehow never ran.
+    chosen_name = (data.get("name") or "").strip() or (user.get("full_name") or "").strip()
 
     pipeline.resolve_identity_conflict(user["id"], keep_ids or [d["id"] for d in documents])
 

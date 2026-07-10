@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Employable — mobile-first, monochrome baseline.
+   Ploy — mobile-first, monochrome baseline.
    Colors are CSS custom properties so animated gradients can slot in later
    without touching markup.
    ========================================================================== */
@@ -137,6 +137,29 @@ a {
   margin-top: -8px;
 }
 
+/* The app-open splash on the login screen -- pure CSS, no JS timer,
+   so it's guaranteed to fade away on its own even if a script fails
+   to load, instead of risking getting stuck covering the login form. */
+.splash-intro {
+  animation: splash-intro-out 0.4s ease forwards;
+  animation-delay: 900ms;
+}
+
+@keyframes splash-intro-out {
+  to {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .splash-intro {
+    animation-duration: 0.01ms;
+    animation-delay: 500ms;
+  }
+}
+
 /* ---------- Auth shell (login / signup / forgot password / verify / reset) ---------- */
 
 .auth-shell {
@@ -217,6 +240,24 @@ button.auth-tab.active {
   background: var(--fg);
 }
 
+/* .auth-tab is shared with the (theme-reactive) Friends modal
+   elsewhere, so it can't be pinned globally like the .field rules
+   above -- scoped here instead, since within .auth-shell it always
+   sits on the fixed-dark .auth-form-box card. */
+.auth-shell .auth-tabs {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.auth-shell .auth-tab {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.auth-shell .auth-tab.active {
+  background: #ffffff;
+  color: #0a0a0a;
+}
+
 .auth-visual {
   flex-shrink: 0;
   padding: 24px 24px 20px;
@@ -230,7 +271,7 @@ button.auth-tab.active {
   letter-spacing: 0.08em;
 }
 
-/* Brand wordmark treatment: applies to every "Employable" heading on the
+/* Brand wordmark treatment: applies to every "Ploy" heading on the
    splash screen and the top of the auth screens. Animated gradient text
    that cycles continuously with no visible seam: the stop list repeats
    the same 3 colors twice, background-size is exactly 2x, so sliding
@@ -369,11 +410,17 @@ button.auth-tab.active {
   margin-bottom: 10px;
 }
 
+/* This card (.auth-form-box) is a fixed dark surface regardless of
+   the light/dark theme toggle -- see the theme-variable comment near
+   :root[data-theme="light"] above. Every color in this section is
+   therefore pinned to a fixed dark-card-appropriate value instead of
+   var(--fg)/var(--muted)/etc, which would otherwise flip to
+   light-mode values and render as near-invisible dark-on-dark text. */
 .field label {
   font-size: 12px;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.55);
 }
 
 .field-input-wrap {
@@ -389,15 +436,15 @@ button.auth-tab.active {
   transform: translateY(-50%);
   width: 18px;
   height: 18px;
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.55);
   pointer-events: none;
 }
 
 .field input,
 .field select {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  color: var(--fg);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  color: #ffffff;
   font-size: 15px;
   padding: 13px 16px;
   outline: none;
@@ -416,23 +463,23 @@ button.auth-tab.active {
 }
 
 .field select option {
-  background: var(--card-bg);
-  color: var(--fg);
+  background: #0a0a0a;
+  color: #ffffff;
 }
 
 .field input::placeholder {
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.55);
 }
 
 .field input:focus,
 .field select:focus {
-  border-color: var(--fg);
-  background: var(--surface);
+  border-color: #ffffff;
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .field-hint {
   font-size: 12px;
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.55);
   margin-top: -8px;
   margin-bottom: 2px;
   line-height: 1.4;
@@ -453,7 +500,7 @@ button.auth-tab.active {
 
 .password-reqs li {
   font-size: 12px;
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.55);
   padding-left: 22px;
   position: relative;
   transition: color 0.15s ease;
@@ -467,7 +514,7 @@ button.auth-tab.active {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  border: 1.5px solid var(--muted);
+  border: 1.5px solid rgba(255, 255, 255, 0.55);
   box-sizing: border-box;
   transition: border-color 0.15s ease, background 0.15s ease;
 }
@@ -541,11 +588,11 @@ button.auth-tab.active {
   text-align: center;
   margin-top: 18px;
   font-size: 14px;
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.55);
 }
 
 .auth-switch a {
-  color: var(--fg);
+  color: #ffffff;
   text-decoration: underline;
 }
 
@@ -700,36 +747,40 @@ button.auth-tab.active {
   width: 108px;
 }
 
+/* Same fixed-dark-card reasoning as the .field rules above -- this
+   step indicator and its heading/description always sit on the
+   always-dark .auth-form-box, so their colors are pinned rather than
+   theme-reactive. */
 .ob-step-circle {
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  border: 1.5px solid var(--line-strong);
+  border: 1.5px solid rgba(255, 255, 255, 0.6);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 12px;
   font-weight: 700;
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.55);
   transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }
 
 .ob-step-label {
   font-size: 11px;
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.55);
   text-align: center;
   line-height: 1.3;
   transition: color 0.2s ease;
 }
 
 .ob-step-item.active .ob-step-circle {
-  background: var(--fg);
-  border-color: var(--fg);
-  color: var(--bg);
+  background: #ffffff;
+  border-color: #ffffff;
+  color: #0a0a0a;
 }
 
 .ob-step-item.active .ob-step-label {
-  color: var(--fg);
+  color: #ffffff;
   font-weight: 600;
 }
 
@@ -737,7 +788,7 @@ button.auth-tab.active {
   flex: 0 0 auto;
   width: 28px;
   height: 1.5px;
-  background: var(--line);
+  background: rgba(255, 255, 255, 0.22);
   margin-top: 12px;
 }
 
@@ -745,18 +796,20 @@ button.auth-tab.active {
   font-size: 24px;
   font-weight: 700;
   margin-bottom: 10px;
+  color: #ffffff;
 }
 
 .ob-desc {
   display: block;
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.55);
   font-size: 14px;
   line-height: 1.55;
   margin-bottom: 26px;
 }
 
+/* Same fixed-dark-card reasoning as the .field rules above. */
 .ob-upload-card {
-  border: 1px solid var(--line);
+  border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 16px;
   padding: 30px 20px;
   text-align: center;
@@ -782,34 +835,36 @@ button.auth-tab.active {
   width: 44px;
   height: 44px;
   margin: 0 auto 14px;
-  border: 1.5px solid var(--line-strong);
+  border: 1.5px solid rgba(255, 255, 255, 0.6);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 18px;
+  color: #ffffff;
 }
 
 .ob-upload-icon.success {
-  border-color: var(--fg);
+  border-color: #ffffff;
 }
 
 .ob-tap-label {
   font-size: 15px;
   font-weight: 600;
   margin-bottom: 4px;
+  color: #ffffff;
 }
 
 .ob-tap-sub {
   display: block;
   font-size: 12px;
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.55);
   margin-bottom: 18px;
 }
 
 .ob-divider {
   font-size: 11px;
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.55);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   margin: 14px 0;
@@ -818,7 +873,7 @@ button.auth-tab.active {
 .ob-progress-track {
   height: 6px;
   border-radius: 3px;
-  background: var(--line);
+  background: rgba(255, 255, 255, 0.22);
   overflow: hidden;
   margin: 14px 0 10px;
 }
@@ -826,13 +881,13 @@ button.auth-tab.active {
 .ob-progress-bar {
   height: 100%;
   width: 0%;
-  background: var(--fg);
+  background: #ffffff;
   transition: width 0.15s linear;
 }
 
 .ob-upload-pct {
   font-size: 13px;
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.55);
   margin-bottom: 4px;
 }
 
@@ -840,11 +895,12 @@ button.auth-tab.active {
   font-size: 14px;
   font-weight: 600;
   margin-top: 2px;
+  color: #ffffff;
 }
 
 .ob-upload-filename {
   font-size: 12px;
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.55);
   margin-top: 6px;
   word-break: break-all;
 }
@@ -867,7 +923,7 @@ button.auth-tab.active {
 .ob-clear-btn {
   margin-top: 14px;
   font-size: 12px;
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.55);
   text-decoration: underline;
   background: none;
   border: none;
@@ -887,7 +943,7 @@ button.auth-tab.active {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  border: 1px solid var(--line);
+  border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 10px;
   padding: 12px 14px;
   cursor: pointer;
@@ -895,16 +951,16 @@ button.auth-tab.active {
   text-align: left;
   width: 100%;
   font-family: inherit;
-  color: var(--fg);
+  color: #ffffff;
   transition: background 0.15s ease, transform 0.1s ease;
 }
 
 .ob-doc-row:hover {
-  background: var(--surface);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .ob-doc-row:active {
-  background: var(--surface);
+  background: rgba(255, 255, 255, 0.06);
   transform: scale(0.98);
 }
 
@@ -926,13 +982,13 @@ button.auth-tab.active {
 
 .ob-doc-size {
   font-size: 12px;
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.55);
 }
 
 .ob-doc-remove {
   background: none;
   border: none;
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.55);
   font-size: 16px;
   cursor: pointer;
   padding: 4px;
@@ -940,13 +996,13 @@ button.auth-tab.active {
 }
 
 .ob-doc-remove:hover {
-  color: var(--fg);
+  color: #ffffff;
 }
 
 .ob-error {
   font-size: 13px;
-  color: var(--fg);
-  border: 1px solid var(--line-strong);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.6);
   border-radius: 10px;
   padding: 10px 12px;
   margin-bottom: 18px;
@@ -1019,14 +1075,18 @@ button.auth-tab.active {
   }
 }
 
+/* Only ever shown over the fixed-dark auth/onboarding flow (login,
+   signup, onboarding) -- colors pinned for the same reason as the
+   .field rules above. */
 .celebrate-modal {
-  background: var(--card-bg);
-  border: 1px solid var(--line-strong);
+  background: #0a0a0a;
+  border: 1px solid rgba(255, 255, 255, 0.6);
   border-radius: 26px;
   padding: 32px 26px;
   text-align: center;
   max-width: 340px;
   width: 100%;
+  color: #ffffff;
   transform: scale(1);
   transition: transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
@@ -1041,7 +1101,7 @@ button.auth-tab.active {
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  border: 2px solid var(--fg);
+  border: 2px solid #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1057,7 +1117,7 @@ button.auth-tab.active {
 
 .celebrate-modal p {
   font-size: 14px;
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.55);
   margin-bottom: 24px;
 }
 
@@ -1065,7 +1125,7 @@ button.auth-tab.active {
   text-align: left;
   max-height: 220px;
   overflow-y: auto;
-  border: 1px solid var(--line);
+  border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 10px;
   padding: 6px 14px;
   margin-bottom: 22px;
@@ -1074,7 +1134,7 @@ button.auth-tab.active {
 .ob-review-item {
   font-size: 13px;
   padding: 8px 0;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.22);
   word-break: break-all;
 }
 
@@ -1133,9 +1193,11 @@ button.auth-tab.active {
   }
 }
 
+/* Only ever shown over the fixed-dark onboarding flow -- colors
+   pinned for the same reason as the .field rules above. */
 .ob-preview-modal {
-  background: var(--card-bg);
-  border: 1px solid var(--line-strong);
+  background: #0a0a0a;
+  border: 1px solid rgba(255, 255, 255, 0.6);
   border-radius: 16px;
   width: 100%;
   max-width: 480px;
@@ -1143,6 +1205,7 @@ button.auth-tab.active {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  color: #ffffff;
   transform: scale(1);
   transition: transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
@@ -1158,7 +1221,7 @@ button.auth-tab.active {
   align-items: center;
   justify-content: space-between;
   padding: 14px 16px;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.22);
   gap: 12px;
 }
 
@@ -1173,7 +1236,7 @@ button.auth-tab.active {
 .ob-preview-close {
   background: none;
   border: none;
-  color: var(--fg);
+  color: #ffffff;
   font-size: 22px;
   line-height: 1;
   cursor: pointer;
@@ -1198,7 +1261,7 @@ button.auth-tab.active {
 
 .ob-preview-fallback {
   text-align: center;
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.55);
   font-size: 14px;
   line-height: 1.6;
 }
@@ -3181,7 +3244,7 @@ button.auth-tab.active {
 }
 
 /* ==========================================================================
-   Employable Store — Browse Extras (coming soon)
+   Ploy Store — Browse Extras (coming soon)
    ========================================================================== */
 
 .shop-coming-soon {
@@ -3410,7 +3473,7 @@ button.auth-tab.active {
 
 .uploads-modal-sub {
   font-size: 13px;
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.55);
   margin-top: -4px;
   margin-bottom: 18px;
 }
@@ -3767,35 +3830,141 @@ button.auth-tab.active {
   display: flex;
   flex-direction: column;
   background: var(--bg);
+}
+
+.home-greeting-wrap {
+  flex-shrink: 0;
+  padding: max(48px, env(safe-area-inset-top) + 24px) 24px 4px;
+}
+
+.home-greeting-wrap .home-greeting {
+  font-size: 24px;
+}
+
+.home-subgreeting {
+  color: var(--muted);
+  font-size: 14px;
+  margin: 6px 0 0;
+}
+
+.home-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  padding: 20px 24px;
+  align-content: center;
+}
+
+.home-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  aspect-ratio: 1;
+  background: var(--card-bg);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  color: var(--fg);
+  text-decoration: none;
+  transition: transform 0.1s ease;
+}
+
+.home-tile:active {
+  transform: scale(0.96);
+}
+
+.home-tile-icon svg {
+  width: 32px;
+  height: 32px;
+}
+
+.home-tile-label {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.home-chat-fab {
+  flex-shrink: 0;
+  align-self: center;
+  margin-bottom: max(28px, env(safe-area-inset-bottom) + 12px);
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: var(--fg);
+  color: var(--bg);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.home-chat-fab:active {
+  transform: scale(0.92);
+}
+
+.home-chat-fab svg {
+  width: 26px;
+  height: 26px;
+}
+
+/* ---------- Chat modal (slides up to cover the whole screen) ---------- */
+
+.chat-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  transform: translateY(100%);
+  transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
   /* --kb-offset is set by home.js from the VisualViewport API as the
      on-screen keyboard opens/closes -- transitioning it here (rather
      than letting the browser's own native resize just snap the layout)
      is what makes the input bar glide up/down instead of jumping. */
   padding-bottom: var(--kb-offset, 0px);
-  transition: padding-bottom 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.chat-modal.is-open {
+  transform: translateY(0);
+}
+
+/* An author-stylesheet `display: flex` rule beats the UA stylesheet's
+   plain [hidden] { display: none } regardless of specificity math --
+   author styles always win over UA styles -- so toggling the hidden
+   attribute alone does nothing without this explicit override. Safe
+   here only because home.js never sets hidden=true until AFTER the
+   slide-down transition has already finished (see its transitionend
+   listener), never before. */
+.chat-modal[hidden] {
+  display: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .home-shell {
+  .chat-modal {
     transition: none;
   }
 }
 
-.home-header {
+.chat-modal-header {
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 18px 10px 8px;
+  padding: max(18px, env(safe-area-inset-top)) 10px 8px;
 }
 
-.home-header-icons {
-  display: flex;
-  align-items: center;
-  gap: 2px;
+.chat-modal-title {
+  font-size: 15px;
+  font-weight: 700;
 }
 
-.home-icon-btn {
+.chat-modal-icon-btn {
   background: none;
   border: none;
   color: var(--fg);
@@ -3808,13 +3977,13 @@ button.auth-tab.active {
   transition: transform 0.1s ease;
 }
 
-.home-icon-btn:active {
+.chat-modal-icon-btn:active {
   transform: scale(0.88);
 }
 
-.home-icon-btn svg {
-  width: 23px;
-  height: 23px;
+.chat-modal-icon-btn svg {
+  width: 22px;
+  height: 22px;
 }
 
 .home-empty {
@@ -3876,6 +4045,7 @@ button.auth-tab.active {
 }
 
 .home-plus-btn,
+.home-mic-btn,
 .home-send-btn {
   flex-shrink: 0;
   background: none;
@@ -3888,7 +4058,7 @@ button.auth-tab.active {
   justify-content: center;
   color: var(--fg);
   cursor: pointer;
-  transition: transform 0.1s ease, background 0.15s ease;
+  transition: transform 0.1s ease, background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
 .home-send-btn {
@@ -3897,12 +4067,24 @@ button.auth-tab.active {
   border-color: var(--fg);
 }
 
+.home-mic-btn.is-listening {
+  background: #ec4899;
+  color: #fff;
+  border-color: #ec4899;
+}
+
+.home-mic-btn[hidden] {
+  display: none;
+}
+
 .home-plus-btn:active,
+.home-mic-btn:active,
 .home-send-btn:active {
   transform: scale(0.9);
 }
 
 .home-plus-btn svg,
+.home-mic-btn svg,
 .home-send-btn svg {
   width: 18px;
   height: 18px;
@@ -3922,205 +4104,6 @@ button.auth-tab.active {
 
 .home-input::placeholder {
   color: var(--muted);
-}
-
-/* ---------- Drawer ---------- */
-
-.drawer-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: 998;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.25s ease;
-}
-
-.drawer-backdrop.is-open {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.drawer {
-  position: fixed;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  width: min(82vw, 320px);
-  background: var(--card-bg);
-  border-right: 1px solid var(--line-strong);
-  z-index: 999;
-  display: flex;
-  flex-direction: column;
-  padding: max(20px, env(safe-area-inset-top)) 16px 16px;
-  transform: translateX(-100%);
-  pointer-events: none;
-  transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-.drawer.is-open {
-  transform: translateX(0);
-  pointer-events: auto;
-}
-
-/* Safe to fully remove from layout only once JS applies this after
-   the close transition finishes (see home.js's transitionend
-   handler) -- applying it any earlier would freeze the slide-out
-   mid-animation, since display:none can't be transitioned. */
-.drawer[hidden] {
-  display: none;
-}
-
-.drawer-header {
-  flex-shrink: 0;
-  margin-bottom: 18px;
-}
-
-.drawer-title {
-  font-size: 22px;
-  font-weight: 700;
-}
-
-.drawer-tools {
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.drawer-tool-row {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 11px 6px;
-  border-radius: 10px;
-  color: var(--fg);
-  text-decoration: none;
-  font-size: 15px;
-  transition: background 0.15s ease;
-}
-
-.drawer-tool-row:active {
-  background: var(--surface);
-}
-
-.drawer-tool-icon {
-  flex-shrink: 0;
-  width: 22px;
-  height: 22px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--muted);
-}
-
-.drawer-tool-icon svg {
-  width: 20px;
-  height: 20px;
-}
-
-.drawer-divider {
-  flex-shrink: 0;
-  border-top: 1px solid var(--line);
-  margin: 14px 0;
-}
-
-.drawer-recents-label {
-  flex-shrink: 0;
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--muted);
-  padding: 0 6px 6px;
-}
-
-.drawer-recents-list {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.drawer-recent-row {
-  display: flex;
-  align-items: center;
-  background: none;
-  border: none;
-  border-radius: 10px;
-  padding: 10px 6px;
-  color: var(--fg);
-  font-size: 14px;
-  text-align: left;
-  cursor: pointer;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  transition: background 0.15s ease;
-}
-
-.drawer-recent-row:active {
-  background: var(--surface);
-}
-
-.drawer-recents-empty {
-  color: var(--muted);
-  font-size: 13px;
-  padding: 8px 6px;
-}
-
-.drawer-footer {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding-top: 14px;
-  border-top: 1px solid var(--line);
-  margin-top: 10px;
-}
-
-.drawer-profile-btn {
-  flex-shrink: 0;
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  border: 1px solid var(--line-strong);
-  background: none;
-  color: var(--fg);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  padding: 0;
-  cursor: pointer;
-}
-
-.drawer-profile-btn img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.drawer-profile-btn svg {
-  width: 18px;
-  height: 18px;
-}
-
-.drawer-new-chat-btn {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 10px 16px;
-  font-size: 14px;
-}
-
-.drawer-new-chat-btn svg {
-  width: 16px;
-  height: 16px;
 }
 
 /* ==========================================================================
