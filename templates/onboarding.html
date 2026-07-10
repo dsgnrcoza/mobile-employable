@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Set up your profile — Employable{% endblock %}
+{% block title %}Set up your profile — Ploy{% endblock %}
 {% block extra_head %}
 <!-- Onboarding always ends by moving on to /dashboard -- warming its
      JS bundle now means that page has one less thing to fetch by the
@@ -11,26 +11,51 @@
   <div class="auth-card">
 
     <div class="auth-visual">
-      <img class="auth-badge" src="{{ url_for('static', filename='icons/icon-192.png') }}" alt="Employable">
+      <img class="auth-badge" src="{{ url_for('static', filename='icons/icon-192.png') }}" alt="Ploy">
     </div>
 
     <div class="auth-form-side">
       <div class="auth-form-box">
 
         <div class="ob-steps">
-          <div class="ob-step-item" data-dot="cv">
+          <div class="ob-step-item" data-dot="name">
             <span class="ob-step-circle">1</span>
+            <span class="ob-step-label">Your Name</span>
+          </div>
+          <div class="ob-step-connector"></div>
+          <div class="ob-step-item" data-dot="cv">
+            <span class="ob-step-circle">2</span>
             <span class="ob-step-label">Upload CV</span>
           </div>
           <div class="ob-step-connector"></div>
           <div class="ob-step-item" data-dot="supporting">
-            <span class="ob-step-circle">2</span>
+            <span class="ob-step-circle">3</span>
             <span class="ob-step-label">Upload Documents</span>
           </div>
         </div>
 
-        <!-- Step 1: CV -->
-        <section class="ob-step" data-step="cv" id="step-cv">
+        <!-- Step 1: Name -->
+        <section class="ob-step" data-step="name" id="step-name">
+          <h1>What should we call you?</h1>
+          <span class="ob-desc">
+            Enter your name as it appears on your ID -- Ploy will use this to
+            refer to you throughout the app.
+          </span>
+
+          <div class="field">
+            <div class="field-input-wrap">
+              <svg class="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>
+              <input type="text" id="name-input" placeholder="Your full name" autocomplete="off" maxlength="80" value="{{ full_name }}">
+            </div>
+          </div>
+          <div class="ob-error" id="name-error" hidden></div>
+
+          <button type="button" class="btn btn-gold btn-block ob-next-btn" id="name-next-btn">Next</button>
+          <div class="auth-switch">Wrong account? <a href="{{ url_for('logout_page') }}">Log out</a></div>
+        </section>
+
+        <!-- Step 2: CV -->
+        <section class="ob-step" data-step="cv" id="step-cv" hidden>
           <h1>Upload your CV</h1>
           <span class="ob-desc">
             Your CV is the foundation of your Employability Score — we read it to
@@ -142,7 +167,7 @@
 </div>
 
 <div class="splash" id="ob-analyzing-overlay" hidden>
-  <div class="splash-logo">Employable</div>
+  <div class="splash-logo">Ploy</div>
   <div class="splash-loader" aria-hidden="true"></div>
   <div class="splash-subtext" id="ob-analyzing-subtext">This can take a little while&hellip;</div>
 </div>
@@ -153,7 +178,8 @@
   window.OB_INITIAL = {
     cvDocuments: {{ cv_documents | tojson }},
     supportingDocuments: {{ supporting_documents | tojson }},
-    hasCv: {{ has_cv | tojson }}
+    hasCv: {{ has_cv | tojson }},
+    fullName: {{ full_name | tojson }}
   };
 </script>
 <script src="{{ url_for('static', filename='js/onboarding.js') }}"></script>

@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% block title %}Terms & Conditions — Employable{% endblock %}
+{% block title %}Terms & Conditions — Ploy{% endblock %}
 {% block content %}
 <div class="ob-shell">
   <div class="ob-topbar">
-    <span class="auth-wordmark">Employable</span>
+    <span class="auth-wordmark">Ploy</span>
   </div>
   <div class="ob-content terms-content">
     <h1>Before you get started</h1>
@@ -11,7 +11,7 @@
 
     <div class="terms-point">
       <h2>What this app actually does</h2>
-      <p>Employable reads your CV and any documents you upload, then gives you an honest score of how ready you are for the job market — plus specific steps to improve it.</p>
+      <p>Ploy reads your CV and any documents you upload, then gives you an honest score of how ready you are for the job market — plus specific steps to improve it.</p>
     </div>
 
     <div class="terms-point">
@@ -32,7 +32,7 @@
     <div id="terms-error" class="flash flash-error" hidden></div>
 
     {% if already_accepted %}
-      <a href="{{ url_for('dashboard') }}" class="btn btn-gold btn-block">Back to Employable</a>
+      <a href="{{ url_for('dashboard') }}" class="btn btn-gold btn-block">Back to Ploy</a>
     {% else %}
       <button type="button" class="btn btn-gold btn-block" id="terms-accept-btn">I Accept — Let's Go</button>
     {% endif %}

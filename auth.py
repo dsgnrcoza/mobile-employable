@@ -48,7 +48,7 @@ import db
 
 EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 USERNAME_PATTERN = re.compile(r"^[A-Za-z0-9_.\-]{3,32}$")
-PASSWORD_MIN_LENGTH = 9
+PASSWORD_MIN_LENGTH = 8
 _SPECIAL_CHAR = re.compile(r"[^A-Za-z0-9]")
 
 SECURITY_QUESTIONS = [
@@ -100,6 +100,8 @@ def validate_password(password: str) -> str:
         raise AuthError("Password must include at least one uppercase letter.")
     if not re.search(r"[a-z]", password):
         raise AuthError("Password must include at least one lowercase letter.")
+    if not re.search(r"[0-9]", password):
+        raise AuthError("Password must include at least one number.")
     if not _SPECIAL_CHAR.search(password):
         raise AuthError("Password must include at least one special character.")
     return password
@@ -141,15 +143,18 @@ def _generate_username_from_email(email: str) -> str:
     return candidate
 
 
-def signup(full_name, email, password, confirm_password, security_question, security_answer):
+def signup(email, password, confirm_password, security_question, security_answer):
     """
-    Creates a new account with a name, email, password, and a security
+    Creates a new account with an email, password, and a security
     question/answer pair (used later for password recovery instead of
     an emailed code). Raises AuthError with a user-facing message on
     any problem (duplicate email, weak password, mismatch, etc). On
     success, logs the new user in immediately and returns their id.
+
+    The account's name is deliberately not collected here -- it's
+    asked as the first step of onboarding instead, right before the
+    user uploads their documents.
     """
-    full_name = validate_full_name(full_name)
     email = validate_email(email)
     validate_password(password)
     if password != confirm_password:
@@ -163,7 +168,7 @@ def signup(full_name, email, password, confirm_password, security_question, secu
     username = _generate_username_from_email(email)
     password_hash = generate_password_hash(password)
     security_answer_hash = generate_password_hash(_normalize_answer(security_answer))
-    user_id = db.create_user(username, password_hash, security_question, security_answer_hash, full_name, email=email)
+    user_id = db.create_user(username, password_hash, security_question, security_answer_hash, "", email=email)
     log_in_user(user_id)
     return user_id
 

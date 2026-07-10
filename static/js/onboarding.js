@@ -1,12 +1,13 @@
 (function () {
   "use strict";
 
-  var initial = window.OB_INITIAL || { cvDocuments: [], supportingDocuments: [], hasCv: false };
+  var initial = window.OB_INITIAL || { cvDocuments: [], supportingDocuments: [], hasCv: false, fullName: "" };
 
   var state = {
     cv: initial.cvDocuments.slice(),
     supporting: initial.supportingDocuments.slice(),
     hasCv: !!initial.hasCv,
+    hasName: !!(initial.fullName || "").trim(),
     lastUploadedId: {},
   };
 
@@ -14,8 +15,12 @@
   var knownIds = new Set();
   state.cv.concat(state.supporting).forEach(function (d) { knownIds.add(d.id); });
 
+  var stepName = document.getElementById("step-name");
   var stepCv = document.getElementById("step-cv");
   var stepSupporting = document.getElementById("step-supporting");
+  var nameInput = document.getElementById("name-input");
+  var nameNextBtn = document.getElementById("name-next-btn");
+  var nameError = document.getElementById("name-error");
   var cvNextBtn = document.getElementById("cv-next-btn");
   var supportingNextBtn = document.getElementById("supporting-next-btn");
   var cvError = document.getElementById("cv-error");
@@ -289,11 +294,45 @@
   }
 
   function goToStep(step) {
+    stepName.hidden = step !== "name";
     stepCv.hidden = step !== "cv";
     stepSupporting.hidden = step !== "supporting";
+    document.querySelectorAll('[data-dot="name"]').forEach(function (d) { d.classList.toggle("active", step === "name"); });
     document.querySelectorAll('[data-dot="cv"]').forEach(function (d) { d.classList.toggle("active", step === "cv"); });
     document.querySelectorAll('[data-dot="supporting"]').forEach(function (d) { d.classList.toggle("active", step === "supporting"); });
   }
+
+  nameNextBtn.addEventListener("click", function () {
+    var name = nameInput.value.trim();
+    if (!name) {
+      nameError.hidden = false;
+      nameError.textContent = "Please enter your name.";
+      nameInput.focus();
+      return;
+    }
+    nameError.hidden = true;
+    nameNextBtn.disabled = true;
+    fetch("/api/onboarding/name", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: name }),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        nameNextBtn.disabled = false;
+        if (data.ok) {
+          goToStep("cv");
+        } else {
+          nameError.hidden = false;
+          nameError.textContent = data.error || "Something went wrong. Please try again.";
+        }
+      })
+      .catch(function () {
+        nameNextBtn.disabled = false;
+        nameError.hidden = false;
+        nameError.textContent = "Connection error — please try again.";
+      });
+  });
 
   var reviewOverlay = document.getElementById("ob-review-overlay");
   var reviewList = document.getElementById("ob-review-list");
@@ -427,5 +466,5 @@
 
   supportingNextBtn.addEventListener("click", openReviewModal);
 
-  goToStep(state.hasCv ? "supporting" : "cv");
+  goToStep(!state.hasName ? "name" : (state.hasCv ? "supporting" : "cv"));
 })();

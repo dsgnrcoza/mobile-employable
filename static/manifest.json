@@ -1,6 +1,6 @@
 {
-  "name": "Employable",
-  "short_name": "Employable",
+  "name": "Ploy",
+  "short_name": "Ploy",
   "description": "AI-powered employability scoring and career coaching.",
   "start_url": "/dashboard",
   "scope": "/",
