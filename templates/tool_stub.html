@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}{{ tool.title }} — Employable{% endblock %}
+{% block content %}
+<div class="stub-shell">
+  <header class="stub-header">
+    <a href="{{ url_for('dashboard') }}" class="stub-back-btn" aria-label="Back">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+    </a>
+    <span class="stub-header-title">{{ tool.title }}</span>
+    <span class="stub-header-spacer"></span>
+  </header>
+  <div class="stub-body">
+    <div class="stub-icon">
+      {% if tool_name == "qualify" %}
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg>
+      {% elif tool_name == "builder" %}
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><g transform="rotate(-45 12 12)"><rect x="8.5" y="3" width="7" height="5.5" rx="1"/><line x1="12" y1="8.5" x2="12" y2="20"/></g></svg>
+      {% elif tool_name == "trackers" %}
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 14 4-4 3 3 5-6"/></svg>
+      {% elif tool_name == "notes" %}
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h13l3 3v13H4Z"/><path d="M17 4v6h6"/></svg>
+      {% endif %}
+    </div>
+    <p class="stub-blurb">{{ tool.blurb }}</p>
+  </div>
+</div>
+{% endblock %}

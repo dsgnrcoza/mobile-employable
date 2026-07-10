@@ -3709,3 +3709,439 @@ button.auth-tab.active {
     transition: none;
   }
 }
+
+/* ==========================================================================
+   Tool stub pages (Qualify / Builder / Trackers / Notes placeholders)
+   ========================================================================== */
+
+.stub-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.stub-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  padding: 20px 8px 8px;
+}
+
+.stub-back-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  color: var(--fg);
+  transition: transform 0.1s ease;
+}
+
+.stub-back-btn:active {
+  transform: scale(0.9);
+}
+
+.stub-back-btn svg {
+  width: 22px;
+  height: 22px;
+}
+
+.stub-header-title {
+  flex: 1;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.stub-header-spacer {
+  width: 40px;
+  flex-shrink: 0;
+}
+
+.stub-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 24px;
+  text-align: center;
+}
+
+.stub-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  border: 1px solid var(--line-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--fg);
+}
+
+.stub-icon svg {
+  width: 30px;
+  height: 30px;
+}
+
+.stub-blurb {
+  color: var(--muted);
+  font-size: 14px;
+  max-width: 260px;
+}
+
+/* ==========================================================================
+   New Claude-style home screen (chat is the main/only screen now) +
+   the left-slide drawer that replaces the old bottom tab bar
+   ========================================================================== */
+
+.home-shell {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+.home-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 10px 8px;
+}
+
+.home-header-icons {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.home-icon-btn {
+  background: none;
+  border: none;
+  color: var(--fg);
+  cursor: pointer;
+  padding: 10px;
+  margin: -8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.1s ease;
+}
+
+.home-icon-btn:active {
+  transform: scale(0.88);
+}
+
+.home-icon-btn svg {
+  width: 23px;
+  height: 23px;
+}
+
+.home-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  padding: 24px;
+}
+
+/* An author-stylesheet `display: flex` rule beats the UA stylesheet's
+   plain [hidden] { display: none } regardless of specificity math --
+   author styles always win over UA styles -- so toggling the hidden
+   attribute alone does nothing without this explicit override. */
+.home-empty[hidden] {
+  display: none;
+}
+
+.home-logo {
+  width: 46px;
+  height: 46px;
+}
+
+.home-greeting {
+  font-size: 26px;
+  font-weight: 600;
+  font-family: Georgia, "Times New Roman", serif;
+  margin: 0;
+}
+
+.home-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 16px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.home-messages[hidden] {
+  display: none;
+}
+
+.home-input-wrap {
+  flex-shrink: 0;
+  padding: 8px 12px max(12px, env(safe-area-inset-bottom));
+}
+
+.home-input-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 26px;
+  padding: 6px 8px 6px 6px;
+}
+
+.home-plus-btn,
+.home-send-btn {
+  flex-shrink: 0;
+  background: none;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--fg);
+  cursor: pointer;
+  transition: transform 0.1s ease, background 0.15s ease;
+}
+
+.home-send-btn {
+  background: var(--fg);
+  color: var(--bg);
+  border-color: var(--fg);
+}
+
+.home-plus-btn:active,
+.home-send-btn:active {
+  transform: scale(0.9);
+}
+
+.home-plus-btn svg,
+.home-send-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.home-input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--fg);
+  font-size: 15px;
+  font-family: inherit;
+  padding: 8px 4px;
+}
+
+.home-input::placeholder {
+  color: var(--muted);
+}
+
+/* ---------- Drawer ---------- */
+
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 998;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+
+.drawer-backdrop.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: min(82vw, 320px);
+  background: var(--card-bg);
+  border-right: 1px solid var(--line-strong);
+  z-index: 999;
+  display: flex;
+  flex-direction: column;
+  padding: max(20px, env(safe-area-inset-top)) 16px 16px;
+  transform: translateX(-100%);
+  pointer-events: none;
+  transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.drawer.is-open {
+  transform: translateX(0);
+  pointer-events: auto;
+}
+
+/* Safe to fully remove from layout only once JS applies this after
+   the close transition finishes (see home.js's transitionend
+   handler) -- applying it any earlier would freeze the slide-out
+   mid-animation, since display:none can't be transitioned. */
+.drawer[hidden] {
+  display: none;
+}
+
+.drawer-header {
+  flex-shrink: 0;
+  margin-bottom: 18px;
+}
+
+.drawer-title {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.drawer-tools {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.drawer-tool-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 11px 6px;
+  border-radius: 10px;
+  color: var(--fg);
+  text-decoration: none;
+  font-size: 15px;
+  transition: background 0.15s ease;
+}
+
+.drawer-tool-row:active {
+  background: var(--surface);
+}
+
+.drawer-tool-icon {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+}
+
+.drawer-tool-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.drawer-divider {
+  flex-shrink: 0;
+  border-top: 1px solid var(--line);
+  margin: 14px 0;
+}
+
+.drawer-recents-label {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  padding: 0 6px 6px;
+}
+
+.drawer-recents-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.drawer-recent-row {
+  display: flex;
+  align-items: center;
+  background: none;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 6px;
+  color: var(--fg);
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background 0.15s ease;
+}
+
+.drawer-recent-row:active {
+  background: var(--surface);
+}
+
+.drawer-recents-empty {
+  color: var(--muted);
+  font-size: 13px;
+  padding: 8px 6px;
+}
+
+.drawer-footer {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  margin-top: 10px;
+}
+
+.drawer-profile-btn {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid var(--line-strong);
+  background: none;
+  color: var(--fg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 0;
+  cursor: pointer;
+}
+
+.drawer-profile-btn img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.drawer-profile-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.drawer-new-chat-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 16px;
+  font-size: 14px;
+}
+
+.drawer-new-chat-btn svg {
+  width: 16px;
+  height: 16px;
+}
