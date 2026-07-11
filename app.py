@@ -1229,8 +1229,68 @@ def api_update_profile():
     for key in ("full_name", "headline", "email", "location", "phone"):
         if key in data:
             fields[key] = (data.get(key) or "").strip()
+
+    if "email" in fields:
+        try:
+            fields["email"] = auth.validate_email(fields["email"])
+        except auth.AuthError as e:
+            return jsonify({"ok": False, "error": str(e)}), 400
+        existing = db.get_user_by_email(fields["email"])
+        if existing and existing["id"] != user["id"]:
+            return jsonify({"ok": False, "error": "That email is already in use by another account."}), 400
+    if "full_name" in fields:
+        try:
+            fields["full_name"] = auth.validate_full_name(fields["full_name"])
+        except auth.AuthError as e:
+            return jsonify({"ok": False, "error": str(e)}), 400
+
     db.update_profile_fields(user["id"], **fields)
     return jsonify({"ok": True, "state": pipeline.get_dashboard_state(user["id"])})
+
+
+@app.route("/api/profile/password", methods=["POST"])
+@auth.login_required
+def api_change_password():
+    user = auth.current_user()
+    data = request.get_json(force=True)
+    try:
+        auth.change_password(
+            user["id"],
+            data.get("current_password") or "",
+            data.get("new_password") or "",
+            data.get("confirm_password") or "",
+        )
+        return jsonify({"ok": True})
+    except auth.AuthError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+
+
+@app.route("/api/profile/documents")
+@auth.login_required
+def api_profile_documents():
+    user = auth.current_user()
+    docs = _real_uploaded_docs(user["id"])
+    return jsonify({
+        "ok": True,
+        "documents": [
+            {
+                "id": d["id"],
+                "filename": d["filename"],
+                "category": d.get("category", ""),
+                "file_type": d.get("file_type", ""),
+                "file_size": d.get("file_size"),
+                "uploaded_at": d.get("uploaded_at"),
+            }
+            for d in docs
+        ],
+    })
+
+
+@app.route("/profile")
+@auth.login_required
+def profile_page():
+    user = auth.current_user()
+    return render_template("profile.html", user=user)
 
 
 @app.route("/api/friends/invite", methods=["POST"])
@@ -2271,6 +2331,7 @@ QUICK REPLIES — after a substantive reply (not a greeting, not a one-word reac
 Give 1-3 short options (2-5 words each, phrased as something the user would tap), specific to what you just said — never generic. Omit this line entirely for greetings, small talk, or when there's no clear next action.
 
 This user's name: {user.get('full_name') or 'Unknown'}
+Roles they're targeting: {user.get('target_field') or 'Not specified — if this matters for what they just asked (e.g. a gap analysis), ask which roles they mean before answering.'}
 Documents uploaded: {doc_names}
 
 Full content of their uploaded documents (ground every piece of advice in this, it's the only source of truth about their real experience):

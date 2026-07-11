@@ -229,6 +229,19 @@ def complete_password_reset(raw_token: str, new_password: str, confirm_password:
     db.mark_password_reset_used(_hash_token(raw_token))
 
 
+def change_password(user_id, current_password, new_password, confirm_password):
+    """Password change from the Profile page -- requires the current
+    password (unlike the email-reset flow, which proves identity via a
+    token instead)."""
+    user = db.get_user_by_id(user_id)
+    if not user or not check_password_hash(user["password_hash"], current_password or ""):
+        raise AuthError("Current password is incorrect.")
+    validate_password(new_password)
+    if new_password != confirm_password:
+        raise AuthError("New passwords do not match.")
+    db.update_password(user_id, generate_password_hash(new_password))
+
+
 def log_in_user(user_id):
     session.clear()
     session["user_id"] = user_id

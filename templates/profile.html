@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Profile — Ploy{% endblock %}
+{% block content %}
+<div class="profile-shell">
+  <header class="stub-header">
+    <a href="{{ url_for('dashboard') }}" class="stub-back-btn" aria-label="Back">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+    </a>
+    <span class="stub-header-title">Profile</span>
+    <span class="stub-header-spacer"></span>
+  </header>
+
+  <section class="profile-section">
+    <h2 class="profile-section-title">Account</h2>
+    <label class="profile-field">
+      <span class="profile-field-label">Name</span>
+      <input type="text" id="profile-full-name" value="{{ user.full_name or '' }}" maxlength="80">
+    </label>
+    <label class="profile-field">
+      <span class="profile-field-label">Email</span>
+      <input type="email" id="profile-email" value="{{ user.email or '' }}">
+    </label>
+    <button type="button" class="btn btn-gold btn-sm" id="profile-account-save-btn">Save</button>
+    <p class="profile-status" id="profile-account-status" hidden></p>
+  </section>
+
+  <section class="profile-section">
+    <h2 class="profile-section-title">Password</h2>
+    <label class="profile-field">
+      <span class="profile-field-label">Current password</span>
+      <input type="password" id="profile-current-password" autocomplete="current-password">
+    </label>
+    <label class="profile-field">
+      <span class="profile-field-label">New password</span>
+      <input type="password" id="profile-new-password" autocomplete="new-password">
+    </label>
+    <label class="profile-field">
+      <span class="profile-field-label">Confirm new password</span>
+      <input type="password" id="profile-confirm-password" autocomplete="new-password">
+    </label>
+    <button type="button" class="btn btn-gold btn-sm" id="profile-password-save-btn">Change password</button>
+    <p class="profile-status" id="profile-password-status" hidden></p>
+  </section>
+
+  <section class="profile-section">
+    <h2 class="profile-section-title">Documents</h2>
+    <div class="profile-doc-list" id="profile-doc-list"></div>
+    <input type="file" id="profile-upload-input" hidden accept=".pdf,.doc,.docx,.txt">
+    <button type="button" class="btn btn-ghost btn-sm" id="profile-upload-btn">Add document</button>
+    <p class="profile-status" id="profile-doc-status" hidden></p>
+  </section>
+
+  <section class="profile-section">
+    <h2 class="profile-section-title">Target roles</h2>
+    <p class="profile-section-desc">Optional -- feeds "What's holding me back?" in chat.</p>
+    <label class="profile-field">
+      <span class="profile-field-label">Roles you're aiming for</span>
+      <input type="text" id="profile-target-field" value="{{ user.target_field or '' }}" placeholder="e.g. Backend Engineer, DevOps" maxlength="200">
+    </label>
+    <button type="button" class="btn btn-gold btn-sm" id="profile-target-save-btn">Save</button>
+    <p class="profile-status" id="profile-target-status" hidden></p>
+  </section>
+
+  <section class="profile-section profile-section-danger">
+    <a href="{{ url_for('logout_page') }}" class="btn btn-ghost btn-sm profile-logout-btn">Log out</a>
+    <button type="button" class="btn btn-ghost btn-sm profile-delete-account-btn" id="profile-delete-account-btn">Delete account</button>
+  </section>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/profile.js') }}"></script>
+{% endblock %}
