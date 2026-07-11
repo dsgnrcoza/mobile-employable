@@ -1,87 +1,55 @@
 {% extends "base.html" %}
 {% block title %}Ploy{% endblock %}
 {% block content %}
-<div class="home-shell">
-  <div class="home-greeting-wrap">
-    <h1 class="home-greeting" id="home-greeting">Hi!</h1>
-    <p class="home-subgreeting">How can we assist you today?</p>
-  </div>
-
-  <div class="home-grid">
-    <a href="{{ url_for('qualify_page') }}" class="home-tile">
-      <span class="home-tile-icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg>
-      </span>
-      <span class="home-tile-label">Qualify</span>
-    </a>
-    <a href="{{ url_for('builder_page') }}" class="home-tile">
-      <span class="home-tile-icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><g transform="rotate(-45 12 12)"><rect x="8.5" y="3" width="7" height="5.5" rx="1"/><line x1="12" y1="8.5" x2="12" y2="20"/></g></svg>
-      </span>
-      <span class="home-tile-label">Builder</span>
-    </a>
-    <a href="{{ url_for('trackers_page') }}" class="home-tile">
-      <span class="home-tile-icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 14 4-4 3 3 5-6"/></svg>
-      </span>
-      <span class="home-tile-label">Trackers</span>
-    </a>
-    <a href="{{ url_for('notes_page') }}" class="home-tile">
-      <span class="home-tile-icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h13l3 3v13H4Z"/><path d="M17 4v6h6"/></svg>
-      </span>
-      <span class="home-tile-label">Notes</span>
-    </a>
-  </div>
-
-  <button type="button" class="home-chat-fab" id="chat-fab-btn" aria-label="Open chat">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V11a7 7 0 0 1 14 0v9l-2.5-2-2 2-2-2-2 2-2-2L5 20z"/><circle cx="9.5" cy="10.5" r="0.8" fill="currentColor" stroke="none"/><circle cx="14.5" cy="10.5" r="0.8" fill="currentColor" stroke="none"/></svg>
-  </button>
-</div>
-
-<div class="chat-modal" id="chat-modal" hidden>
-  <header class="chat-modal-header">
-    <button type="button" class="chat-modal-icon-btn" id="chat-modal-close-btn" aria-label="Close">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
-    </button>
-    <span class="chat-modal-title">Ploy</span>
-    <button type="button" class="chat-modal-icon-btn" id="chat-modal-new-btn" aria-label="New chat">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-    </button>
+<div class="chat-shell">
+  <header class="chat-topbar">
+    <span class="wordmark chat-wordmark">PL<span class="wordmark-o">O</span>Y</span>
+    <div class="chat-topbar-actions">
+      <button type="button" class="chat-icon-btn" id="sidebar-open-btn" aria-label="Menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+      </button>
+      <button type="button" class="chat-avatar-btn" id="chat-avatar-btn" aria-label="Profile">{{ profile.initials }}</button>
+    </div>
   </header>
 
-  <div class="home-empty" id="home-empty">
-    <svg class="home-logo" viewBox="0 0 48 48" fill="none" stroke-width="3.5" stroke-linecap="round">
-      <defs>
-        <linearGradient id="homeLogoGradient" gradientUnits="userSpaceOnUse" x1="4" y1="4" x2="44" y2="44">
-          <stop offset="0%" stop-color="#2dd4bf"/>
-          <stop offset="50%" stop-color="#ec4899"/>
-          <stop offset="100%" stop-color="#8b5cf6"/>
-        </linearGradient>
-      </defs>
-      <g stroke="url(#homeLogoGradient)">
-        <line x1="24" y1="4" x2="24" y2="44"/>
-        <line x1="4" y1="24" x2="44" y2="24"/>
-        <line x1="9" y1="9" x2="39" y2="39"/>
-        <line x1="39" y1="9" x2="9" y2="39"/>
-      </g>
-    </svg>
-    <h1 class="home-greeting" id="chat-empty-greeting">How can I help you this afternoon?</h1>
+  <div class="chat-empty" id="chat-empty">
+    <h1>Where are we getting you hired?</h1>
+    <p>Paste a job ad, or pick a move below.</p>
   </div>
 
-  <div class="home-messages" id="chat-messages" hidden></div>
+  <div class="chat-messages" id="chat-messages" hidden></div>
 
-  <div class="home-input-wrap">
+  <div class="chat-chip-paste" id="chip-paste-wrap" hidden>
+    <textarea id="chip-paste-input" class="chat-chip-paste-textarea" placeholder="Paste the job ad or description here…"></textarea>
+    <div class="chat-chip-paste-actions">
+      <button type="button" class="btn btn-ghost btn-sm" id="chip-paste-cancel-btn">Cancel</button>
+      <button type="button" class="btn btn-gold btn-sm" id="chip-paste-submit-btn">Check my fit</button>
+    </div>
+  </div>
+
+  <div class="chat-chips" id="chat-chips">
+    <button type="button" class="chat-chip" id="chip-qualify" data-chip="qualify">
+      <span class="chip-num mono">01</span><span>Am I a fit for this job?</span>
+    </button>
+    <button type="button" class="chat-chip" id="chip-builder" data-chip="builder">
+      <span class="chip-num mono">02</span><span>Build my CV</span>
+    </button>
+    <button type="button" class="chat-chip" id="chip-gaps" data-chip="gaps">
+      <span class="chip-num mono">03</span><span>What's holding me back?</span>
+    </button>
+  </div>
+
+  <div class="chat-input-wrap">
     <div class="pending-attachments" id="pending-attachments" hidden></div>
-    <div class="home-input-bar">
-      <button type="button" class="home-plus-btn" id="chat-attach-btn" aria-label="Add">
+    <div class="chat-input-bar">
+      <button type="button" class="chat-plus-btn" id="chat-attach-btn" aria-label="Add">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       </button>
-      <input type="text" id="chat-input" class="home-input" placeholder="Chat with Ploy" autocomplete="off">
-      <button type="button" class="home-mic-btn" id="chat-mic-btn" aria-label="Voice dictation">
+      <input type="text" id="chat-input" class="chat-input" placeholder="Paste a job ad or ask anything…" autocomplete="off">
+      <button type="button" class="chat-mic-btn" id="chat-mic-btn" aria-label="Voice dictation">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="17" x2="12" y2="21"/><line x1="8" y1="21" x2="16" y2="21"/></svg>
       </button>
-      <button type="button" class="home-send-btn" id="chat-send-btn" aria-label="Send">
+      <button type="button" class="chat-send-btn" id="chat-send-btn" aria-label="Send">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="6 11 12 5 18 11"/></svg>
       </button>
     </div>
@@ -123,20 +91,34 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h13l3 3v13H4Z"/><path d="M17 4v6h6"/></svg>
       </span>
       <span class="attach-notes-text">
-        <span class="attach-notes-label">Use Notes</span>
-        <span class="attach-notes-desc">Let the chat refer to your notes</span>
+        <span class="attach-notes-label">Use my documents</span>
+        <span class="attach-notes-desc">Let the chat refer to everything you've uploaded</span>
       </span>
-      <button type="button" class="toggle-switch" id="use-notes-toggle" role="switch" aria-checked="false" aria-label="Use Notes">
+      <button type="button" class="toggle-switch" id="use-notes-toggle" role="switch" aria-checked="false" aria-label="Use my documents">
         <span class="toggle-switch-knob"></span>
       </button>
     </div>
 
     <div class="use-notes-tooltip" id="use-notes-tooltip" hidden>
-      <p>The chat can now see your notes and will refer to them when it helps answer you. Only while this is switched on.</p>
+      <p>Ploy can now dig into everything you've uploaded when it answers you. Only while this is switched on.</p>
       <button type="button" class="btn btn-gold btn-sm" id="use-notes-tooltip-got-it">Got it</button>
     </div>
   </div>
 </div>
+
+<div class="sidebar-backdrop" id="sidebar-backdrop" hidden></div>
+<aside class="sidebar" id="sidebar" hidden>
+  <div class="sidebar-header">
+    <span class="wordmark">PL<span class="wordmark-o">O</span>Y</span>
+    <button type="button" class="chat-icon-btn" id="sidebar-new-chat-btn" aria-label="New chat">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    </button>
+  </div>
+  <div class="sidebar-chats" id="sidebar-chats"></div>
+  <div class="sidebar-footer">
+    <a href="{{ url_for('logout_page') }}" class="sidebar-link">Log out</a>
+  </div>
+</aside>
 {% endblock %}
 
 {% block extra_scripts %}

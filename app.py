@@ -28,7 +28,7 @@ import os
 import uuid
 import json
 from dotenv import load_dotenv
-from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, Response
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, Response, stream_with_context
 import db
 import auth
 import pipeline
@@ -539,12 +539,11 @@ def api_onboarding_confirm():
 @app.route("/dashboard")
 @auth.login_required
 def dashboard():
-    # Now the new Claude-style chat home screen (see home.html) instead
-    # of the old 3-tab dashboard -- kept at this same route/endpoint
-    # name since every login/onboarding redirect in this file targets
-    # url_for("dashboard"). The old dashboard.html template (Cubic-Metric
-    # score, CV Workshop, etc.) is untouched on disk, just no longer
-    # rendered from here.
+    # Ploy's chat screen (see home.html) -- kept at this same route/
+    # endpoint name since every login/onboarding redirect in this file
+    # targets url_for("dashboard"). The old dashboard.html template
+    # (Cubic-Metric score, CV Workshop, etc.) is untouched on disk,
+    # just no longer rendered from here.
     user = auth.current_user()
     avatar_path = user.get("avatar_path") or ""
     if avatar_path.startswith("data:"):
@@ -556,8 +555,18 @@ def dashboard():
     profile = {
         "full_name": user.get("full_name") or "",
         "avatar_url": avatar_url,
+        "initials": _initials(user.get("full_name") or ""),
     }
     return render_template("home.html", profile=profile)
+
+
+def _initials(full_name):
+    parts = [p for p in full_name.strip().split() if p]
+    if not parts:
+        return "?"
+    if len(parts) == 1:
+        return parts[0][0].upper()
+    return (parts[0][0] + parts[-1][0]).upper()
 
 
 # ---------------- New tool sections (Qualify / Builder / Trackers / Notes) ----------------
@@ -1842,32 +1851,9 @@ def api_chat():
     user = auth.current_user()
     data = request.get_json(force=True)
     messages_in = data.get("messages", [])
-    state = pipeline.get_dashboard_state(user["id"])
-    profile = state.get("profile", {})
-    analysis = state.get("analysis") or {}
-    docs = state.get("documents", [])
-    skills = state.get("skills", [])
 
-    # All 8 scored dimensions still feed the AI's context even though
-    # the dashboard's primary view only surfaces 5 of them as cards
-    # (the other 3 sit behind "Full Breakdown") -- listing every one
-    # here, in the same order the Full Breakdown displays them, keeps
-    # the AI's view complete regardless of what's currently expanded.
-    dims = analysis.get("dimensions", [])
-    dim_lines = "\n".join(
-        f"  - {d['label']}: {d['score']:.1f}/10 — {d.get('description','')}"
-        for d in dims
-    ) if dims else "  No analysis yet."
-    roadmap = analysis.get("improvement_roadmap", [])
-    roadmap_lines = "\n".join(
-        f"  {i+1}. {r.get('what','')}" for i, r in enumerate(roadmap[:5])
-    ) if roadmap else "  No roadmap yet."
-    doc_names = ", ".join(d["filename"] for d in docs) if docs else "None uploaded."
-
-    # dashboard_state's "documents" list is trimmed to display fields only
-    # (no content/stored_path), so pull the full rows here instead --
-    # same source pipeline.py's own document-text assembly uses.
     full_docs = db.get_documents_for_user(user["id"])
+    doc_names = ", ".join(d["filename"] for d in full_docs) if full_docs else "None uploaded."
 
     # Prefer content already extracted at upload time and stored in the
     # DB (works on Vercel, where the upload directory is ephemeral and
@@ -1894,8 +1880,6 @@ def api_chat():
         except Exception:
             pass
     doc_content_block = "\n\n---\n\n".join(doc_texts) if doc_texts else "No document content available."
-    skill_names = [s if isinstance(s, str) else s.get("name", str(s)) for s in skills]
-    skill_list = ", ".join(skill_names) if skill_names else "None listed."
 
     # Notes are private by default -- this block is only ever built (and
     # only ever reaches the prompt below) when the client explicitly
@@ -1913,57 +1897,35 @@ def api_chat():
             )
             notes_section = f"\n\nThe user has turned on \"Use Notes\" for this message, so you may refer to their personal notes below when relevant:\n{notes_lines}\n"
 
-    system_prompt = f"""You are the Employable AI — a sharp, warm, genuinely helpful career intelligence assistant built into the Employable platform. You feel like a brilliant friend who happens to know everything about getting hired, not a corporate chatbot.
+    system_prompt = f"""You are Ploy — a chat-first AI career weapon for South African job seekers aged 18-25. You exist for one loop and everything you do serves it: paste a job, get a brutal-honest fit verdict, get the CV or cover letter rewritten for that exact job, download it, apply.
 
-Personality:
-- Conversational, direct, and human. Never robotic or overly formal.
-- Encouraging without being hollow — you give real, specific advice.
-- Brief when the question is simple; detailed when depth is needed.
-- You can handle greetings, small talk, and general questions naturally.
-- You never refuse to answer questions about job searching, career development, skills, CVs, interviews, the job market, or anything related to employment and professional growth.
+Voice: sharp, confident, on the user's side, zero corporate filler. Talk like a smart friend who won't waste their time, not a customer-service bot.
+- Never say "I'd be happy to help!", "Great question!", "As an AI...". Never lay out a menu of paths and ask them to pick — pick the most likely direction yourself and go there.
+- DEFAULT LENGTH IS 1-3 SENTENCES. Only go longer when the user asks for depth or you're walking through something genuinely multi-step.
+- Be honest even when it stings — if their fit is weak or their CV has a real problem, say so plainly. Vague encouragement helps nobody and isn't what this product is for.
+- Reference what's actually in THEIR documents, not generic examples. Never invent CV details that aren't there.
+- Fragments and one-word reactions are fine. Vary rhythm like a real person, not uniform sentences.
 
-How you actually talk — this is the part most AI chatbots get wrong, don't repeat their mistake:
-- Talk like you're one-on-one with this specific person, not broadcasting a canned answer that could apply to anyone. Reference what THEY actually told you or what's actually in THEIR documents, not generic examples.
-- DEFAULT LENGTH IS 1-3 SENTENCES. Most replies should be short — the length of a text message, not an email. Only go longer when the user asks for depth (e.g. "explain in detail", "give me a full breakdown") or when you're walking through something genuinely multi-step they asked for. If you notice your reply has more than 2 ideas in it, cut it down to 1.
-- NEVER lay out multiple conversational paths and ask the user to pick one ("we could do X, or if you'd rather Y, that's cool too — just let me know!"). Real people don't talk like a phone menu. Pick ONE direction — the most likely one — and go there. If you're genuinely unsure, ask ONE short question instead of offering a menu.
-- NEVER narrate your own availability or flexibility ("I'm here to listen," "just let me know," "that's cool too," "whatever you need"). It's filler that makes you sound like a support bot reading a script, not a person.
-- If someone shares something personal, hard, or emotional, do NOT open with a stock acknowledgment like "I'm sorry to hear that, it's completely okay to feel that way." That's therapist-bot boilerplate. React the way an actual friend would in a text: short, specific, human — "damn, that's rough" or just ask what happened — then follow their lead. Don't pivot them back to career talk unless they do.
-- If their question is vague ("help me with my CV," "should I apply for this job"), don't dump generic advice — ask ONE short, specific clarifying question first (e.g. "same field as your current role, or a switch?"). One sharp question beats three paragraphs of hedged advice.
-- Never use corporate-assistant phrasing: no "I'd be happy to help with that!", no "As an AI language model...", no "Great question!", no numbered "Here are 5 tips" listicles unless the user actually asked for a list.
-- Vary your sentence rhythm and length like a real person texting — not uniform, evenly-spaced sentences. Short reactions are fine. Fragments are fine. One-word reactions are fine when that's genuinely all a moment calls for.
-- It's fine to have a light opinion or push back gently if something in their plan seems off — a real friend wouldn't just validate everything.
+The three moves this app is built around — steer the user toward whichever is the useful next step, don't just wait to be asked:
+- "Am I a fit for this job?" — paste a job ad, get a fit verdict scored against their real CV.
+- "Build my CV" — rewrite their CV tailored to a specific job.
+- "What's holding me back?" — a gap analysis against the roles they're targeting.
 
-FORMATTING — this chat only displays bold text and paragraph breaks correctly if you produce them exactly like this, so follow it precisely:
-- To bold something, wrap it in double asterisks like **this** — the app renders that as real bold text. Never use single asterisks, underscores, headers (#), or any other markdown syntax; none of those render as anything but literal characters.
-- Whenever you start a new paragraph or a new numbered/bulleted list item, put a genuine blank line before it (an empty line between the two), not just a line break. Don't run paragraphs or list items together with only a single line break — the visual gap is what makes it readable in a chat bubble.
+FORMATTING — this chat only renders bold text and paragraph breaks correctly if you produce them exactly like this:
+- Bold: wrap in double asterisks like **this**. Never single asterisks, underscores, or headers.
+- New paragraph or list item: a genuine blank line before it, not just a line break.
 
-What makes you different from ChatGPT or other general AI tools:
-- You are purpose-built for one thing: helping this specific user become more employable and get hired.
-- You have direct access to this user's actual uploaded documents — their CV, certificates, references — and can give advice based on their real profile, not hypothetical examples.
-- You score their profile across five evidence-based dimensions and track improvement over time. No general AI can do that.
-- You know their exact scores, their weakest areas, and their personalised roadmap. Every piece of advice you give is grounded in their actual data, not generic guidance.
-- When asked what makes you different, explain this clearly and confidently. You are not trying to be everything — you are the best possible tool for getting this person hired.
+QUICK REPLIES — after a substantive reply (not a greeting, not a one-word reaction), end with one line in exactly this format so the app can render it as tappable buttons for the user's next move:
+[[QUICK_REPLIES]] Option one | Option two
+Give 1-3 short options (2-5 words each, phrased as something the user would tap), specific to what you just said — never generic. Omit this line entirely for greetings, small talk, or when there's no clear next action.
 
-Your core expertise: CV writing, ATS optimisation, job searching strategies, salary negotiation, interview preparation, skills development, LinkedIn optimisation, career transitions, the South African and global job markets.
+This user's name: {user.get('full_name') or 'Unknown'}
+Documents uploaded: {doc_names}
 
-You also have full context of this user's Employable profile:
-- Name: {profile.get('full_name') or 'Unknown'}
-- Location: {profile.get('location') or 'Not specified'}
-- Skills: {skill_list}
-- Documents uploaded: {doc_names}
-- Current Employability Score: {f"{analysis['employability_score']:.2f}/10 ({analysis.get('employability_score_label','')})" if analysis.get('employability_score') is not None else 'Not scored yet'} -- this is the EXACT number and label shown at the top of this user's dashboard right now, averaging ATS Compatibility, Skill Strength, Experience Strength, Qualification Strength, and Market Competitiveness. Always use this one when asked about "their score" generally, never recompute or estimate your own.
-- Broader Employability Rating (all 8 dimensions, weighted): {f"{analysis['overall_rating']:.2f}/10 ({analysis.get('rating_label','')})" if analysis.get('overall_rating') else 'Not scored yet'} -- shown in the dashboard's "Full Breakdown" section, not the primary number. Only bring this up if the user specifically asks about the broader rating or a dimension outside the 5 primary ones.
-
-Cubic-Metric Dimension Scores:
-{dim_lines}
-
-Top Improvement Priorities:
-{roadmap_lines}
-
-Full content of user's uploaded documents (use this to give specific, accurate advice about their actual CV and experience):
+Full content of their uploaded documents (ground every piece of advice in this, it's the only source of truth about their real experience):
 {doc_content_block}
 {notes_section}
-Use this context naturally when relevant. Don't dump it all at once — weave it in when it helps. When it actually strengthens a point, quote or paraphrase the specific line from their documents ("your CV says you led a 6-person team at X" beats "you have leadership experience") — that specificity is exactly what makes you useful instead of generic. Never claim you can't see their documents; if doc_content_block above says no content is available, say that plainly instead of guessing. If the user asks something general ("how are you", "what's the weather"), respond naturally like a human would. If they go off-topic in a fun way, engage briefly then gently steer back to career topics if appropriate. Never say "I can only discuss employment topics" — just be human."""
+Never claim you can't see their documents — if the block above says no content is available, say that plainly instead of guessing. If asked something off-topic, engage briefly and human, then steer back to the job hunt."""
 
     import re as _re, base64 as _b64
     openai_messages = [{"role": "system", "content": system_prompt}]
@@ -2008,18 +1970,38 @@ Use this context naturally when relevant. Don't dump it all at once — weave it
             openai_messages.append({"role": role, "content": text or " "})
 
     model_name = "gpt-4o" if has_images else "gpt-4o-mini"
+
+    # Real token streaming: the request to OpenAI (and any auth/key error)
+    # happens synchronously in .create(), so a bad key still surfaces as a
+    # normal JSON error response here -- only once that's succeeded do we
+    # switch to a streamed plain-text body the client reads incrementally.
+    # If the underlying platform buffers the response instead of flushing
+    # it chunk-by-chunk, this just degrades to the client receiving it all
+    # at once -- still correct, just not progressively rendered.
     try:
         client = OpenAI(api_key=analyzer.get_openai_api_key(), timeout=analyzer.get_client_timeout(), max_retries=analyzer.CLIENT_MAX_RETRIES)
-        response = client.chat.completions.create(
+        stream = client.chat.completions.create(
             model=model_name,
             messages=openai_messages,
             max_tokens=800,
             temperature=0.8,
+            stream=True,
         )
-        reply = response.choices[0].message.content.strip()
-        return jsonify({"ok": True, "reply": reply})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
+
+    def generate():
+        try:
+            for chunk in stream:
+                if not chunk.choices:
+                    continue
+                delta = chunk.choices[0].delta.content
+                if delta:
+                    yield delta
+        except Exception as e:
+            yield "\n\n[[STREAM_ERROR]]" + str(e)
+
+    return Response(stream_with_context(generate()), mimetype="text/plain")
 
 
 if __name__ == "__main__":

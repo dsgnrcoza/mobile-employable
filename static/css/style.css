@@ -2491,6 +2491,31 @@ button.auth-tab.active {
   padding: 4px 14px;
 }
 
+.chat-quick-replies {
+  align-self: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-width: 92%;
+}
+
+.chat-quick-reply-btn {
+  border: 1px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 150ms ease, color 150ms ease;
+}
+
+.chat-quick-reply-btn:active {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
 .chat-input-row {
   flex-shrink: 0;
   display: flex;
@@ -3854,156 +3879,55 @@ button.auth-tab.active {
 }
 
 /* ==========================================================================
-   New Claude-style home screen (chat is the main/only screen now) +
-   the left-slide drawer that replaces the old bottom tab bar
+   Ploy's chat screen -- the app's one core loop, always the default
+   screen. Top bar (wordmark + menu + avatar), empty-state greeting,
+   message stream, the 3 numbered chips, and the input bar.
    ========================================================================== */
 
-.home-shell {
+.chat-shell {
   position: fixed;
   inset: 0;
   display: flex;
   flex-direction: column;
   background: var(--bg);
-}
-
-.home-greeting-wrap {
-  flex-shrink: 0;
-  padding: max(48px, env(safe-area-inset-top) + 24px) 24px 4px;
-}
-
-.home-greeting-wrap .home-greeting {
-  font-size: 24px;
-}
-
-.home-subgreeting {
-  color: var(--muted);
-  font-size: 14px;
-  margin: 6px 0 0;
-}
-
-.home-grid {
-  flex: 1;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
-  padding: 20px 24px;
-  align-content: center;
-}
-
-.home-tile {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  aspect-ratio: 1;
-  background: var(--card-bg);
-  border: 1px solid var(--line);
-  border-radius: 20px;
-  color: var(--fg);
-  text-decoration: none;
-  transition: transform 0.1s ease;
-}
-
-.home-tile:active {
-  transform: scale(0.96);
-}
-
-.home-tile-icon svg {
-  width: 32px;
-  height: 32px;
-}
-
-.home-tile-label {
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.home-chat-fab {
-  flex-shrink: 0;
-  align-self: center;
-  margin-bottom: max(28px, env(safe-area-inset-bottom) + 12px);
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;
-  background: var(--fg);
-  color: var(--bg);
-  border: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-  cursor: pointer;
-  transition: transform 0.15s ease;
-}
-
-.home-chat-fab:active {
-  transform: scale(0.92);
-}
-
-.home-chat-fab svg {
-  width: 26px;
-  height: 26px;
-}
-
-/* ---------- Chat modal (slides up to cover the whole screen) ---------- */
-
-.chat-modal {
-  position: fixed;
-  inset: 0;
-  z-index: 2000;
-  display: flex;
-  flex-direction: column;
-  background: var(--bg);
-  transform: translateY(100%);
-  transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
   /* --kb-offset is set by home.js from the VisualViewport API as the
      on-screen keyboard opens/closes -- transitioning it here (rather
      than letting the browser's own native resize just snap the layout)
      is what makes the input bar glide up/down instead of jumping. */
   padding-bottom: var(--kb-offset, 0px);
-}
-
-.chat-modal.is-open {
-  transform: translateY(0);
-}
-
-/* An author-stylesheet `display: flex` rule beats the UA stylesheet's
-   plain [hidden] { display: none } regardless of specificity math --
-   author styles always win over UA styles -- so toggling the hidden
-   attribute alone does nothing without this explicit override. Safe
-   here only because home.js never sets hidden=true until AFTER the
-   slide-down transition has already finished (see its transitionend
-   listener), never before. */
-.chat-modal[hidden] {
-  display: none;
+  transition: padding-bottom 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .chat-modal {
+  .chat-shell {
     transition: none;
   }
 }
 
-.chat-modal-header {
+.chat-topbar {
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: max(18px, env(safe-area-inset-top)) 10px 8px;
+  padding: max(18px, env(safe-area-inset-top)) 16px 10px;
 }
 
-.chat-modal-title {
+.chat-wordmark {
   font-size: 15px;
-  font-weight: 700;
 }
 
-.chat-modal-icon-btn {
+.chat-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.chat-icon-btn {
   background: none;
   border: none;
   color: var(--fg);
   cursor: pointer;
-  padding: 10px;
+  padding: 8px;
   margin: -8px;
   display: flex;
   align-items: center;
@@ -4011,22 +3935,38 @@ button.auth-tab.active {
   transition: transform 0.1s ease;
 }
 
-.chat-modal-icon-btn:active {
+.chat-icon-btn:active {
   transform: scale(0.88);
 }
 
-.chat-modal-icon-btn svg {
-  width: 22px;
-  height: 22px;
+.chat-icon-btn svg {
+  width: 21px;
+  height: 21px;
 }
 
-.home-empty {
+.chat-avatar-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-ink);
+  border: none;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.chat-empty {
   flex: 1;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  gap: 22px;
+  gap: 10px;
   padding: 24px;
 }
 
@@ -4034,23 +3974,21 @@ button.auth-tab.active {
    plain [hidden] { display: none } regardless of specificity math --
    author styles always win over UA styles -- so toggling the hidden
    attribute alone does nothing without this explicit override. */
-.home-empty[hidden] {
+.chat-empty[hidden] {
   display: none;
 }
 
-.home-logo {
-  width: 46px;
-  height: 46px;
-}
-
-.home-greeting {
+.chat-empty h1 {
   font-size: 26px;
-  font-weight: 600;
-  font-family: Georgia, "Times New Roman", serif;
-  margin: 0;
+  max-width: 280px;
 }
 
-.home-messages {
+.chat-empty p {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.chat-messages {
   flex: 1;
   overflow-y: auto;
   padding: 14px 16px 0;
@@ -4059,16 +3997,91 @@ button.auth-tab.active {
   gap: 10px;
 }
 
-.home-messages[hidden] {
+.chat-messages[hidden] {
   display: none;
 }
 
-.home-input-wrap {
+.chat-chips {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 16px 10px;
+}
+
+.chat-chips[hidden] {
+  display: none;
+}
+
+.chat-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px 14px;
+  color: var(--fg);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: transform 0.1s ease, border-color 0.15s ease;
+}
+
+.chat-chip:active {
+  transform: scale(0.98);
+}
+
+.chip-num {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.chat-chip-paste {
+  flex-shrink: 0;
+  padding: 0 16px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.chat-chip-paste[hidden] {
+  display: none;
+}
+
+.chat-chip-paste-textarea {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  color: var(--fg);
+  font-size: 14px;
+  font-family: inherit;
+  padding: 12px 14px;
+  min-height: 120px;
+  resize: vertical;
+  outline: none;
+}
+
+.chat-chip-paste-textarea::placeholder {
+  color: var(--muted);
+}
+
+.chat-chip-paste-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.chat-input-wrap {
   flex-shrink: 0;
   padding: 8px 12px max(12px, env(safe-area-inset-bottom));
 }
 
-.home-input-bar {
+.chat-input-bar {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -4078,9 +4091,9 @@ button.auth-tab.active {
   padding: 6px 8px 6px 6px;
 }
 
-.home-plus-btn,
-.home-mic-btn,
-.home-send-btn {
+.chat-plus-btn,
+.chat-mic-btn,
+.chat-send-btn {
   flex-shrink: 0;
   background: none;
   border: 1px solid var(--line-strong);
@@ -4095,36 +4108,36 @@ button.auth-tab.active {
   transition: transform 0.1s ease, background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
-.home-send-btn {
-  background: var(--fg);
-  color: var(--bg);
-  border-color: var(--fg);
+.chat-send-btn {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: var(--accent);
 }
 
-.home-mic-btn.is-listening {
-  background: #ec4899;
+.chat-mic-btn.is-listening {
+  background: var(--bad);
   color: #fff;
-  border-color: #ec4899;
+  border-color: var(--bad);
 }
 
-.home-mic-btn[hidden] {
+.chat-mic-btn[hidden] {
   display: none;
 }
 
-.home-plus-btn:active,
-.home-mic-btn:active,
-.home-send-btn:active {
+.chat-plus-btn:active,
+.chat-mic-btn:active,
+.chat-send-btn:active {
   transform: scale(0.9);
 }
 
-.home-plus-btn svg,
-.home-mic-btn svg,
-.home-send-btn svg {
+.chat-plus-btn svg,
+.chat-mic-btn svg,
+.chat-send-btn svg {
   width: 18px;
   height: 18px;
 }
 
-.home-input {
+.chat-input {
   flex: 1;
   min-width: 0;
   background: transparent;
@@ -4136,8 +4149,116 @@ button.auth-tab.active {
   padding: 8px 4px;
 }
 
-.home-input::placeholder {
+.chat-input::placeholder {
   color: var(--muted);
+}
+
+/* ---------- Sidebar (chat history, slides in from the left) ---------- */
+
+.sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 998;
+  opacity: 0;
+  transition: opacity 0.28s ease;
+}
+
+.sidebar-backdrop[hidden] {
+  display: none;
+}
+
+.sidebar-backdrop.is-open {
+  opacity: 1;
+}
+
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: min(82vw, 320px);
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+  z-index: 999;
+  display: flex;
+  flex-direction: column;
+  padding: max(20px, env(safe-area-inset-top)) 16px 16px;
+  transform: translateX(-100%);
+  transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* Safe only because home.js defers hidden=true until AFTER the close
+   transition finishes -- see its transitionend listener, matching the
+   same pattern documented on .chat-empty/.chat-messages above. */
+.sidebar[hidden] {
+  display: none;
+}
+
+.sidebar.is-open {
+  transform: translateX(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-backdrop, .sidebar {
+    transition: none;
+  }
+}
+
+.sidebar-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.sidebar-chats {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sidebar-chats-empty {
+  color: var(--muted);
+  font-size: 13px;
+  padding: 8px 4px;
+}
+
+.sidebar-chat-row {
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--fg);
+  font-size: 14px;
+  font-family: inherit;
+  padding: 10px 8px;
+  border-radius: 10px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background 0.15s ease;
+}
+
+.sidebar-chat-row:active {
+  background: var(--surface);
+}
+
+.sidebar-footer {
+  flex-shrink: 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.sidebar-link {
+  display: block;
+  color: var(--muted);
+  font-size: 14px;
+  text-decoration: none;
+  padding: 8px 4px;
 }
 
 /* ==========================================================================
