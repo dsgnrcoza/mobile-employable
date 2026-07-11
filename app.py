@@ -68,7 +68,9 @@ AVATAR_ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static",
 
 
 def _allowed_file(filename: str) -> bool:
-    return bool(filename and filename.strip())
+    if not filename or not filename.strip() or "." not in filename:
+        return False
+    return filename.rsplit(".", 1)[-1].lower() in ALLOWED_EXTENSIONS
 
 
 _db_initialized = False
@@ -1479,20 +1481,55 @@ def api_get_conversations():
     return jsonify({"ok": True, "conversations": convs})
 
 
+def _generate_conversation_title(messages):
+    """First-exchange AI naming for a brand new chat thread ("auto-named
+    by AI from first message"). Returns None on any failure (including
+    no API key configured) so the caller can fall back to its own
+    truncated-text title instead of leaving a new chat untitled."""
+    from openai import OpenAI
+    convo_snippet = "\n".join(
+        f"{m.get('role')}: {(m.get('text') or '')[:400]}" for m in messages[:4]
+    )
+    if not convo_snippet.strip():
+        return None
+    try:
+        client = OpenAI(api_key=analyzer.get_openai_api_key(), timeout=analyzer.get_client_timeout(), max_retries=analyzer.CLIENT_MAX_RETRIES)
+        resp = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "Give this chat a short title, 3-6 words, plain text, no quotes or trailing punctuation, summarizing what it's about."},
+                {"role": "user", "content": convo_snippet},
+            ],
+            max_tokens=20,
+        )
+        title = (resp.choices[0].message.content or "").strip().strip('"').strip("'")
+        return title[:80] if title else None
+    except Exception:
+        return None
+
+
 @app.route("/api/chat/conversations", methods=["POST"])
 @auth.login_required
 def api_save_conversation():
-    """Create a new conversation or append messages to existing one."""
+    """Create a new conversation or append messages to an existing one.
+    The title is set once, at creation (AI-named from the first
+    exchange when possible) -- later saves never touch it, so it can't
+    drift back to raw truncated text on a later message, and promoted
+    job threads keep the "{Role} · {Company}" title promotion set."""
     user = auth.current_user()
     data = request.get_json(force=True)
     conv_id = data.get("conversation_id")
-    title = (data.get("title") or "Conversation")[:80]
+    fallback_title = (data.get("title") or "Conversation")[:80]
     messages = data.get("messages", [])
 
     if not conv_id:
+        title = _generate_conversation_title(messages) or fallback_title
         conv_id = db.create_conversation(user["id"], title)
-    else:
-        db.update_conversation_title(conv_id, user["id"], title)
+    elif not db.conversation_belongs_to_user(conv_id, user["id"]):
+        # conversation_id came from the client -- without this check, a
+        # crafted id belonging to another user would let their entire
+        # conversation be wiped and overwritten by the DELETE+INSERT below.
+        return jsonify({"ok": False, "error": "Conversation not found."}), 404
 
     # Replace all messages for this conversation (simplest sync strategy)
     conn = db.get_db()
@@ -1512,7 +1549,7 @@ def api_save_conversation():
 @auth.login_required
 def api_get_conversation(conv_id):
     user = auth.current_user()
-    msgs = db.get_messages_for_conversation(conv_id)
+    msgs = db.get_messages_for_conversation(conv_id, user["id"])
     result = []
     for m in msgs:
         import json as _json

@@ -842,19 +842,13 @@ def create_conversation(user_id, title="Conversation"):
         conn.close()
 
 
-def update_conversation_title(conv_id, user_id, title):
-    # Once a chat is promoted to a job thread (see promote_conversation),
-    # its title is the "{Role} · {Company}" the promotion set -- the
-    # generic per-message save (which derives its title from the first
-    # chat message) must never clobber that back to plain text, so this
-    # only applies while the conversation is still an ordinary chat.
+def conversation_belongs_to_user(conv_id, user_id):
     conn = get_db()
     try:
-        conn.execute(
-            "UPDATE chat_conversations SET title = ?, updated_at = ? WHERE id = ? AND user_id = ? AND kind != 'job'",
-            (title, now_iso(), conv_id, user_id)
-        )
-        conn.commit()
+        row = conn.execute(
+            "SELECT 1 FROM chat_conversations WHERE id = ? AND user_id = ?", (conv_id, user_id)
+        ).fetchone()
+        return row is not None
     finally:
         conn.close()
 
@@ -925,12 +919,18 @@ def add_chat_message(conv_id, role, text, attachment_ids=None, card=None):
         conn.close()
 
 
-def get_messages_for_conversation(conv_id):
+def get_messages_for_conversation(conv_id, user_id):
+    # Joins through chat_conversations to enforce that conv_id actually
+    # belongs to user_id -- without this, any logged-in user could read
+    # any other user's chat history just by guessing/iterating ids.
     conn = get_db()
     try:
         rows = conn.execute(
-            "SELECT * FROM chat_messages WHERE conversation_id = ? ORDER BY created_at ASC",
-            (conv_id,)
+            """SELECT m.* FROM chat_messages m
+               JOIN chat_conversations c ON c.id = m.conversation_id
+               WHERE m.conversation_id = ? AND c.user_id = ?
+               ORDER BY m.created_at ASC""",
+            (conv_id, user_id)
         ).fetchall()
         return [dict(r) for r in rows]
     finally:
