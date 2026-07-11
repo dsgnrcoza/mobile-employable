@@ -190,6 +190,7 @@
       '<button type="button" class="btn btn-gold btn-sm document-download-btn">Download</button>' +
       '<button type="button" class="btn btn-ghost btn-sm document-edit-btn">Edit</button>' +
       (card.kind === "cv" ? '<button type="button" class="btn btn-ghost btn-sm document-letter-btn">Cover letter</button>' : "") +
+      (card.kind === "cv" ? '<button type="button" class="btn btn-ghost btn-sm document-applied-btn">Mark as applied</button>' : "") +
       "</div>";
 
     wrap.querySelector(".document-download-btn").addEventListener("click", function () {
@@ -201,6 +202,12 @@
     if (card.kind === "cv") {
       wrap.querySelector(".document-letter-btn").addEventListener("click", function () {
         requestLetterCard({ job_title: card.job_title, company: card.company });
+      });
+      var appliedBtn = wrap.querySelector(".document-applied-btn");
+      appliedBtn.addEventListener("click", function () {
+        appliedBtn.disabled = true;
+        appliedBtn.textContent = "Applied ✓";
+        markThreadApplied(card);
       });
     }
     return wrap;
@@ -216,7 +223,7 @@
       ? "Verdict: " + card.fit_score + "/100 fit for " + (card.job_title || "this role") + (card.company ? " at " + card.company : "") + "."
       : "Document ready: " + card.filename;
     chatHistory.push({ role: "assistant", text: summary, card: card });
-    saveConversation();
+    saveConversation().then(function () { promoteThreadForCard(card); });
   }
 
   function requestCard(url, payload) {
@@ -281,7 +288,7 @@
   }
 
   function saveConversation() {
-    fetch("/api/chat/conversations", {
+    return fetch("/api/chat/conversations", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -295,6 +302,44 @@
         if (data.ok) chatConversationId = data.conversation_id;
       })
       .catch(function () {});
+  }
+
+  // ---------- Job-thread promotion ----------
+  // The moment a Verdict or Document card lands in a chat, that chat is
+  // promoted out of the plain chat list into a tracked "job thread" --
+  // this is the whole tracker, there's no separate screen for it (see
+  // the sidebar rendering below and db.promote_conversation server-side).
+
+  function promoteThreadForCard(card) {
+    if (!chatConversationId) return;
+    var statusLabel;
+    if (card.type === "verdict") {
+      statusLabel = "Fit " + card.fit_score;
+    } else if (card.kind === "cv") {
+      statusLabel = card.fit_score != null ? "Fit " + card.fit_score + " · CV ready" : "CV ready";
+    } else {
+      statusLabel = "Cover letter ready";
+    }
+    fetch("/api/chat/conversations/" + chatConversationId + "/promote", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        job_title: card.job_title || "",
+        company: card.company || "",
+        fit_score: card.fit_score != null ? card.fit_score : null,
+        status_label: statusLabel,
+      }),
+    }).catch(function () {});
+  }
+
+  function markThreadApplied(card) {
+    if (!chatConversationId) return;
+    var statusLabel = card.fit_score != null ? "Fit " + card.fit_score + " · Sent" : "Sent";
+    fetch("/api/chat/conversations/" + chatConversationId + "/status", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status_label: statusLabel }),
+    }).catch(function () {});
   }
 
   // ---------- Pending attachments (staged before the next send) ----------
@@ -600,9 +645,18 @@
         data.conversations.forEach(function (c) {
           var row = document.createElement("button");
           row.type = "button";
-          row.className = "sidebar-chat-row";
-          row.textContent = c.title || "Conversation";
+          row.className = "sidebar-chat-row" + (c.kind === "job" ? " sidebar-chat-row-job" : "");
           row.title = formatRelativeTime(c.updated_at);
+          var titleEl = document.createElement("span");
+          titleEl.className = "sidebar-chat-title";
+          titleEl.textContent = c.title || "Conversation";
+          row.appendChild(titleEl);
+          if (c.kind === "job" && c.status_label) {
+            var badge = document.createElement("span");
+            badge.className = "sidebar-chat-badge mono";
+            badge.textContent = c.status_label;
+            row.appendChild(badge);
+          }
           row.addEventListener("click", function () {
             loadConversation(c.id);
             closeSidebar();
@@ -630,6 +684,15 @@
   sidebar.addEventListener("transitionend", function (e) {
     if (e.target !== sidebar) return;
     if (!sidebar.classList.contains("is-open")) sidebar.hidden = true;
+  });
+
+  // Without this, the backdrop's opacity fades to 0 on close but the
+  // element itself stays in the DOM without [hidden] -- invisible, yet
+  // still a full-viewport fixed-position layer that swallows every
+  // click on the page underneath it.
+  sidebarBackdrop.addEventListener("transitionend", function (e) {
+    if (e.target !== sidebarBackdrop) return;
+    if (!sidebarBackdrop.classList.contains("is-open")) sidebarBackdrop.hidden = true;
   });
 
   sidebarOpenBtn.addEventListener("click", openSidebar);

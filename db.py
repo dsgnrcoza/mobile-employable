@@ -205,6 +205,11 @@ def init_db():
             id {_PK},
             user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
             title TEXT NOT NULL DEFAULT 'Conversation',
+            kind TEXT NOT NULL DEFAULT 'chat',
+            job_title TEXT NOT NULL DEFAULT '',
+            company TEXT NOT NULL DEFAULT '',
+            fit_score INTEGER DEFAULT NULL,
+            status_label TEXT NOT NULL DEFAULT '',
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
         );
@@ -309,6 +314,11 @@ def init_db():
         "ALTER TABLE documents ADD COLUMN file_size INTEGER DEFAULT NULL",
         "ALTER TABLE documents ADD COLUMN file_bytes_b64 TEXT DEFAULT NULL",
         "ALTER TABLE chat_messages ADD COLUMN card_json TEXT DEFAULT NULL",
+        "ALTER TABLE chat_conversations ADD COLUMN kind TEXT NOT NULL DEFAULT 'chat'",
+        "ALTER TABLE chat_conversations ADD COLUMN job_title TEXT NOT NULL DEFAULT ''",
+        "ALTER TABLE chat_conversations ADD COLUMN company TEXT NOT NULL DEFAULT ''",
+        "ALTER TABLE chat_conversations ADD COLUMN fit_score INTEGER DEFAULT NULL",
+        "ALTER TABLE chat_conversations ADD COLUMN status_label TEXT NOT NULL DEFAULT ''",
         # Deliberately last and best-effort, not part of the CREATE TABLE
         # block above: if any pre-existing rows already share a non-blank
         # email (e.g. two accounts that both had their email set to the
@@ -796,7 +806,9 @@ def get_conversations_for_user(user_id):
     conn = get_db()
     try:
         rows = conn.execute(
-            "SELECT id, title, created_at, updated_at FROM chat_conversations WHERE user_id = ? ORDER BY updated_at DESC",
+            """SELECT id, title, kind, job_title, company, fit_score, status_label, created_at, updated_at
+               FROM chat_conversations WHERE user_id = ?
+               ORDER BY CASE WHEN kind = 'job' THEN 0 ELSE 1 END, updated_at DESC""",
             (user_id,)
         ).fetchall()
         return [dict(r) for r in rows]
@@ -819,11 +831,47 @@ def create_conversation(user_id, title="Conversation"):
 
 
 def update_conversation_title(conv_id, user_id, title):
+    # Once a chat is promoted to a job thread (see promote_conversation),
+    # its title is the "{Role} · {Company}" the promotion set -- the
+    # generic per-message save (which derives its title from the first
+    # chat message) must never clobber that back to plain text, so this
+    # only applies while the conversation is still an ordinary chat.
     conn = get_db()
     try:
         conn.execute(
-            "UPDATE chat_conversations SET title = ?, updated_at = ? WHERE id = ? AND user_id = ?",
+            "UPDATE chat_conversations SET title = ?, updated_at = ? WHERE id = ? AND user_id = ? AND kind != 'job'",
             (title, now_iso(), conv_id, user_id)
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def promote_conversation(conv_id, user_id, job_title="", company="", fit_score=None, status_label=""):
+    """The core "job thread" mechanic: the moment a chat produces a
+    Verdict or Document card, it's promoted out of the plain chat list
+    into a tracked job thread -- this IS the tracker, there is no
+    separate screen for it."""
+    title = f"{job_title} · {company}" if (job_title and company) else (job_title or company or "My CV")
+    conn = get_db()
+    try:
+        conn.execute(
+            """UPDATE chat_conversations
+               SET kind = 'job', title = ?, job_title = ?, company = ?, fit_score = ?, status_label = ?, updated_at = ?
+               WHERE id = ? AND user_id = ?""",
+            (title, job_title or "", company or "", fit_score, status_label or "", now_iso(), conv_id, user_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def update_conversation_status(conv_id, user_id, status_label):
+    conn = get_db()
+    try:
+        conn.execute(
+            "UPDATE chat_conversations SET status_label = ?, updated_at = ? WHERE id = ? AND user_id = ?",
+            (status_label, now_iso(), conv_id, user_id),
         )
         conn.commit()
     finally:

@@ -1446,6 +1446,42 @@ def api_delete_conversation(conv_id):
     return jsonify({"ok": True})
 
 
+@app.route("/api/chat/conversations/<int:conv_id>/promote", methods=["POST"])
+@auth.login_required
+def api_promote_conversation(conv_id):
+    """The job-thread promotion mechanic: called the moment a Verdict or
+    Document card lands in a chat. Title snaps to "{Role} · {Company}",
+    the thread gets a live status badge, and it sorts above plain chats
+    -- this IS the tracker, there's no separate screen for it."""
+    user = auth.current_user()
+    data = request.get_json(force=True)
+    fit_score = data.get("fit_score")
+    try:
+        fit_score = int(fit_score) if fit_score is not None else None
+    except (TypeError, ValueError):
+        fit_score = None
+    db.promote_conversation(
+        conv_id, user["id"],
+        job_title=(data.get("job_title") or "").strip()[:200],
+        company=(data.get("company") or "").strip()[:200],
+        fit_score=fit_score,
+        status_label=(data.get("status_label") or "").strip()[:100],
+    )
+    return jsonify({"ok": True})
+
+
+@app.route("/api/chat/conversations/<int:conv_id>/status", methods=["POST"])
+@auth.login_required
+def api_update_conversation_status(conv_id):
+    """Updates a job thread's live status badge -- e.g. the Document
+    card's "Mark as applied" action moving a thread from "CV ready" to
+    "Sent"."""
+    user = auth.current_user()
+    data = request.get_json(force=True)
+    db.update_conversation_status(conv_id, user["id"], (data.get("status_label") or "").strip()[:100])
+    return jsonify({"ok": True})
+
+
 @app.route("/api/chat/attachment-thumb/<int:att_id>")
 @auth.login_required
 def api_chat_attachment_thumb(att_id):

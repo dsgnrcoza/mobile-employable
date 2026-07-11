@@ -4306,6 +4306,12 @@ button.auth-tab.active {
   background: rgba(0, 0, 0, 0.5);
   z-index: 998;
   opacity: 0;
+  /* Not just cosmetic: without this, the fade-out leaves a full-viewport
+     invisible layer sitting over the whole page (relying on a
+     transitionend listener to set [hidden] is timing-dependent -- it
+     never fires at all under prefers-reduced-motion) that would swallow
+     every click underneath it until the sidebar is opened again. */
+  pointer-events: none;
   transition: opacity 0.28s ease;
 }
 
@@ -4315,6 +4321,7 @@ button.auth-tab.active {
 
 .sidebar-backdrop.is-open {
   opacity: 1;
+  pointer-events: auto;
 }
 
 .sidebar {
@@ -4382,14 +4389,32 @@ button.auth-tab.active {
   padding: 10px 8px;
   border-radius: 10px;
   cursor: pointer;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
   transition: background 0.15s ease;
 }
 
 .sidebar-chat-row:active {
   background: var(--surface);
+}
+
+.sidebar-chat-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+
+.sidebar-chat-row-job .sidebar-chat-title {
+  font-weight: 700;
+}
+
+.sidebar-chat-badge {
+  font-size: 11px;
+  color: var(--accent);
+  letter-spacing: 0.02em;
 }
 
 .sidebar-footer {
