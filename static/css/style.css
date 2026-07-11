@@ -372,24 +372,6 @@ button.auth-tab.active {
      the card's corner reads as an uneven straight sliver rather than
      following the corner smoothly. */
   padding: 22px 20px calc(14px + env(safe-area-inset-bottom));
-  animation: auth-card-in 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) both;
-}
-
-@keyframes auth-card-in {
-  from {
-    opacity: 0;
-    transform: translateY(16px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .auth-form-box {
-    animation: none;
-  }
 }
 
 .auth-form-box h1 {
@@ -1016,6 +998,53 @@ button.auth-tab.active {
 .ob-next-btn:disabled {
   opacity: 0.35;
   cursor: not-allowed;
+}
+
+/* ---------- Instant readout (onboarding step 2) ---------- */
+
+.ob-readout-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 60px 0;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+/* An author-stylesheet `display: flex` rule beats the UA stylesheet's
+   plain [hidden] { display: none } regardless of specificity math --
+   author styles always win over UA styles -- so toggling the hidden
+   attribute alone does nothing without this explicit override. */
+.ob-readout-loading[hidden] {
+  display: none;
+}
+
+.ob-readout-result h1 {
+  margin-bottom: 10px;
+}
+
+.ob-readout-stats {
+  display: block;
+  font-size: 15px;
+  color: var(--accent);
+  margin-bottom: 20px;
+}
+
+.ob-readout-flags {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 26px;
+}
+
+.ob-readout-flag {
+  font-size: 14px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.85);
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 12px;
+  margin: 0;
 }
 
 /* ==========================================================================

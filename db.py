@@ -165,6 +165,7 @@ def init_db():
             insight_cache TEXT DEFAULT NULL,
             category TEXT NOT NULL DEFAULT '',
             file_size INTEGER DEFAULT NULL,
+            file_bytes_b64 TEXT DEFAULT NULL,
             uploaded_at TEXT NOT NULL
         );
 
@@ -266,6 +267,15 @@ def init_db():
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS password_resets (
+            id {_PK},
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            token_hash TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            used INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL
+        );
     """)
     conn.commit()
 
@@ -296,6 +306,7 @@ def init_db():
         "ALTER TABLE documents ADD COLUMN content TEXT NOT NULL DEFAULT ''",
         "ALTER TABLE documents ADD COLUMN category TEXT NOT NULL DEFAULT ''",
         "ALTER TABLE documents ADD COLUMN file_size INTEGER DEFAULT NULL",
+        "ALTER TABLE documents ADD COLUMN file_bytes_b64 TEXT DEFAULT NULL",
         # Deliberately last and best-effort, not part of the CREATE TABLE
         # block above: if any pre-existing rows already share a non-blank
         # email (e.g. two accounts that both had their email set to the
@@ -420,16 +431,39 @@ def reset_documents_confirmed(user_id):
 
 # ---------------- DOCUMENT QUERIES ----------------
 
-def add_document(user_id, filename, stored_path, file_type, content="", category="", file_size=None):
+def add_document(user_id, filename, stored_path, file_type, content="", category="", file_size=None, file_bytes_b64=None):
     conn = get_db()
     try:
         cur = conn.execute(
-            """INSERT INTO documents (user_id, filename, stored_path, file_type, content, category, file_size, uploaded_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-            (user_id, filename, stored_path, file_type, content or "", category or "", file_size, now_iso()),
+            """INSERT INTO documents (user_id, filename, stored_path, file_type, content, category, file_size, file_bytes_b64, uploaded_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (user_id, filename, stored_path, file_type, content or "", category or "", file_size, file_bytes_b64, now_iso()),
         )
         conn.commit()
         return cur.lastrowid
+    finally:
+        conn.close()
+
+
+def get_document_file_bytes(user_id, document_id):
+    """
+    Returns the raw original file bytes for one of this user's
+    documents, or None if it has none stored (uploaded before this
+    column existed) or doesn't belong to this user. Stored as base64
+    text rather than a native blob/bytea column so the same code path
+    works identically on SQLite and Postgres with no binary-adapter
+    edge cases.
+    """
+    import base64
+    conn = get_db()
+    try:
+        row = conn.execute(
+            "SELECT file_bytes_b64 FROM documents WHERE id = ? AND user_id = ?",
+            (document_id, user_id),
+        ).fetchone()
+        if not row or not row["file_bytes_b64"]:
+            return None
+        return base64.b64decode(row["file_bytes_b64"])
     finally:
         conn.close()
 
@@ -1041,6 +1075,39 @@ def delete_tracker(tracker_id, user_id):
     conn = get_db()
     try:
         conn.execute("DELETE FROM trackers WHERE id = ? AND user_id = ?", (tracker_id, user_id))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def create_password_reset(user_id, token_hash, expires_at):
+    conn = get_db()
+    try:
+        conn.execute(
+            "INSERT INTO password_resets (user_id, token_hash, expires_at, created_at) VALUES (?, ?, ?, ?)",
+            (user_id, token_hash, expires_at, now_iso()),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_password_reset_by_token_hash(token_hash):
+    conn = get_db()
+    try:
+        row = conn.execute(
+            "SELECT * FROM password_resets WHERE token_hash = ? ORDER BY id DESC LIMIT 1",
+            (token_hash,),
+        ).fetchone()
+        return dict(row) if row else None
+    finally:
+        conn.close()
+
+
+def mark_password_reset_used(token_hash):
+    conn = get_db()
+    try:
+        conn.execute("UPDATE password_resets SET used = 1 WHERE token_hash = ?", (token_hash,))
         conn.commit()
     finally:
         conn.close()

@@ -1,13 +1,12 @@
 (function () {
   "use strict";
 
-  var initial = window.OB_INITIAL || { cvDocuments: [], supportingDocuments: [], hasCv: false, fullName: "" };
+  var initial = window.OB_INITIAL || { cvDocuments: [], supportingDocuments: [], hasCv: false };
 
   var state = {
     cv: initial.cvDocuments.slice(),
     supporting: initial.supportingDocuments.slice(),
     hasCv: !!initial.hasCv,
-    hasName: !!(initial.fullName || "").trim(),
     lastUploadedId: {},
   };
 
@@ -15,12 +14,9 @@
   var knownIds = new Set();
   state.cv.concat(state.supporting).forEach(function (d) { knownIds.add(d.id); });
 
-  var stepName = document.getElementById("step-name");
   var stepCv = document.getElementById("step-cv");
+  var stepReadout = document.getElementById("step-readout");
   var stepSupporting = document.getElementById("step-supporting");
-  var nameInput = document.getElementById("name-input");
-  var nameNextBtn = document.getElementById("name-next-btn");
-  var nameError = document.getElementById("name-error");
   var cvNextBtn = document.getElementById("cv-next-btn");
   var supportingNextBtn = document.getElementById("supporting-next-btn");
   var cvError = document.getElementById("cv-error");
@@ -130,6 +126,10 @@
 
       container.appendChild(row);
     });
+
+    if (target === "supporting") {
+      supportingNextBtn.textContent = docs.length > 0 ? "Continue" : "Skip for now";
+    }
   }
 
   function updateCvGate() {
@@ -294,45 +294,62 @@
   }
 
   function goToStep(step) {
-    stepName.hidden = step !== "name";
     stepCv.hidden = step !== "cv";
+    stepReadout.hidden = step !== "readout";
     stepSupporting.hidden = step !== "supporting";
-    document.querySelectorAll('[data-dot="name"]').forEach(function (d) { d.classList.toggle("active", step === "name"); });
     document.querySelectorAll('[data-dot="cv"]').forEach(function (d) { d.classList.toggle("active", step === "cv"); });
+    document.querySelectorAll('[data-dot="readout"]').forEach(function (d) { d.classList.toggle("active", step === "readout"); });
     document.querySelectorAll('[data-dot="supporting"]').forEach(function (d) { d.classList.toggle("active", step === "supporting"); });
   }
 
-  nameNextBtn.addEventListener("click", function () {
-    var name = nameInput.value.trim();
-    if (!name) {
-      nameError.hidden = false;
-      nameError.textContent = "Please enter your name.";
-      nameInput.focus();
-      return;
-    }
-    nameError.hidden = true;
-    nameNextBtn.disabled = true;
-    fetch("/api/onboarding/name", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: name }),
-    })
+  // ---------- Instant readout (step 2) ----------
+
+  var readoutLoading = document.getElementById("ob-readout-loading");
+  var readoutResult = document.getElementById("ob-readout-result");
+  var readoutStats = document.getElementById("ob-readout-stats");
+  var readoutFlags = document.getElementById("ob-readout-flags");
+  var readoutError = document.getElementById("readout-error");
+  var readoutNextBtn = document.getElementById("readout-next-btn");
+
+  function runReadout() {
+    readoutLoading.hidden = false;
+    readoutResult.hidden = true;
+    readoutError.hidden = true;
+
+    fetch("/api/onboarding/readout", { method: "POST" })
       .then(function (r) { return r.json(); })
       .then(function (data) {
-        nameNextBtn.disabled = false;
-        if (data.ok) {
-          goToStep("cv");
-        } else {
-          nameError.hidden = false;
-          nameError.textContent = data.error || "Something went wrong. Please try again.";
+        readoutLoading.hidden = true;
+        if (!data.ok) {
+          readoutError.hidden = false;
+          readoutError.textContent = data.error || "Couldn't read that CV. Please try again.";
+          return;
         }
+        readoutStats.textContent = (data.years_experience || "—") + " · " + data.skills_count + " skills detected";
+        readoutFlags.innerHTML = "";
+        if (data.flags && data.flags.length) {
+          data.flags.forEach(function (flag) {
+            var p = document.createElement("p");
+            p.className = "ob-readout-flag";
+            p.textContent = flag;
+            readoutFlags.appendChild(p);
+          });
+        } else {
+          var p = document.createElement("p");
+          p.className = "ob-readout-flag";
+          p.textContent = "Nothing major flagged — solid foundation to work from.";
+          readoutFlags.appendChild(p);
+        }
+        readoutResult.hidden = false;
       })
       .catch(function () {
-        nameNextBtn.disabled = false;
-        nameError.hidden = false;
-        nameError.textContent = "Connection error — please try again.";
+        readoutLoading.hidden = true;
+        readoutError.hidden = false;
+        readoutError.textContent = "Connection error — please try again.";
       });
-  });
+  }
+
+  readoutNextBtn.addEventListener("click", function () { goToStep("supporting"); });
 
   var reviewOverlay = document.getElementById("ob-review-overlay");
   var reviewList = document.getElementById("ob-review-list");
@@ -461,10 +478,15 @@
 
   cvNextBtn.addEventListener("click", function () {
     if (!state.hasCv) return;
-    goToStep("supporting");
+    goToStep("readout");
+    runReadout();
   });
 
   supportingNextBtn.addEventListener("click", openReviewModal);
 
-  goToStep(!state.hasName ? "name" : (state.hasCv ? "supporting" : "cv"));
+  // A returning user mid-onboarding (e.g. a refresh) skips straight past
+  // the CV step if one's already on file -- the instant readout is a
+  // one-time "wow" moment tied to the button click, not something to
+  // re-run on every page load.
+  goToStep(state.hasCv ? "supporting" : "cv");
 })();

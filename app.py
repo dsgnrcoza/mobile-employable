@@ -125,7 +125,7 @@ def _require_terms():
 # are excluded too since they're not behind login_required anyway.
 _ONBOARDING_EXEMPT_ENDPOINTS = {
     "onboarding_page",
-    "api_onboarding_name",
+    "api_onboarding_readout",
     "api_onboarding_upload",
     "api_onboarding_check",
     "api_onboarding_confirm",
@@ -254,18 +254,17 @@ def signup_page():
     if request.method == "POST":
         try:
             auth.signup(
+                full_name=request.form.get("full_name", ""),
                 email=request.form.get("email", ""),
                 password=request.form.get("password", ""),
                 confirm_password=request.form.get("confirm_password", ""),
-                security_question=request.form.get("security_question", ""),
-                security_answer=request.form.get("security_answer", ""),
             )
             flash("Account created. Welcome to Ploy.", "success")
             return redirect(url_for("dashboard"))
         except auth.AuthError as e:
             flash(str(e), "error")
 
-    return render_template("signup.html", security_questions=auth.SECURITY_QUESTIONS)
+    return render_template("signup.html")
 
 
 @app.route("/login", methods=["GET", "POST"])
@@ -293,10 +292,11 @@ def logout_page():
 @app.route("/forgot-password", methods=["GET", "POST"])
 def forgot_password_page():
     """
-    Step 1 of password recovery: takes an email and looks up its
-    security question (a decoy if there's no match -- see
-    auth.get_security_question's docstring) so the response can't be
-    used to enumerate which emails have accounts here.
+    Sends a reset link by email. Always shows the same "check your
+    email" confirmation regardless of whether the address has an
+    account -- auth.request_password_reset() only ever emails a real
+    token when one does, so the response can't be used to enumerate
+    which emails are registered here.
     """
     if auth.current_user():
         return redirect(url_for("dashboard"))
@@ -309,42 +309,13 @@ def forgot_password_page():
             flash(str(e), "error")
             return render_template("forgot_password.html")
 
-        user_id, question = auth.get_security_question(email)
-        session["pending_reset_user_id"] = user_id
-        session["pending_reset_question"] = question
-        return redirect(url_for("security_question_page"))
+        auth.request_password_reset(
+            email,
+            build_reset_url=lambda token: url_for("reset_password_page", token=token, _external=True),
+        )
+        return render_template("forgot_password.html", sent=True)
 
     return render_template("forgot_password.html")
-
-
-@app.route("/security-question", methods=["GET", "POST"])
-def security_question_page():
-    """
-    Step 2 of password recovery: shows the security question stashed
-    in the session by forgot_password_page and checks the submitted
-    answer against it.
-    """
-    if auth.current_user():
-        return redirect(url_for("dashboard"))
-
-    question = session.get("pending_reset_question")
-    if not question:
-        return redirect(url_for("forgot_password_page"))
-    user_id = session.get("pending_reset_user_id")
-
-    if request.method == "POST":
-        try:
-            auth.verify_security_answer(user_id, request.form.get("answer", ""))
-        except auth.AuthError as e:
-            flash(str(e), "error")
-            return render_template("security_question.html", question=question)
-
-        session.pop("pending_reset_user_id", None)
-        session.pop("pending_reset_question", None)
-        session["reset_verified_user_id"] = user_id
-        return redirect(url_for("reset_password_page"))
-
-    return render_template("security_question.html", question=question)
 
 
 @app.route("/reset-password", methods=["GET", "POST"])
@@ -352,24 +323,24 @@ def reset_password_page():
     if auth.current_user():
         return redirect(url_for("dashboard"))
 
-    user_id = session.get("reset_verified_user_id")
-    if not user_id:
+    token = request.args.get("token") or request.form.get("token", "")
+    if not auth.verify_reset_token(token):
+        flash("That reset link is invalid or has expired. Please request a new one.", "error")
         return redirect(url_for("forgot_password_page"))
 
     if request.method == "POST":
         try:
             auth.complete_password_reset(
-                user_id,
+                token,
                 request.form.get("new_password", ""),
                 request.form.get("confirm_password", ""),
             )
-            session.pop("reset_verified_user_id", None)
             flash("Password reset. Please sign in with your new password.", "success")
             return redirect(url_for("login_page"))
         except auth.AuthError as e:
             flash(str(e), "error")
 
-    return render_template("reset_password.html")
+    return render_template("reset_password.html", token=token)
 
 
 # ---------------- ONBOARDING (required before first dashboard view) ----------------
@@ -388,21 +359,65 @@ def onboarding_page():
         cv_documents=cv_documents,
         supporting_documents=supporting_documents,
         has_cv=pipeline.any_document_looks_like_cv(user["id"]),
-        full_name=user.get("full_name") or "",
     )
 
 
-@app.route("/api/onboarding/name", methods=["POST"])
+@app.route("/api/onboarding/readout", methods=["POST"])
 @auth.login_required
-def api_onboarding_name():
+def api_onboarding_readout():
+    """
+    The onboarding "wow" moment: parses the CV(s) just uploaded and
+    returns a short, honest readout -- years of experience, a skills
+    count, and 1-2 concrete problems that would hurt in a real ATS/
+    recruiter pass. Real analysis of this specific person's real CV,
+    not canned copy.
+    """
+    from openai import OpenAI
     user = auth.current_user()
-    data = request.json if request.is_json else request.form
+    documents = db.get_documents_for_user(user["id"])
+    cv_documents = [d for d in documents if d.get("category") == "cv"]
+    if not cv_documents:
+        return jsonify({"ok": False, "error": "Upload a CV first."}), 400
+
+    doc_texts = []
+    for d in cv_documents:
+        text = (d.get("content") or "").strip()
+        if text:
+            doc_texts.append(f"[{d['filename']}]\n{text[:6000]}")
+    doc_content_block = "\n\n---\n\n".join(doc_texts) if doc_texts else "No readable content extracted."
+
+    system = (
+        "You are Ploy's CV parser -- sharp, direct, zero corporate filler. "
+        "Given the real content of a CV below, return a JSON object with exactly these keys:\n"
+        "- 'years_experience': a short string like '5+ years', '2 years', or 'Entry-level' -- your best "
+        "honest estimate from the actual dates/roles in the CV, never invented.\n"
+        "- 'skills_count': an integer count of distinct real skills you can identify in the CV.\n"
+        "- 'flags': an array of 1-2 short, specific, concrete problems with THIS CV that would hurt it in "
+        "a real ATS scan or recruiter skim (e.g. no measurable results, no dedicated skills section, dates "
+        "that don't parse cleanly, a wall of text with no structure). Each flag is one short sentence, "
+        "specific to what's actually in this document -- never generic advice. If the CV is genuinely solid "
+        "with nothing significant to flag, return an empty array.\n"
+        "Never invent facts not present in the CV."
+    )
+    prompt = f"CV content:\n{doc_content_block}"
+
     try:
-        name = auth.validate_full_name(data.get("name") or "")
-    except auth.AuthError as e:
-        return jsonify({"ok": False, "error": str(e)}), 400
-    db.update_profile_fields(user["id"], full_name=name)
-    return jsonify({"ok": True})
+        client = OpenAI(api_key=analyzer.get_openai_api_key(), timeout=analyzer.get_client_timeout(), max_retries=analyzer.CLIENT_MAX_RETRIES)
+        resp = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "system", "content": system}, {"role": "user", "content": prompt}],
+            max_tokens=500,
+            response_format={"type": "json_object"},
+        )
+        parsed = json.loads(resp.choices[0].message.content.strip())
+        return jsonify({
+            "ok": True,
+            "years_experience": parsed.get("years_experience", ""),
+            "skills_count": int(parsed.get("skills_count") or 0),
+            "flags": [f for f in (parsed.get("flags") or []) if f][:2],
+        })
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
 
 
 @app.route("/api/onboarding/upload", methods=["POST"])

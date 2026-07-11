@@ -7,9 +7,10 @@
   var passwordInput = document.getElementById("new_password");
   var reqItems = document.querySelectorAll("#password-reqs li");
   var RULES = {
-    length: function (pw) { return pw.length >= 9; },
+    length: function (pw) { return pw.length >= 8; },
     upper: function (pw) { return /[A-Z]/.test(pw); },
     lower: function (pw) { return /[a-z]/.test(pw); },
+    number: function (pw) { return /[0-9]/.test(pw); },
     special: function (pw) { return /[^A-Za-z0-9]/.test(pw); },
   };
   if (passwordInput && reqItems.length) {

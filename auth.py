@@ -1,9 +1,7 @@
 """
 auth.py
 -------
-Account creation, login, and password recovery via a security
-question chosen at signup (no email sending involved anywhere in this
-file -- see git history if email-based 2FA/reset ever needs reviving).
+Account creation, login, and email-based password recovery.
 
 SESSION MODEL:
 Flask's built-in `session` object is used to remember who's logged in
@@ -15,31 +13,27 @@ itself only contains the user's id, never their password or password
 hash. This is the standard, secure way to do "stay logged in" on the
 web.
 
-Two *other* session keys are used as short-lived, server-verified
-handoffs between the steps of the password-reset flow -- never as
-proof of identity by themselves:
-  - "pending_reset_user_id": set once an email has been looked up (see
-    get_security_question()), cleared once the security answer is
-    verified.
-  - "reset_verified_user_id": set once the security answer has been
-    verified, cleared once the password itself has been changed.
-Neither of these ever gets treated as "logged in" -- only
-log_in_user() setting "user_id" does that.
-
 PASSWORD RULES:
-At least 9 characters, with at least one uppercase letter, one
-lowercase letter, and one special (non-alphanumeric) character.
+At least 8 characters, with at least one uppercase letter, one
+lowercase letter, one number, and one special (non-alphanumeric)
+character.
 
-SECURITY QUESTION / ENUMERATION RESISTANCE:
-get_security_question() always returns *some* question, even for an
-email with no matching account (a decoy, picked from the same public
-list every real user picks from) -- so the response looks identical
-whether or not the account exists, and verify_security_answer() always
-fails the same way for a decoy. Callers must never branch on which
-case it was.
+PASSWORD RESET / ENUMERATION RESISTANCE:
+request_password_reset() always behaves identically whether or not the
+email has an account -- it only ever creates+emails a token when one
+does, but the caller never learns which case it was. Reset tokens are
+single-use, expire after RESET_TOKEN_LIFETIME_MINUTES, and are stored
+as a salted hash (never the raw token) so a leaked database can't be
+used to forge a reset.
 """
 
+import hashlib
+import os
 import re
+import secrets
+import smtplib
+from datetime import datetime, timedelta, timezone
+from email.message import EmailMessage
 from functools import wraps
 from flask import session, redirect, url_for, flash, g
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -51,25 +45,7 @@ USERNAME_PATTERN = re.compile(r"^[A-Za-z0-9_.\-]{3,32}$")
 PASSWORD_MIN_LENGTH = 8
 _SPECIAL_CHAR = re.compile(r"[^A-Za-z0-9]")
 
-SECURITY_QUESTIONS = [
-    "What was the name of your first pet?",
-    "What is your mother's maiden name?",
-    "What was the make of your first car?",
-    "What elementary school did you attend?",
-    "What is the name of the town where you were born?",
-    "What was your childhood nickname?",
-    "What is your favorite book?",
-    "What was the name of your first employer?",
-    "What is your favorite food?",
-    "Who was your childhood best friend?",
-    "What was the name of the street you grew up on?",
-    "What is your favorite movie?",
-]
-
-# Always one of the real, public options above -- a decoy that happens
-# to match a genuine choice is what makes it indistinguishable from a
-# real account that picked the same question.
-DECOY_SECURITY_QUESTION = SECURITY_QUESTIONS[0]
+RESET_TOKEN_LIFETIME_MINUTES = 60
 
 
 class AuthError(Exception):
@@ -107,25 +83,6 @@ def validate_password(password: str) -> str:
     return password
 
 
-def validate_security_question(question: str) -> str:
-    question = (question or "").strip()
-    if question not in SECURITY_QUESTIONS:
-        raise AuthError("Please choose a security question from the list.")
-    return question
-
-
-def validate_security_answer(answer: str) -> str:
-    answer = (answer or "").strip()
-    if len(answer) < 2:
-        raise AuthError("Please enter an answer to your security question.")
-    return answer
-
-
-def _normalize_answer(answer: str) -> str:
-    """Case/whitespace shouldn't matter for matching a security answer."""
-    return (answer or "").strip().lower()
-
-
 def _generate_username_from_email(email: str) -> str:
     """
     The `username` column is still how friends find/add each other, but
@@ -143,32 +100,25 @@ def _generate_username_from_email(email: str) -> str:
     return candidate
 
 
-def signup(email, password, confirm_password, security_question, security_answer):
+def signup(full_name, email, password, confirm_password):
     """
-    Creates a new account with an email, password, and a security
-    question/answer pair (used later for password recovery instead of
-    an emailed code). Raises AuthError with a user-facing message on
-    any problem (duplicate email, weak password, mismatch, etc). On
-    success, logs the new user in immediately and returns their id.
-
-    The account's name is deliberately not collected here -- it's
-    asked as the first step of onboarding instead, right before the
-    user uploads their documents.
+    Creates a new account with a name, email, and password -- nothing
+    else. Raises AuthError with a user-facing message on any problem
+    (duplicate email, weak password, mismatch, etc). On success, logs
+    the new user in immediately and returns their id.
     """
+    full_name = validate_full_name(full_name)
     email = validate_email(email)
     validate_password(password)
     if password != confirm_password:
         raise AuthError("Passwords do not match.")
-    security_question = validate_security_question(security_question)
-    security_answer = validate_security_answer(security_answer)
 
     if db.get_user_by_email(email):
         raise AuthError("An account with that email already exists.")
 
     username = _generate_username_from_email(email)
     password_hash = generate_password_hash(password)
-    security_answer_hash = generate_password_hash(_normalize_answer(security_answer))
-    user_id = db.create_user(username, password_hash, security_question, security_answer_hash, "", email=email)
+    user_id = db.create_user(username, password_hash, "", "", full_name, email=email)
     log_in_user(user_id)
     return user_id
 
@@ -188,45 +138,95 @@ def login(email, password):
     return user["id"]
 
 
-def get_security_question(email):
+def _hash_token(raw_token: str) -> str:
+    return hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+
+
+def _send_reset_email(email: str, reset_url: str):
     """
-    Returns (user_id, question) for the given email -- user_id is None
-    if no account matches, but a question is always returned (a decoy
-    in that case) so the response looks identical either way. The
-    caller stashes user_id in the session for the next step without
-    ever surfacing which case it was.
+    Sends the reset link over SMTP if SMTP_HOST/SMTP_USERNAME/
+    SMTP_PASSWORD/SMTP_FROM_EMAIL are configured (see .env.example).
+    Without them, this just logs the link server-side instead of
+    raising -- request_password_reset()'s caller-facing behavior must
+    stay identical whether or not an account exists, so a missing mail
+    provider can never surface as an error to the user.
+    """
+    host = os.environ.get("SMTP_HOST")
+    from_email = os.environ.get("SMTP_FROM_EMAIL")
+    if not host or not from_email:
+        print(f"[auth] SMTP not configured -- password reset link for {email}: {reset_url}")
+        return
+
+    msg = EmailMessage()
+    msg["Subject"] = "Reset your Ploy password"
+    msg["From"] = from_email
+    msg["To"] = email
+    msg.set_content(
+        "Someone requested a password reset for your Ploy account.\n\n"
+        f"Reset it here (expires in {RESET_TOKEN_LIFETIME_MINUTES} minutes): {reset_url}\n\n"
+        "If you didn't request this, you can safely ignore this email."
+    )
+
+    port = int(os.environ.get("SMTP_PORT", "587"))
+    username = os.environ.get("SMTP_USERNAME", from_email)
+    password = os.environ.get("SMTP_PASSWORD", "")
+    try:
+        with smtplib.SMTP(host, port, timeout=10) as smtp:
+            smtp.starttls()
+            smtp.login(username, password)
+            smtp.send_message(msg)
+    except Exception as e:
+        print(f"[auth] Failed to send password reset email to {email}: {e}")
+
+
+def request_password_reset(email: str, build_reset_url):
+    """
+    Always behaves identically whether or not `email` has an account --
+    the caller must never branch on the return value or its absence.
+    `build_reset_url(raw_token)` is supplied by the route (it needs
+    url_for, which this module doesn't import) and is only ever called
+    when a real account exists.
     """
     email = (email or "").strip().lower()
     user = db.get_user_by_email(email)
     if not user:
-        return None, DECOY_SECURITY_QUESTION
-    return user["id"], (user.get("security_question") or DECOY_SECURITY_QUESTION)
+        return
+
+    raw_token = secrets.token_urlsafe(32)
+    expires_at = (datetime.now(timezone.utc) + timedelta(minutes=RESET_TOKEN_LIFETIME_MINUTES)).isoformat()
+    db.create_password_reset(user["id"], _hash_token(raw_token), expires_at)
+    _send_reset_email(email, build_reset_url(raw_token))
 
 
-def verify_security_answer(user_id, answer):
+def verify_reset_token(raw_token: str):
     """
-    Checks a submitted answer against the stored hash for user_id.
-    Raises AuthError on any mismatch (including a decoy's user_id of
-    None, which always fails) -- the same message either way, so this
-    can't be used to confirm an account exists.
+    Returns the associated user_id if `raw_token` is a real, unused,
+    unexpired reset token, else None. Never raises -- an invalid token
+    is just as unremarkable as an expired one to the caller.
     """
-    if not user_id:
-        raise AuthError("Incorrect answer. Please try again.")
-    user = db.get_user_by_id(user_id)
-    if not user or not user.get("security_answer_hash") or not check_password_hash(
-        user["security_answer_hash"], _normalize_answer(answer)
-    ):
-        raise AuthError("Incorrect answer. Please try again.")
-    return True
+    if not raw_token:
+        return None
+    row = db.get_password_reset_by_token_hash(_hash_token(raw_token))
+    if not row or row.get("used"):
+        return None
+    expires_at = row.get("expires_at")
+    try:
+        if expires_at and datetime.fromisoformat(expires_at) < datetime.now(timezone.utc):
+            return None
+    except ValueError:
+        return None
+    return row["user_id"]
 
 
-def complete_password_reset(user_id, new_password, confirm_password):
+def complete_password_reset(raw_token: str, new_password: str, confirm_password: str):
+    user_id = verify_reset_token(raw_token)
     if not user_id:
-        raise AuthError("That reset session has expired. Please start again.")
+        raise AuthError("That reset link is invalid or has expired. Please request a new one.")
     validate_password(new_password)
     if new_password != confirm_password:
         raise AuthError("Passwords do not match.")
     db.update_password(user_id, generate_password_hash(new_password))
+    db.mark_password_reset_used(_hash_token(raw_token))
 
 
 def log_in_user(user_id):

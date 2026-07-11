@@ -13,6 +13,7 @@ results saved under the logged-in user's id rather than just shown in
 a window.
 """
 
+import base64
 import calendar
 import dataclasses
 import json
@@ -134,7 +135,19 @@ def save_uploaded_file(user_id: int, file_storage, category: str = "") -> dict:
     except Exception:
         pass
 
-    doc_id = db.add_document(user_id, filename, dest_path, file_type, content, category, file_size)
+    # Also store the original bytes in the DB (base64) -- Vercel's
+    # serverless filesystem doesn't reliably persist disk writes across
+    # invocations, so `dest_path` alone isn't durable storage. This is
+    # the actual source of truth for re-downloading/re-parsing later;
+    # the disk copy is just a same-request convenience.
+    file_bytes_b64 = None
+    try:
+        with open(dest_path, "rb") as f:
+            file_bytes_b64 = base64.b64encode(f.read()).decode("ascii")
+    except Exception:
+        pass
+
+    doc_id = db.add_document(user_id, filename, dest_path, file_type, content, category, file_size, file_bytes_b64)
     return {
         "id": doc_id,
         "filename": filename,

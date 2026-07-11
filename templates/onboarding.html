@@ -18,49 +18,27 @@
       <div class="auth-form-box">
 
         <div class="ob-steps">
-          <div class="ob-step-item" data-dot="name">
+          <div class="ob-step-item" data-dot="cv">
             <span class="ob-step-circle">1</span>
-            <span class="ob-step-label">Your Name</span>
+            <span class="ob-step-label">Upload CV</span>
           </div>
           <div class="ob-step-connector"></div>
-          <div class="ob-step-item" data-dot="cv">
+          <div class="ob-step-item" data-dot="readout">
             <span class="ob-step-circle">2</span>
-            <span class="ob-step-label">Upload CV</span>
+            <span class="ob-step-label">Your Readout</span>
           </div>
           <div class="ob-step-connector"></div>
           <div class="ob-step-item" data-dot="supporting">
             <span class="ob-step-circle">3</span>
-            <span class="ob-step-label">Upload Documents</span>
+            <span class="ob-step-label">More Documents</span>
           </div>
         </div>
 
-        <!-- Step 1: Name -->
-        <section class="ob-step" data-step="name" id="step-name">
-          <h1>What should we call you?</h1>
-          <span class="ob-desc">
-            Enter your name as it appears on your ID -- Ploy will use this to
-            refer to you throughout the app.
-          </span>
-
-          <div class="field">
-            <div class="field-input-wrap">
-              <svg class="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>
-              <input type="text" id="name-input" placeholder="Your full name" autocomplete="off" maxlength="80" value="{{ full_name }}">
-            </div>
-          </div>
-          <div class="ob-error" id="name-error" hidden></div>
-
-          <button type="button" class="btn btn-gold btn-block ob-next-btn" id="name-next-btn">Next</button>
-          <div class="auth-switch">Wrong account? <a href="{{ url_for('logout_page') }}">Log out</a></div>
-        </section>
-
-        <!-- Step 2: CV -->
-        <section class="ob-step" data-step="cv" id="step-cv" hidden>
+        <!-- Step 1: CV (mandatory -- can't proceed without one) -->
+        <section class="ob-step" data-step="cv" id="step-cv">
           <h1>Upload your CV</h1>
           <span class="ob-desc">
-            Your CV is the foundation of your Employability Score — we read it to
-            understand your experience, skills, and qualifications. Upload it
-            below to get started.
+            Ploy works off your real documents. No CV, no ammunition.
           </span>
 
           <div class="ob-upload-card" data-state="empty" id="cv-upload-card">
@@ -96,14 +74,28 @@
           <div class="auth-switch">Wrong account? <a href="{{ url_for('logout_page') }}">Log out</a></div>
         </section>
 
-        <!-- Step 2: Supporting documents -->
+        <!-- Step 2: Instant readout -- real AI parse of the CV just uploaded -->
+        <section class="ob-step" data-step="readout" id="step-readout" hidden>
+          <div class="ob-readout-loading" id="ob-readout-loading">
+            <div class="splash-loader" aria-hidden="true"></div>
+            <p>Reading your CV&hellip;</p>
+          </div>
+
+          <div class="ob-readout-result" id="ob-readout-result" hidden>
+            <h1>Read it.</h1>
+            <div class="ob-readout-stats mono" id="ob-readout-stats"></div>
+            <div class="ob-readout-flags" id="ob-readout-flags"></div>
+            <button type="button" class="btn btn-gold btn-block ob-next-btn" id="readout-next-btn">Continue</button>
+          </div>
+
+          <div class="ob-error" id="readout-error" hidden></div>
+        </section>
+
+        <!-- Step 3: Supporting documents -->
         <section class="ob-step" data-step="supporting" id="step-supporting" hidden>
-          <h1>Add supporting documents</h1>
+          <h1>Add certificates, reference letters, transcripts</h1>
           <span class="ob-desc">
-            Add anything else that backs up your CV — certificates, diplomas,
-            transcripts, reference letters, or online course completions from
-            high school, college, university, or elsewhere. Add as many as you
-            like, or skip this for now.
+            The more I see, the sharper I get.
           </span>
 
           <div class="ob-upload-card" data-state="empty" id="supporting-upload-card">
@@ -135,7 +127,7 @@
           <div class="ob-doc-list" id="supporting-doc-list"></div>
           <div class="ob-error" id="supporting-error" hidden></div>
 
-          <button type="button" class="btn btn-gold btn-block ob-next-btn" id="supporting-next-btn">Next</button>
+          <button type="button" class="btn btn-gold btn-block ob-next-btn" id="supporting-next-btn">Skip for now</button>
           <div class="auth-switch">Wrong account? <a href="{{ url_for('logout_page') }}">Log out</a></div>
         </section>
 
@@ -178,8 +170,7 @@
   window.OB_INITIAL = {
     cvDocuments: {{ cv_documents | tojson }},
     supportingDocuments: {{ supporting_documents | tojson }},
-    hasCv: {{ has_cv | tojson }},
-    fullName: {{ full_name | tojson }}
+    hasCv: {{ has_cv | tojson }}
   };
 </script>
 <script src="{{ url_for('static', filename='js/onboarding.js') }}"></script>
