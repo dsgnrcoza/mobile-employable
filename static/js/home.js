@@ -119,6 +119,160 @@
     scrollChatToBottom();
   }
 
+  // ---------- Signature cards (Verdict / Document) ----------
+
+  function fitTier(score) {
+    if (score >= 75) return "good";
+    if (score >= 50) return "mid";
+    return "bad";
+  }
+
+  function diamondList(items, colorClass) {
+    if (!items || !items.length) return "";
+    return (
+      '<ul class="card-diamond-list ' + colorClass + '">' +
+      items.map(function (t) { return "<li><span class=\"diamond\">◆</span>" + escapeHtml(t) + "</li>"; }).join("") +
+      "</ul>"
+    );
+  }
+
+  function renderVerdictCard(card) {
+    var wrap = document.createElement("div");
+    wrap.className = "verdict-card";
+    var tier = fitTier(card.fit_score);
+    var subtitle = [card.company, card.location].filter(Boolean).join(" · ");
+    wrap.innerHTML =
+      '<div class="card-header mono">VERDICT</div>' +
+      '<div class="verdict-job-title">' + escapeHtml(card.job_title || "This role") + "</div>" +
+      (subtitle ? '<div class="verdict-job-sub">' + escapeHtml(subtitle) + "</div>" : "") +
+      '<div class="verdict-score mono tier-' + tier + '">' + card.fit_score + '<span class="verdict-score-max">/100</span></div>' +
+      diamondList(card.strengths, "diamond-good") +
+      diamondList(card.gaps, "diamond-bad") +
+      '<div class="card-breakdown" hidden></div>' +
+      '<div class="card-actions">' +
+      '<button type="button" class="btn btn-gold btn-sm card-fix-btn">Fix my CV for this job</button>' +
+      '<button type="button" class="btn btn-ghost btn-sm card-breakdown-btn">Show full breakdown</button>' +
+      "</div>";
+
+    wrap.querySelector(".card-fix-btn").addEventListener("click", function () {
+      requestDocumentCard({ job_title: card.job_title, company: card.company, job_ad: card.job_ad });
+    });
+    var breakdownEl = wrap.querySelector(".card-breakdown");
+    var breakdownBtn = wrap.querySelector(".card-breakdown-btn");
+    breakdownBtn.addEventListener("click", function () {
+      var show = breakdownEl.hidden;
+      breakdownEl.hidden = !show;
+      breakdownEl.textContent = card.breakdown || "";
+      breakdownBtn.textContent = show ? "Hide breakdown" : "Show full breakdown";
+      scrollChatToBottom();
+    });
+    return wrap;
+  }
+
+  function renderDocumentCard(card) {
+    var wrap = document.createElement("div");
+    wrap.className = "document-card";
+    var statusParts = [card.kind === "cv" ? "Tailored" : "Drafted", "ATS pass ✓"];
+    if (card.fit_score != null) statusParts.push("Fit now " + card.fit_score + "/100");
+    wrap.innerHTML =
+      '<div class="card-header mono">DOCUMENT</div>' +
+      '<div class="document-row">' +
+      '<div class="document-thumb">' +
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 4h13l3 3v13H4Z"/><path d="M17 4v6h6"/></svg>' +
+      "</div>" +
+      '<div class="document-meta">' +
+      '<div class="document-ready">Ready to send</div>' +
+      '<div class="document-filename mono">' + escapeHtml(card.filename) + "</div>" +
+      '<div class="document-status mono">' + statusParts.join(" · ") + "</div>" +
+      "</div>" +
+      "</div>" +
+      '<div class="card-actions">' +
+      '<button type="button" class="btn btn-gold btn-sm document-download-btn">Download</button>' +
+      '<button type="button" class="btn btn-ghost btn-sm document-edit-btn">Edit</button>' +
+      (card.kind === "cv" ? '<button type="button" class="btn btn-ghost btn-sm document-letter-btn">Cover letter</button>' : "") +
+      "</div>";
+
+    wrap.querySelector(".document-download-btn").addEventListener("click", function () {
+      window.location.href = "/api/document-download/" + card.document_id;
+    });
+    wrap.querySelector(".document-edit-btn").addEventListener("click", function () {
+      window.location.href = "/builder?doc=" + card.document_id;
+    });
+    if (card.kind === "cv") {
+      wrap.querySelector(".document-letter-btn").addEventListener("click", function () {
+        requestLetterCard({ job_title: card.job_title, company: card.company });
+      });
+    }
+    return wrap;
+  }
+
+  function appendCardMessage(card) {
+    clearQuickReplies();
+    showEmptyState(false);
+    var node = card.type === "verdict" ? renderVerdictCard(card) : renderDocumentCard(card);
+    messagesEl.appendChild(node);
+    scrollChatToBottom();
+    var summary = card.type === "verdict"
+      ? "Verdict: " + card.fit_score + "/100 fit for " + (card.job_title || "this role") + (card.company ? " at " + card.company : "") + "."
+      : "Document ready: " + card.filename;
+    chatHistory.push({ role: "assistant", text: summary, card: card });
+    saveConversation();
+  }
+
+  function requestCard(url, payload) {
+    var typingEl = document.createElement("div");
+    typingEl.className = "chat-msg-typing";
+    typingEl.textContent = "Thinking…";
+    messagesEl.appendChild(typingEl);
+    scrollChatToBottom();
+    chatSending = true;
+    return fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload || {}),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        typingEl.remove();
+        if (data.ok) {
+          appendCardMessage(data);
+        } else {
+          appendChatMessage("assistant", data.error || "Something went wrong there. Try again?");
+        }
+      })
+      .catch(function () {
+        typingEl.remove();
+        appendChatMessage("assistant", "Connection error — please try again.");
+      })
+      .finally(function () {
+        chatSending = false;
+      });
+  }
+
+  function requestVerdictCard(jobAd) {
+    showEmptyState(false);
+    clearQuickReplies();
+    appendChatMessage("user", "Am I a fit for this job?");
+    chatHistory.push({ role: "user", text: "Am I a fit for this job?" });
+    requestCard("/api/verdict", { job_ad: jobAd });
+  }
+
+  function requestDocumentCard(context) {
+    requestCard("/api/document", context);
+  }
+
+  function requestBuilderCard() {
+    showEmptyState(false);
+    clearQuickReplies();
+    appendChatMessage("user", "Build my CV.");
+    chatHistory.push({ role: "user", text: "Build my CV." });
+    requestCard("/api/document", {});
+  }
+
+  function requestLetterCard(context) {
+    requestCard("/api/letter-document", context);
+  }
+
   function conversationTitleFromHistory(history) {
     var firstUser = history.filter(function (m) { return m.role === "user"; })[0];
     if (!firstUser) return "New conversation";
@@ -133,7 +287,7 @@
       body: JSON.stringify({
         conversation_id: chatConversationId,
         title: conversationTitleFromHistory(chatHistory),
-        messages: chatHistory.map(function (m) { return { role: m.role, text: m.text }; }),
+        messages: chatHistory.map(function (m) { return { role: m.role, text: m.text, card: m.card }; }),
       }),
     })
       .then(function (r) { return r.json(); })
@@ -293,11 +447,11 @@
       return;
     }
     closeChipPaste();
-    sendChatMessage("Am I a fit for this job? Here's the job ad:\n\n" + jobAd);
+    requestVerdictCard(jobAd);
   });
 
   document.getElementById("chip-builder").addEventListener("click", function () {
-    sendChatMessage("Build my CV.");
+    requestBuilderCard();
   });
 
   document.getElementById("chip-gaps").addEventListener("click", function () {
@@ -384,14 +538,21 @@
       .then(function (data) {
         if (!data.ok) return;
         chatConversationId = convId;
-        chatHistory = data.messages.map(function (m) { return { role: m.role, text: m.text }; });
+        chatHistory = data.messages.map(function (m) { return { role: m.role, text: m.text, card: m.card }; });
         messagesEl.innerHTML = "";
         if (chatHistory.length === 0) {
           showEmptyState(true);
           return;
         }
         showEmptyState(false);
-        chatHistory.forEach(function (m) { appendChatMessage(m.role, m.text); });
+        chatHistory.forEach(function (m) {
+          if (m.card) {
+            messagesEl.appendChild(m.card.type === "verdict" ? renderVerdictCard(m.card) : renderDocumentCard(m.card));
+          } else {
+            appendChatMessage(m.role, m.text);
+          }
+        });
+        scrollChatToBottom();
       });
   }
 

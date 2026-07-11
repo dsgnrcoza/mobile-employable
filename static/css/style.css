@@ -2516,6 +2516,151 @@ button.auth-tab.active {
   color: var(--accent-ink);
 }
 
+/* ---------- Signature cards: Verdict + Document ---------- */
+
+.verdict-card,
+.document-card {
+  align-self: stretch;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 16px;
+  max-width: 100%;
+}
+
+.card-header {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--dim);
+  margin-bottom: 8px;
+}
+
+.verdict-job-title {
+  font-size: 17px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.verdict-job-sub {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.verdict-score {
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1.1;
+  margin: 12px 0;
+}
+
+.verdict-score.tier-good { color: var(--good); }
+.verdict-score.tier-mid { color: var(--mid); }
+.verdict-score.tier-bad { color: var(--bad); }
+
+.verdict-score-max {
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--dim);
+}
+
+.card-diamond-list {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.card-diamond-list li {
+  font-size: 13.5px;
+  line-height: 1.4;
+  display: flex;
+  gap: 8px;
+}
+
+.card-diamond-list .diamond {
+  flex-shrink: 0;
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+.card-diamond-list.diamond-good .diamond { color: var(--good); }
+.card-diamond-list.diamond-bad .diamond { color: var(--mid); }
+
+.card-breakdown {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--muted);
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+  margin-bottom: 10px;
+}
+
+.card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.card-actions .btn-sm {
+  padding: 8px 14px;
+  font-size: 13px;
+}
+
+.document-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.document-thumb {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--dim);
+}
+
+.document-thumb svg {
+  width: 20px;
+  height: 20px;
+}
+
+.document-meta {
+  min-width: 0;
+}
+
+.document-ready {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.document-filename {
+  font-size: 13.5px;
+  font-weight: 600;
+  word-break: break-all;
+  margin-top: 2px;
+}
+
+.document-status {
+  font-size: 12.5px;
+  color: var(--good);
+  margin-top: 2px;
+}
+
+.document-card .card-actions {
+  margin-top: 14px;
+}
+
 .chat-input-row {
   flex-shrink: 0;
   display: flex;

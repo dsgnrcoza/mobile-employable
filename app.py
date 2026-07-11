@@ -658,6 +658,266 @@ def api_qualify():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
+def _real_uploaded_docs(user_id):
+    """Documents this user actually uploaded -- excludes CVs/letters Ploy
+    itself generated, so every new generation is grounded in the user's
+    original source material rather than compounding on its own earlier
+    output."""
+    return [d for d in db.get_documents_for_user(user_id) if d.get("category") not in ("generated_cv", "generated_letter")]
+
+
+def _doc_content_block(docs, doc_char_cap=3000, total_char_cap=20000):
+    doc_texts = []
+    total_chars = 0
+    for d in docs:
+        if total_chars >= total_char_cap:
+            break
+        try:
+            txt = (d.get("content") or "").strip()
+            if not txt and d.get("stored_path") and os.path.exists(d["stored_path"]):
+                txt = (extract.extract_text(d["stored_path"]) or "").strip()
+            if txt:
+                snippet = txt[:doc_char_cap]
+                doc_texts.append(f"[{d['filename']}]\n{snippet}")
+                total_chars += len(snippet)
+        except Exception:
+            pass
+    return "\n\n---\n\n".join(doc_texts) if doc_texts else "No documents uploaded yet."
+
+
+@app.route("/api/verdict", methods=["POST"])
+@auth.login_required
+def api_verdict():
+    """Powers the Verdict card (chip 01 / "Am I a fit for this job?").
+    Takes a raw pasted job ad, returns a structured fit verdict scored
+    against this user's real documents -- rendered client-side as a card,
+    never as a wall of chat text."""
+    from openai import OpenAI
+    user = auth.current_user()
+    data = request.get_json(force=True)
+    job_ad = (data.get("job_ad") or "").strip()[:8000]
+    if not job_ad:
+        return jsonify({"ok": False, "error": "Paste a job ad first."}), 400
+
+    doc_content_block = _doc_content_block(_real_uploaded_docs(user["id"]))
+
+    system = (
+        "You are Ploy's brutally honest fit evaluator. Given a pasted job ad and the real content of "
+        "this user's uploaded documents, decide how strong a candidate they are for THIS specific job, "
+        "right now -- not how they could look someday.\n\n"
+        "GROUNDING: base the verdict only on what's actually in the documents below. Never invent "
+        "experience, skills, or qualifications that aren't there. If there isn't enough real document "
+        "content to judge, say so in 'breakdown' and score low.\n\n"
+        "OUTPUT RULES -- return a JSON object with exactly these keys:\n"
+        "- 'job_title': the job title, extracted from the ad.\n"
+        "- 'company': the company name if stated in the ad, else an empty string.\n"
+        "- 'location': the job location if stated in the ad, else an empty string.\n"
+        "- 'fit_score': an integer 0-100. 0-49 means not currently a fit, 50-74 means a partial/borderline "
+        "fit, 75-100 means a strong fit. Be honest, not encouraging -- a mediocre match belongs in the "
+        "40s-60s, not inflated into the 80s.\n"
+        "- 'strengths': an array of at most 3 short strings (max ~12 words each), specific things in their "
+        "real documents that support this exact job.\n"
+        "- 'gaps': an array of at most 3 short strings (max ~12 words each), specific things this exact "
+        "job needs that their documents don't show. Empty array only if there is truly nothing missing.\n"
+        "- 'breakdown': 2-4 sentences of fuller reasoning behind the score, citing specifics from their "
+        "real documents and the job ad.\n\n"
+        "No markdown formatting inside any field -- plain text only."
+    )
+    prompt = f"Job ad pasted by the user:\n{job_ad}\n\nFull content of the user's actual uploaded documents:\n{doc_content_block}"
+
+    try:
+        client = OpenAI(api_key=analyzer.get_openai_api_key(), timeout=analyzer.get_client_timeout(), max_retries=analyzer.CLIENT_MAX_RETRIES)
+        resp = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "system", "content": system}, {"role": "user", "content": prompt}],
+            max_tokens=700,
+            response_format={"type": "json_object"},
+        )
+        parsed = json.loads(resp.choices[0].message.content.strip())
+        fit_score = max(0, min(100, int(parsed.get("fit_score") or 0)))
+        return jsonify({
+            "ok": True,
+            "type": "verdict",
+            "job_title": (parsed.get("job_title") or "").strip()[:200] or "This role",
+            "company": (parsed.get("company") or "").strip()[:200],
+            "location": (parsed.get("location") or "").strip()[:200],
+            "fit_score": fit_score,
+            "strengths": [s for s in (parsed.get("strengths") or []) if s][:3],
+            "gaps": [s for s in (parsed.get("gaps") or []) if s][:3],
+            "breakdown": (parsed.get("breakdown") or "").strip(),
+            "job_ad": job_ad,
+        })
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+def _filename_stub(full_name):
+    first = (full_name or "").strip().split()[:1]
+    stub = "".join(ch for ch in (first[0] if first else "My") if ch.isalnum())
+    return stub or "My"
+
+
+def _company_stub(company):
+    stub = "".join(ch for ch in (company or "") if ch.isalnum())
+    return stub
+
+
+def _generate_tailored_document(user, kind, job_title="", company="", job_ad=""):
+    """Shared by /api/document and /api/letter-document -- generates a
+    fresh, ATS-safe CV or cover letter grounded in the user's real
+    uploaded documents (never Ploy's own earlier output), tailored to a
+    specific job when one is given, renders it to PDF, and stores it as
+    a private per-user document. Returns a Document-card-shaped dict, or
+    raises on failure (caller turns that into a JSON error response)."""
+    from openai import OpenAI
+
+    real_docs = _real_uploaded_docs(user["id"])
+    doc_content_block = _doc_content_block(real_docs)
+    job_context = (
+        f"Tailor this specifically for the following job:\nTitle: {job_title or 'Not specified'}\n"
+        f"Company: {company or 'Not specified'}\nJob ad:\n{job_ad}\n\n"
+        if job_ad else
+        "No specific job was given -- write a strong, general-purpose version tailored to the user's own real experience.\n\n"
+    )
+
+    if kind == "cv":
+        doc_label = "CV"
+        design_guidance = (
+            "Apply real CV design sense: a clear name/contact header, short bold section headings "
+            "(Experience, Education, Skills, etc.) in a consistent order, reverse-chronological entries, "
+            "bullet points for achievements rather than dense paragraphs, generous spacing so it's scannable "
+            "in a 6-second recruiter skim. Keep it ATS-friendly: no tables, no unusual layouts, plain section "
+            "headings a parser would recognize."
+        )
+    else:
+        doc_label = "cover letter"
+        design_guidance = (
+            "Write a genuine cover letter: a brief opening naming the role, 2-3 short paragraphs connecting "
+            "the user's real, specific experience to what this job actually needs, a direct closing. No "
+            "generic filler paragraphs ('I am writing to express my interest...'). Sharp and specific, not "
+            "corporate boilerplate."
+        )
+
+    system = (
+        f"You are Ploy's document writer, generating a {doc_label} for this user.\n\n"
+        f"{job_context}"
+        f"{design_guidance}\n\n"
+        "GROUNDING -- the most important rule, above all others: every fact (employer names, job titles, "
+        "dates, schools, achievements, contact details) must come from the user's real documents below. "
+        "NEVER invent a person, career, employer, or achievement that isn't actually theirs. If there isn't "
+        "enough real information to write this, say so plainly in 'description' instead of fabricating.\n\n"
+        "OUTPUT RULES -- return a JSON object with exactly these keys:\n"
+        "- 'html': the full document as valid HTML using <p>, <strong>, <em>, <ul>, <li>, <h2>, <h3>, <hr>, "
+        "<br> tags only. No markdown, no code fences, no <html>/<head>/<body> wrappers.\n"
+        "- 'description': one short sentence (max 20 words) describing what was produced.\n"
+        + ("- 'fit_score': an integer 0-100 estimating how strong a fit THIS tailored document now makes for "
+           "the job above, judged the same way a recruiter would score the original documents.\n" if job_ad else "") +
+        f"\nThis user's name: {user.get('full_name') or 'Unknown'}\n\n"
+        f"Full content of the user's actual uploaded documents (the ONLY source of truth):\n{doc_content_block}"
+    )
+
+    client = OpenAI(api_key=analyzer.get_openai_api_key(), timeout=analyzer.get_client_timeout(), max_retries=analyzer.CLIENT_MAX_RETRIES)
+    resp = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "system", "content": system}, {"role": "user", "content": f"Generate the {doc_label} now."}],
+        max_tokens=2400,
+        response_format={"type": "json_object"},
+    )
+    parsed = json.loads(resp.choices[0].message.content.strip())
+    html = parsed.get("html") or ""
+    if not html.strip():
+        raise ValueError(parsed.get("description") or "Not enough real document content to generate this.")
+
+    pdf_bytes = _render_cv_pdf_bytes(cv_html=html)
+    if pdf_bytes is None:
+        raise ValueError("Couldn't render a document from that content.")
+
+    name_stub = _filename_stub(user.get("full_name"))
+    company_stub = _company_stub(company)
+    label_stub = "CV" if kind == "cv" else "CoverLetter"
+    filename = f"{name_stub}_{label_stub}_{company_stub}.pdf" if company_stub else f"{name_stub}_{label_stub}.pdf"
+
+    import base64 as _b64
+    document_id = db.add_document(
+        user["id"], filename, stored_path="", file_type="pdf",
+        content=html, category=f"generated_{kind}",
+        file_size=len(pdf_bytes), file_bytes_b64=_b64.b64encode(pdf_bytes).decode("utf-8"),
+    )
+
+    fit_score = parsed.get("fit_score")
+    if fit_score is not None:
+        try:
+            fit_score = max(0, min(100, int(fit_score)))
+        except (TypeError, ValueError):
+            fit_score = None
+
+    return {
+        "ok": True,
+        "type": "document",
+        "kind": kind,
+        "document_id": document_id,
+        "filename": filename,
+        "job_title": job_title,
+        "company": company,
+        "fit_score": fit_score,
+    }
+
+
+@app.route("/api/document", methods=["POST"])
+@auth.login_required
+def api_document():
+    """Powers the Document card for a tailored CV -- reached via chip 02
+    ("Build my CV") or the Verdict card's "Fix my CV for this job" button."""
+    user = auth.current_user()
+    data = request.get_json(force=True)
+    try:
+        card = _generate_tailored_document(
+            user, "cv",
+            job_title=(data.get("job_title") or "").strip()[:200],
+            company=(data.get("company") or "").strip()[:200],
+            job_ad=(data.get("job_ad") or "").strip()[:8000],
+        )
+        return jsonify(card)
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/letter-document", methods=["POST"])
+@auth.login_required
+def api_letter_document():
+    """Powers the Document card for a cover letter -- reached via the
+    "Cover letter" button on an existing CV Document card."""
+    user = auth.current_user()
+    data = request.get_json(force=True)
+    try:
+        card = _generate_tailored_document(
+            user, "letter",
+            job_title=(data.get("job_title") or "").strip()[:200],
+            company=(data.get("company") or "").strip()[:200],
+            job_ad=(data.get("job_ad") or "").strip()[:8000],
+        )
+        return jsonify(card)
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/document-download/<int:document_id>")
+@auth.login_required
+def api_document_download(document_id):
+    """Serves a generated CV/cover-letter PDF -- scoped to the requesting
+    user's own documents, same as every other per-user document access
+    in this app."""
+    from flask import send_file
+    import io
+    user = auth.current_user()
+    doc_row = db.get_document_by_id(user["id"], document_id)
+    file_bytes = db.get_document_file_bytes(user["id"], document_id)
+    if not doc_row or file_bytes is None:
+        return jsonify({"ok": False, "error": "Document not found."}), 404
+    return send_file(io.BytesIO(file_bytes), mimetype="application/pdf",
+                     as_attachment=True, download_name=doc_row.get("filename") or "document.pdf")
+
+
 # ---------------- Notes ----------------
 
 @app.route("/notes")
@@ -1156,7 +1416,7 @@ def api_save_conversation():
         conn.execute("DELETE FROM chat_messages WHERE conversation_id = ?", (conv_id,))
         conn.commit()
         for m in messages:
-            db.add_chat_message(conv_id, m.get("role", "user"), m.get("text", ""), m.get("attachment_ids", []))
+            db.add_chat_message(conv_id, m.get("role", "user"), m.get("text", ""), m.get("attachment_ids", []), m.get("card"))
         db.touch_conversation(conv_id, user["id"])
     finally:
         conn.close()
@@ -1173,7 +1433,8 @@ def api_get_conversation(conv_id):
     for m in msgs:
         import json as _json
         att_ids = _json.loads(m.get("attachment_ids_json") or "[]")
-        result.append({"role": m["role"], "text": m["text"], "attachment_ids": att_ids})
+        card = _json.loads(m["card_json"]) if m.get("card_json") else None
+        result.append({"role": m["role"], "text": m["text"], "attachment_ids": att_ids, "card": card})
     return jsonify({"ok": True, "messages": result})
 
 
@@ -1646,30 +1907,23 @@ def api_cv_download_docx():
                      as_attachment=True, download_name="my-cv.docx")
 
 
-@app.route("/api/cv-download/pdf", methods=["POST"])
-@auth.login_required
-def api_cv_download_pdf():
-    """Generate a PDF that reflects the editor's real formatting -- also
-    used, unmodified, as the "print preview" (see cv-preview handling in
-    dashboard.js: it fetches this same endpoint and opens the resulting
-    blob in a new tab instead of downloading it, since a mobile browser's
-    native PDF viewer only ever kicks in on direct navigation, not when
-    a PDF is embedded in an iframe)."""
+def _render_cv_pdf_bytes(cv_html="", content="", margins=None):
+    """Shared by the Builder's manual PDF download and the card-generated
+    Document PDFs (Phase 4) -- same renderer, same ATS-safe output either
+    way. Returns raw PDF bytes, or None if there's nothing to render."""
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import ParagraphStyle
     from reportlab.lib.units import cm
     from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT, TA_JUSTIFY
     from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, HRFlowable
-    from flask import send_file
     import io
     from cv_export import parse_cv_html
 
-    data = request.get_json(force=True)
-    cv_html = (data.get("cv_html") or "").strip()
-    content = (data.get("content") or "").strip()
+    cv_html = (cv_html or "").strip()
+    content = (content or "").strip()
     blocks = parse_cv_html(cv_html) if cv_html else []
     if not blocks and not content:
-        return jsonify({"error": "No content provided."}), 400
+        return None
 
     ALIGN_MAP = {"left": TA_LEFT, "center": TA_CENTER, "right": TA_RIGHT, "justify": TA_JUSTIFY}
     FONT_SIZE = {"h1": 18, "h2": 13, "h3": 12}
@@ -1679,7 +1933,7 @@ def api_cv_download_pdf():
         "normal": (2.5, 2.8),
         "wide": (3.5, 4.0),
     }
-    v_cm, h_cm = PDF_MARGINS.get(data.get("margins"), PDF_MARGINS["normal"])
+    v_cm, h_cm = PDF_MARGINS.get(margins, PDF_MARGINS["normal"])
 
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4,
@@ -1737,7 +1991,26 @@ def api_cv_download_pdf():
 
     doc.build(story)
     buf.seek(0)
-    return send_file(buf, mimetype="application/pdf",
+    return buf.read()
+
+
+@app.route("/api/cv-download/pdf", methods=["POST"])
+@auth.login_required
+def api_cv_download_pdf():
+    """Generate a PDF that reflects the editor's real formatting -- also
+    used, unmodified, as the "print preview" (see cv-preview handling in
+    dashboard.js: it fetches this same endpoint and opens the resulting
+    blob in a new tab instead of downloading it, since a mobile browser's
+    native PDF viewer only ever kicks in on direct navigation, not when
+    a PDF is embedded in an iframe)."""
+    from flask import send_file
+    import io
+
+    data = request.get_json(force=True)
+    pdf_bytes = _render_cv_pdf_bytes(data.get("cv_html"), data.get("content"), data.get("margins"))
+    if pdf_bytes is None:
+        return jsonify({"error": "No content provided."}), 400
+    return send_file(io.BytesIO(pdf_bytes), mimetype="application/pdf",
                      as_attachment=True, download_name="my-cv.pdf")
 
 

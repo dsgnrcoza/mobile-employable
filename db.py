@@ -215,6 +215,7 @@ def init_db():
             role TEXT NOT NULL,
             text TEXT NOT NULL DEFAULT '',
             attachment_ids_json TEXT NOT NULL DEFAULT '[]',
+            card_json TEXT DEFAULT NULL,
             created_at TEXT NOT NULL
         );
 
@@ -307,6 +308,7 @@ def init_db():
         "ALTER TABLE documents ADD COLUMN category TEXT NOT NULL DEFAULT ''",
         "ALTER TABLE documents ADD COLUMN file_size INTEGER DEFAULT NULL",
         "ALTER TABLE documents ADD COLUMN file_bytes_b64 TEXT DEFAULT NULL",
+        "ALTER TABLE chat_messages ADD COLUMN card_json TEXT DEFAULT NULL",
         # Deliberately last and best-effort, not part of the CREATE TABLE
         # block above: if any pre-existing rows already share a non-blank
         # email (e.g. two accounts that both had their email set to the
@@ -476,6 +478,17 @@ def get_document_contents(user_id):
             (user_id,),
         ).fetchall()
         return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def get_document_by_id(user_id, document_id):
+    conn = get_db()
+    try:
+        row = conn.execute(
+            "SELECT * FROM documents WHERE id = ? AND user_id = ?", (document_id, user_id)
+        ).fetchone()
+        return dict(row) if row else None
     finally:
         conn.close()
 
@@ -838,13 +851,13 @@ def delete_conversation(conv_id, user_id):
         conn.close()
 
 
-def add_chat_message(conv_id, role, text, attachment_ids=None):
+def add_chat_message(conv_id, role, text, attachment_ids=None, card=None):
     conn = get_db()
     try:
         cur = conn.execute(
-            """INSERT INTO chat_messages (conversation_id, role, text, attachment_ids_json, created_at)
-               VALUES (?, ?, ?, ?, ?)""",
-            (conv_id, role, text, json.dumps(attachment_ids or []), now_iso()),
+            """INSERT INTO chat_messages (conversation_id, role, text, attachment_ids_json, card_json, created_at)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (conv_id, role, text, json.dumps(attachment_ids or []), json.dumps(card) if card else None, now_iso()),
         )
         conn.commit()
         return cur.lastrowid
