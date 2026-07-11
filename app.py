@@ -918,6 +918,30 @@ def api_document_download(document_id):
                      as_attachment=True, download_name=doc_row.get("filename") or "document.pdf")
 
 
+@app.route("/api/document/<int:document_id>/save", methods=["POST"])
+@auth.login_required
+def api_document_save(document_id):
+    """Writes Builder edits back to a generated CV/cover-letter -- so a
+    card's "Download" later reflects the edited version, not the
+    original AI draft. Scoped to the requesting user's own documents."""
+    import base64 as _b64
+    user = auth.current_user()
+    doc_row = db.get_document_by_id(user["id"], document_id)
+    if not doc_row or doc_row.get("category") not in ("generated_cv", "generated_letter"):
+        return jsonify({"ok": False, "error": "Document not found."}), 404
+
+    data = request.get_json(force=True)
+    html = (data.get("html") or "").strip()
+    pdf_bytes = _render_cv_pdf_bytes(cv_html=html)
+    if pdf_bytes is None:
+        return jsonify({"ok": False, "error": "Nothing to save."}), 400
+
+    db.update_document_content(user["id"], document_id, content=html,
+                               file_bytes_b64=_b64.b64encode(pdf_bytes).decode("utf-8"),
+                               file_size=len(pdf_bytes))
+    return jsonify({"ok": True})
+
+
 # ---------------- Notes ----------------
 
 @app.route("/notes")
@@ -2055,7 +2079,25 @@ def api_cv_download_pdf():
 @app.route("/builder")
 @auth.login_required
 def builder_page():
-    return render_template("builder.html")
+    """Reached only via chip 02 ("Build my CV" runs generation directly
+    and shows the result as a Document card) or a card's "Edit" button --
+    there's no separate nav entry for it. When it's an Edit link, ?doc=
+    identifies which generated document to load into the editor."""
+    user = auth.current_user()
+    initial = None
+    doc_id = request.args.get("doc")
+    if doc_id:
+        try:
+            doc_row = db.get_document_by_id(user["id"], int(doc_id))
+        except (TypeError, ValueError):
+            doc_row = None
+        if doc_row and doc_row.get("category") in ("generated_cv", "generated_letter"):
+            initial = {
+                "document_id": doc_row["id"],
+                "kind": "cv" if doc_row["category"] == "generated_cv" else "letter",
+                "html": doc_row.get("content") or "",
+            }
+    return render_template("builder.html", initial=initial)
 
 
 @app.route("/api/letter-edit", methods=["POST"])

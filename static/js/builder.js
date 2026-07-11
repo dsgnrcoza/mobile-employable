@@ -11,11 +11,21 @@
   var previewEl = document.getElementById("builder-preview");
   var copyBtn = document.getElementById("builder-copy-btn");
   var downloadBtn = document.getElementById("builder-download-btn");
+  var saveBtn = document.getElementById("builder-save-btn");
 
   var activeType = "cv";
   var selectedTemplate = { cv: "Modern", letter: "Formal" };
   var currentHtml = { cv: "", letter: "" };
+  // Set only when this type's content came from (or has been saved to) an
+  // existing generated document -- e.g. reached via a card's "Edit"
+  // button -- so "Save" can write edits back to that same document and
+  // a card's "Download" later reflects them, not just the original draft.
+  var loadedDocumentId = { cv: null, letter: null };
   var generating = false;
+
+  function updateSaveBtnVisibility() {
+    saveBtn.hidden = !loadedDocumentId[activeType];
+  }
 
   function setActiveType(type) {
     activeType = type;
@@ -24,6 +34,7 @@
     templateRows.cv.hidden = type !== "cv";
     templateRows.letter.hidden = type !== "letter";
     statusLine.hidden = true;
+    updateSaveBtnVisibility();
     if (currentHtml[type]) {
       previewEl.innerHTML = currentHtml[type];
       previewEmpty.hidden = true;
@@ -35,6 +46,13 @@
       generateBtn.textContent = "Generate";
     }
   }
+
+  // The preview is directly editable -- keep currentHtml in sync with
+  // whatever the user typed so "Update"/"Download"/"Save" all act on the
+  // live edited content, not a stale AI-generated snapshot.
+  previewEl.addEventListener("input", function () {
+    currentHtml[activeType] = previewEl.innerHTML;
+  });
 
   typeBtns.cv.addEventListener("click", function () { setActiveType("cv"); });
   typeBtns.letter.addEventListener("click", function () { setActiveType("letter"); });
@@ -131,4 +149,37 @@
         URL.revokeObjectURL(url);
       });
   });
+
+  var saving = false;
+  saveBtn.addEventListener("click", function () {
+    var docId = loadedDocumentId[activeType];
+    if (!docId || saving) return;
+    saving = true;
+    saveBtn.disabled = true;
+    fetch("/api/document/" + docId + "/save", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ html: currentHtml[activeType] }),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        setStatus(data.ok ? "Saved." : (data.error || "Couldn't save."), !data.ok);
+      })
+      .catch(function () {
+        setStatus("Connection error — please try again.", true);
+      })
+      .finally(function () {
+        saving = false;
+        saveBtn.disabled = false;
+      });
+  });
+
+  // ---------- Load an existing document when opened via a card's "Edit" ----------
+
+  var initial = window.BUILDER_INITIAL;
+  if (initial && initial.html) {
+    currentHtml[initial.kind] = initial.html;
+    loadedDocumentId[initial.kind] = initial.document_id;
+    setActiveType(initial.kind);
+  }
 })();

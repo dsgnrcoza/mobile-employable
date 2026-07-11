@@ -492,6 +492,18 @@ def get_document_contents(user_id):
         conn.close()
 
 
+def update_document_content(user_id, document_id, content, file_bytes_b64, file_size):
+    conn = get_db()
+    try:
+        conn.execute(
+            "UPDATE documents SET content = ?, file_bytes_b64 = ?, file_size = ? WHERE id = ? AND user_id = ?",
+            (content, file_bytes_b64, file_size, document_id, user_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def get_document_by_id(user_id, document_id):
     conn = get_db()
     try:

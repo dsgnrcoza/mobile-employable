@@ -44,15 +44,19 @@
   </div>
 
   <div class="builder-preview-wrap" id="builder-preview-wrap" hidden>
-    <div class="builder-preview" id="builder-preview"></div>
+    <div class="builder-preview" id="builder-preview" contenteditable="true"></div>
     <div class="builder-actions">
       <button type="button" class="btn btn-ghost" id="builder-copy-btn">Copy text</button>
-      <button type="button" class="btn btn-ghost" id="builder-download-btn">Download PDF</button>
+      <button type="button" class="btn btn-ghost" id="builder-save-btn" hidden>Save</button>
+      <button type="button" class="btn btn-gold" id="builder-download-btn">Download PDF</button>
     </div>
   </div>
 </div>
 {% endblock %}
 
 {% block extra_scripts %}
+<script>
+  window.BUILDER_INITIAL = {{ initial|tojson }};
+</script>
 <script src="{{ url_for('static', filename='js/builder.js') }}"></script>
 {% endblock %}
