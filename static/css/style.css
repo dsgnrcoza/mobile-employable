@@ -13,29 +13,27 @@
   navigation: auto;
 }
 
+/* Ploy is a fixed dark identity, not a switchable theme -- one
+   disciplined palette, one accent. --bg/--fg/etc keep their original
+   names so every existing rule in this file picks up the new palette
+   automatically; --panel-2/--accent/--good/--mid/--bad are new. */
 :root {
-  --bg: #000000;
-  --fg: #ffffff;
-  --muted: rgba(255, 255, 255, 0.55);
-  --line: rgba(255, 255, 255, 0.22);
-  --line-strong: rgba(255, 255, 255, 0.6);
-  --surface: rgba(255, 255, 255, 0.06);
-  --card-bg: #0a0a0a;
-}
-
-/* Light mode -- toggled by dashboard.js (Settings > Dark Mode) via a
-   data-theme attribute on <html>, persisted in localStorage. Only the
-   authenticated app shell (dashboard/CV workshop/chat/settings) reads
-   these; the auth/onboarding screens keep their own fixed light-header
-   design untouched either way. */
-:root[data-theme="light"] {
-  --bg: #ffffff;
-  --fg: #0a0a0a;
-  --muted: rgba(10, 10, 10, 0.55);
-  --line: rgba(10, 10, 10, 0.14);
-  --line-strong: rgba(10, 10, 10, 0.4);
-  --surface: rgba(10, 10, 10, 0.05);
-  --card-bg: #fafafa;
+  --bg: #0E1013;
+  --fg: #EDEDE8;
+  --muted: #8C929C;
+  --line: #262B33;
+  --line-strong: #333A45;
+  --surface: rgba(237, 237, 232, 0.05);
+  --card-bg: #16191E;
+  --panel: #16191E;
+  --panel-2: #1C2026;
+  --accent: #4067F0;
+  --accent-ink: #EDEDE8;
+  --good: #4CC38A;
+  --mid: #E4B33C;
+  --bad: #E0564B;
+  --font-ui: "Archivo", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
 * {
@@ -50,7 +48,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--fg);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: var(--font-ui);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -58,8 +56,26 @@ h1, h2, h3, p {
   margin: 0;
 }
 
+h1, h2, h3 {
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
 a {
   color: inherit;
+}
+
+/* Data always renders in mono -- fit scores, badges, filenames,
+   timestamps. This is a core part of Ploy's identity, not a stray
+   utility class. */
+.mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .dot {
@@ -271,41 +287,30 @@ button.auth-tab.active {
   letter-spacing: 0.08em;
 }
 
-/* Brand wordmark treatment: applies to every "Ploy" heading on the
-   splash screen and the top of the auth screens. Animated gradient text
-   that cycles continuously with no visible seam: the stop list repeats
-   the same 3 colors twice, background-size is exactly 2x, so sliding
-   background-position from 0% to 100% moves exactly one full period —
-   the frame at 100% is pixel-identical to the frame at 0%, so looping
-   back never glitches. Linear timing (not ease) keeps the speed constant
-   through that loop point too. Pink/purple/turquoise only -- an earlier
-   navy stop was too close to black to read against dark backgrounds. */
-.splash-logo,
-.auth-wordmark {
-  background: linear-gradient(
-    90deg,
-    #ff3ea5, #a855f7, #2dd4bf,
-    #ff3ea5, #a855f7, #2dd4bf
-  );
-  background-size: 200% auto;
-  animation: brand-gradient-shift 8s linear infinite;
+/* Brand wordmark: bold uppercase, wide tracking, mostly plain text --
+   the accent color is spent on exactly one letter (the "O"), not the
+   whole word. Applies wherever "PLOY" appears as a brand moment
+   (splash, auth header), not to every incidental mention of the name
+   in body copy. */
+.wordmark {
+  font-family: var(--font-ui);
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
-.splash-logo,
-.auth-wordmark {
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  -webkit-text-fill-color: transparent;
+.wordmark-o {
+  color: var(--accent);
 }
 
-@keyframes brand-gradient-shift {
-  0% {
-    background-position: 0% 50%;
-  }
-  100% {
-    background-position: 100% 50%;
-  }
+.splash-logo {
+  font-size: 28px;
+  color: var(--fg);
+}
+
+.auth-wordmark {
+  font-size: 15px;
+  color: #0a0a0a;
 }
 
 /* App icon on the login/signup header -- the real logo asset, not a
@@ -554,8 +559,8 @@ button.auth-tab.active {
 }
 
 .btn-gold {
-  background: var(--fg);
-  color: var(--bg);
+  background: var(--accent);
+  color: var(--accent-ink);
 }
 
 .btn-gold:hover {

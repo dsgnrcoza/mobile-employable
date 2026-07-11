@@ -1,12 +1,12 @@
 {
   "name": "Ploy",
   "short_name": "Ploy",
-  "description": "AI-powered employability scoring and career coaching.",
+  "description": "Paste a job. Get a brutal fit verdict. Get your CV rewritten for it. Apply.",
   "start_url": "/dashboard",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#000000",
-  "theme_color": "#000000",
+  "background_color": "#0E1013",
+  "theme_color": "#0E1013",
   "orientation": "portrait",
   "icons": [
     {
