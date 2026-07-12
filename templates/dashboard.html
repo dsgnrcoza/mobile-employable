@@ -788,5 +788,5 @@
 <script>
   window.DASH_STATE = {{ state | tojson }};
 </script>
-<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}?v={{ asset_version }}"></script>
 {% endblock %}

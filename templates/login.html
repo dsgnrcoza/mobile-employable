@@ -73,8 +73,8 @@
 {% endblock %}
 
 {% block extra_scripts %}
-<script src="{{ url_for('static', filename='js/install-prompt.js') }}"></script>
-<script src="{{ url_for('static', filename='js/signup.js') }}"></script>
-<script src="{{ url_for('static', filename='js/download-app.js') }}"></script>
-<script src="{{ url_for('static', filename='js/auth-transition.js') }}"></script>
+<script src="{{ url_for('static', filename='js/install-prompt.js') }}?v={{ asset_version }}"></script>
+<script src="{{ url_for('static', filename='js/signup.js') }}?v={{ asset_version }}"></script>
+<script src="{{ url_for('static', filename='js/download-app.js') }}?v={{ asset_version }}"></script>
+<script src="{{ url_for('static', filename='js/auth-transition.js') }}?v={{ asset_version }}"></script>
 {% endblock %}

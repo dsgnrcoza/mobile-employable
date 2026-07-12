@@ -25,6 +25,7 @@ old state once a change has been made.
 """
 
 import os
+import time
 import uuid
 import json
 from dotenv import load_dotenv
@@ -61,6 +62,23 @@ def _cache_static_assets(response):
     if request.path.startswith("/static/"):
         response.headers["Cache-Control"] = "public, max-age=3600"
     return response
+
+
+# A stable-per-deploy string appended to every static CSS/JS URL as
+# ?v=... so a fresh page load always gets the CSS/JS that matches the
+# HTML it just rendered, even mid-way through the hour-long cache above
+# -- otherwise a deploy that changes both a template and its stylesheet
+# can serve new markup against a still-cached, now-mismatched
+# stylesheet for up to an hour. Vercel sets VERCEL_GIT_COMMIT_SHA at
+# build/runtime for every deployment; falling back to process start
+# time covers local dev (still busts cache across restarts, just not
+# within one).
+_ASSET_VERSION = os.environ.get("VERCEL_GIT_COMMIT_SHA", "")[:10] or str(int(time.time()))
+
+
+@app.context_processor
+def _inject_asset_version():
+    return {"asset_version": _ASSET_VERSION}
 
 ALLOWED_EXTENSIONS = {"pdf", "docx", "doc", "txt", "jpg", "jpeg", "png", "tiff", "tif"}
 ALLOWED_IMAGE_EXTENSIONS = {"jpg", "jpeg", "png", "gif", "webp"}

@@ -158,5 +158,5 @@
 <script>
   window.HOME_STATE = {{ {"profile": profile}|tojson }};
 </script>
-<script src="{{ url_for('static', filename='js/home.js') }}"></script>
+<script src="{{ url_for('static', filename='js/home.js') }}?v={{ asset_version }}"></script>
 {% endblock %}

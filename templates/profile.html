@@ -87,6 +87,6 @@
 {% endblock %}
 
 {% block extra_scripts %}
-<script src="{{ url_for('static', filename='js/download-app.js') }}"></script>
-<script src="{{ url_for('static', filename='js/profile.js') }}"></script>
+<script src="{{ url_for('static', filename='js/download-app.js') }}?v={{ asset_version }}"></script>
+<script src="{{ url_for('static', filename='js/profile.js') }}?v={{ asset_version }}"></script>
 {% endblock %}

@@ -4,7 +4,7 @@
 <!-- Onboarding always ends by moving on to /dashboard -- warming its
      JS bundle now means that page has one less thing to fetch by the
      time the (already slow, AI-scoring) confirm step finishes. -->
-<link rel="prefetch" href="{{ url_for('static', filename='js/dashboard.js') }}">
+<link rel="prefetch" href="{{ url_for('static', filename='js/dashboard.js') }}?v={{ asset_version }}">
 {% endblock %}
 {% block content %}
 <div class="ob-shell">
@@ -173,5 +173,5 @@
     hasCv: {{ has_cv | tojson }}
   };
 </script>
-<script src="{{ url_for('static', filename='js/onboarding.js') }}"></script>
+<script src="{{ url_for('static', filename='js/onboarding.js') }}?v={{ asset_version }}"></script>
 {% endblock %}

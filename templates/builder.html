@@ -58,5 +58,5 @@
 <script>
   window.BUILDER_INITIAL = {{ initial|tojson }};
 </script>
-<script src="{{ url_for('static', filename='js/builder.js') }}"></script>
+<script src="{{ url_for('static', filename='js/builder.js') }}?v={{ asset_version }}"></script>
 {% endblock %}

@@ -41,5 +41,5 @@
 {% endblock %}
 
 {% block extra_scripts %}
-<script src="{{ url_for('static', filename='js/qualify.js') }}"></script>
+<script src="{{ url_for('static', filename='js/qualify.js') }}?v={{ asset_version }}"></script>
 {% endblock %}

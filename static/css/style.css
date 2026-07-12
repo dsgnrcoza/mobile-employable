@@ -217,7 +217,7 @@ a {
   flex-direction: column;
   width: 100%;
   min-height: 0;
-  background: #fff;
+  background: var(--bg);
 }
 
 /* ---------- Login / Register tab switcher ---------- */
@@ -284,7 +284,7 @@ button.auth-tab.active {
   flex-shrink: 0;
   padding: 24px 24px 20px;
   text-align: left;
-  background: #0a0a0a;
+  background: var(--bg);
 }
 
 .auth-wordmark {
@@ -370,10 +370,9 @@ button.auth-tab.active {
   width: 100%;
   max-width: none;
   margin: 0;
-  background: #0a0a0a;
-  /* These pages have a white header above the card now, so the card
-     already reads clearly against it -- the border only needs to
-     blend into the black card/page below it, not stand out. */
+  background: var(--bg);
+  /* Same dark tone as the header and the page behind it, so the
+     rounded corners never reveal a mismatched color underneath. */
   border: 1px solid var(--bg);
   border-bottom: none;
   border-radius: 34px 34px 0 0;
@@ -727,8 +726,8 @@ button.auth-tab.active {
   margin-bottom: 10px;
 }
 
-/* Same visual language as the auth screens: white header with the app
-   badge, black card below with rounded top corners only, full-bleed
+/* Same visual language as the auth screens: dark header with the app
+   badge, dark card below with rounded top corners only, full-bleed
    left/right. Reuses .auth-card/.auth-visual/.auth-form-side/
    .auth-form-box directly rather than re-implementing the same look
    under new names. */
