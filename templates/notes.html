@@ -12,8 +12,17 @@
     </button>
   </header>
 
+  <div class="notes-search-wrap">
+    <svg class="notes-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <input type="text" id="notes-search-input" class="notes-search-input" placeholder="Search notes" autocomplete="off">
+  </div>
+
   <div class="notes-empty" id="notes-empty" hidden>
     <p>No notes yet — tap + to add one.</p>
+  </div>
+
+  <div class="notes-no-results" id="notes-no-results" hidden>
+    <p>No notes match your search.</p>
   </div>
 
   <div class="notes-grid" id="notes-grid"></div>

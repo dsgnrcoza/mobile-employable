@@ -126,7 +126,7 @@
           preview.replaceWith(img);
         })
         .catch(function () {
-          setStatus(photoStatus, "Connection error — please try again.", true);
+          setStatus(photoStatus, "Couldn't upload that photo — check your connection and try again.", true);
         });
     }, "image/jpeg", 0.9);
   }
@@ -175,7 +175,7 @@
         setStatus(accountStatus, data.ok ? "Saved." : (data.error || "Couldn't save."), !data.ok);
       })
       .catch(function () {
-        setStatus(accountStatus, "Connection error — please try again.", true);
+        setStatus(accountStatus, "Couldn't save your details — check your connection and try again.", true);
       })
       .finally(function () {
         accountSaveBtn.disabled = false;
@@ -187,6 +187,17 @@
   var instructionsInput = document.getElementById("profile-instructions-input");
   var instructionsSaveBtn = document.getElementById("profile-instructions-save-btn");
   var instructionsStatus = document.getElementById("profile-instructions-status");
+  var instructionsChips = document.querySelectorAll(".profile-instructions-chip");
+
+  instructionsChips.forEach(function (chip) {
+    chip.addEventListener("click", function () {
+      var text = chip.dataset.text;
+      var current = instructionsInput.value.trim();
+      if (current.indexOf(text) !== -1) return; // already added
+      instructionsInput.value = current ? current + " " + text : text;
+      instructionsInput.focus();
+    });
+  });
 
   instructionsSaveBtn.addEventListener("click", function () {
     instructionsSaveBtn.disabled = true;
@@ -200,7 +211,7 @@
         setStatus(instructionsStatus, data.ok ? "Saved." : (data.error || "Couldn't save."), !data.ok);
       })
       .catch(function () {
-        setStatus(instructionsStatus, "Connection error — please try again.", true);
+        setStatus(instructionsStatus, "Couldn't save your personality settings — check your connection and try again.", true);
       })
       .finally(function () {
         instructionsSaveBtn.disabled = false;
@@ -240,7 +251,7 @@
         }
       })
       .catch(function () {
-        setStatus(passwordStatus, "Connection error — please try again.", true);
+        setStatus(passwordStatus, "Couldn't change your password — check your connection and try again.", true);
       })
       .finally(function () {
         passwordSaveBtn.disabled = false;
@@ -285,7 +296,7 @@
         revealSecurityKey(data.security_key);
       })
       .catch(function () {
-        setStatus(keyStatus, "Connection error — please try again.", true);
+        setStatus(keyStatus, "Couldn't regenerate your security key — check your connection and try again.", true);
       })
       .finally(function () {
         regenerateKeyBtn.disabled = false;
@@ -333,6 +344,7 @@
             '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
             "</button>";
           row.querySelector(".profile-doc-delete-btn").addEventListener("click", function () {
+            if (!window.confirm('Delete "' + d.filename + '"? This can\'t be undone.')) return;
             fetch("/api/onboarding/document/" + d.id, { method: "DELETE" })
               .then(function () { loadDocuments(); });
           });
@@ -358,7 +370,7 @@
         if (data.ok) loadDocuments();
       })
       .catch(function () {
-        setStatus(docStatus, "Connection error — please try again.", true);
+        setStatus(docStatus, "Couldn't upload that document — check your connection and try again.", true);
       });
   });
 
@@ -369,6 +381,7 @@
   var memoryToggle = document.getElementById("profile-memory-toggle");
   var memoryCollapse = document.getElementById("profile-memory-collapse");
   var memoryDesc = document.getElementById("profile-memory-desc");
+  var memoryPreview = document.getElementById("profile-memory-preview");
   var memoryClearBtn = document.getElementById("profile-memory-clear-btn");
   var memoryStatus = document.getElementById("profile-memory-status");
 
@@ -378,11 +391,14 @@
     memoryCollapse.hidden = expanded;
   });
 
+  var MEMORY_PREVIEW_COUNT = 3;
+
   function loadMemory() {
     fetch("/api/chat/conversations")
       .then(function (r) { return r.json(); })
       .then(function (data) {
         if (!data.ok) return;
+        memoryPreview.innerHTML = "";
         if (!data.conversations.length) {
           memoryDesc.textContent = "Nothing remembered yet.";
           memoryClearBtn.hidden = true;
@@ -391,6 +407,27 @@
         memoryDesc.textContent = "Ploy remembers " + data.conversations.length +
           (data.conversations.length === 1 ? " conversation." : " conversations.");
         memoryClearBtn.hidden = false;
+
+        data.conversations.slice(0, MEMORY_PREVIEW_COUNT).forEach(function (c) {
+          var row = document.createElement("a");
+          row.className = "profile-memory-preview-row";
+          row.href = "/dashboard?conv=" + c.id;
+          var subtitle = c.kind === "job" && (c.job_title || c.company)
+            ? [c.job_title, c.company].filter(Boolean).join(" · ")
+            : "";
+          row.innerHTML =
+            '<span class="profile-memory-preview-title"></span>' +
+            (subtitle ? '<span class="profile-memory-preview-sub"></span>' : "");
+          row.querySelector(".profile-memory-preview-title").textContent = c.title || "Conversation";
+          if (subtitle) row.querySelector(".profile-memory-preview-sub").textContent = subtitle;
+          memoryPreview.appendChild(row);
+        });
+        if (data.conversations.length > MEMORY_PREVIEW_COUNT) {
+          var more = document.createElement("p");
+          more.className = "profile-memory-preview-more";
+          more.textContent = "+" + (data.conversations.length - MEMORY_PREVIEW_COUNT) + " more";
+          memoryPreview.appendChild(more);
+        }
       });
   }
 

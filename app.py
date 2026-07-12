@@ -605,95 +605,6 @@ def _initials(full_name):
     return (parts[0][0] + parts[-1][0]).upper()
 
 
-# ---------------- New tool sections (Qualify / Builder / Trackers / Notes) ----------------
-
-@app.route("/qualify")
-@auth.login_required
-def qualify_page():
-    user = auth.current_user()
-    has_documents = len(db.get_documents_for_user(user["id"])) > 0
-    return render_template("qualify.html", has_documents=has_documents)
-
-
-@app.route("/api/qualify", methods=["POST"])
-@auth.login_required
-def api_qualify():
-    from openai import OpenAI
-    user = auth.current_user()
-    data = request.get_json(force=True)
-    job_title = (data.get("job_title") or "").strip()[:200]
-    salary_expectation = (data.get("salary_expectation") or "").strip()[:100]
-    location = (data.get("location") or "").strip()[:200]
-    if not job_title:
-        return jsonify({"ok": False, "error": "Missing job title."}), 400
-
-    full_docs = db.get_documents_for_user(user["id"])
-    doc_texts = []
-    total_chars = 0
-    DOC_CHAR_CAP = 3000
-    TOTAL_CHAR_CAP = 20000
-    for d in full_docs:
-        if total_chars >= TOTAL_CHAR_CAP:
-            break
-        try:
-            txt = (d.get("content") or "").strip()
-            if not txt and d.get("stored_path") and os.path.exists(d["stored_path"]):
-                txt = (extract.extract_text(d["stored_path"]) or "").strip()
-            if txt:
-                snippet = txt[:DOC_CHAR_CAP]
-                doc_texts.append(f"[{d['filename']}]\n{snippet}")
-                total_chars += len(snippet)
-        except Exception:
-            pass
-    doc_content_block = "\n\n---\n\n".join(doc_texts) if doc_texts else "No documents uploaded yet."
-
-    system = (
-        "You are a blunt, accurate career-fit evaluator built into the Employable platform. "
-        "Given a role the user is considering and the real content of their uploaded documents "
-        "(CV, certificates, references), decide whether they are currently a strong candidate for "
-        "that specific role, at that specific salary expectation if one is given.\n\n"
-        "GROUNDING: base your verdict only on what's actually in the documents below. Never invent "
-        "experience, skills, or qualifications that aren't there. If there isn't enough real document "
-        "content to judge, say so directly in 'reasoning' and set 'qualifies' to false.\n\n"
-        "OUTPUT RULES — return a JSON object with exactly these keys:\n"
-        "- 'qualifies': true or false.\n"
-        "- 'headline': one short, direct sentence stating the verdict (e.g. 'You're a strong match for this role.' "
-        "or 'You're not quite there yet for this role.').\n"
-        "- 'reasoning': 2-4 sentences explaining exactly why, citing specifics from their real documents "
-        "(name the actual skills/experience/employers that support or undercut the verdict).\n"
-        "- 'next_steps': 2-4 sentences. If they qualify, explain how to double down and stand out further "
-        "for this specific role. If they don't qualify yet, give concrete, specific steps to close the gap.\n\n"
-        "Use **double asterisks** to bold a key phrase or two per section, nothing else. No markdown "
-        "headers, no bullet lists, no code fences."
-    )
-    prompt = (
-        f"Role the user wants to qualify for: {job_title}\n"
-        f"Salary expectation: {salary_expectation or 'Not specified'}\n"
-        f"Location: {location or 'Not specified'}\n\n"
-        f"Full content of the user's actual uploaded documents:\n{doc_content_block}"
-    )
-
-    try:
-        client = OpenAI(api_key=analyzer.get_openai_api_key(), timeout=analyzer.get_client_timeout(), max_retries=analyzer.CLIENT_MAX_RETRIES)
-        resp = client.chat.completions.create(
-            model="gpt-4o",
-            messages=[{"role": "system", "content": system}, {"role": "user", "content": prompt}],
-            max_tokens=900,
-            response_format={"type": "json_object"},
-        )
-        raw = resp.choices[0].message.content.strip()
-        parsed = json.loads(raw)
-        return jsonify({
-            "ok": True,
-            "qualifies": bool(parsed.get("qualifies")),
-            "headline": parsed.get("headline", ""),
-            "reasoning": parsed.get("reasoning", ""),
-            "next_steps": parsed.get("next_steps", ""),
-        })
-    except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
-
-
 def _real_uploaded_docs(user_id):
     """Documents this user actually uploaded -- excludes CVs/letters Ploy
     itself generated, so every new generation is grounded in the user's
@@ -806,13 +717,16 @@ def _run_verdict(user, job_ad):
     )
     parsed = json.loads(resp.choices[0].message.content.strip())
     fit_score = max(0, min(100, int(parsed.get("fit_score") or 0)))
+    job_title = (parsed.get("job_title") or "").strip()[:200] or "This role"
+    company = (parsed.get("company") or "").strip()[:200]
     return {
         "ok": True,
         "type": "verdict",
-        "job_title": (parsed.get("job_title") or "").strip()[:200] or "This role",
-        "company": (parsed.get("company") or "").strip()[:200],
+        "job_title": job_title,
+        "company": company,
         "location": (parsed.get("location") or "").strip()[:200],
         "fit_score": fit_score,
+        "previous_fit_score": db.get_previous_fit_score(user["id"], job_title, company),
         "strengths": [s for s in (parsed.get("strengths") or []) if s][:3],
         "gaps": [s for s in (parsed.get("gaps") or []) if s][:3],
         "breakdown": (parsed.get("breakdown") or "").strip(),
@@ -1094,6 +1008,7 @@ def api_create_note():
         title=(data.get("title") or "").strip()[:200],
         body=(data.get("body") or "").strip()[:20000],
         color=(data.get("color") or "default").strip()[:20],
+        source="chat" if data.get("source") == "chat" else "user",
     )
     return jsonify({"ok": True, "note": db.get_note(note_id, user["id"])})
 
@@ -1121,76 +1036,6 @@ def api_delete_note(note_id):
     user = auth.current_user()
     db.delete_note(note_id, user["id"])
     return jsonify({"ok": True})
-
-
-# ---------------- Trackers ----------------
-
-@app.route("/trackers")
-@auth.login_required
-def trackers_page():
-    return render_template("trackers.html")
-
-
-@app.route("/api/trackers", methods=["GET"])
-@auth.login_required
-def api_get_trackers():
-    user = auth.current_user()
-    return jsonify({"ok": True, "trackers": db.get_trackers_for_user(user["id"])})
-
-
-@app.route("/api/trackers", methods=["POST"])
-@auth.login_required
-def api_create_tracker():
-    user = auth.current_user()
-    data = request.get_json(force=True)
-    tracker_id = db.create_tracker(
-        user["id"],
-        job_title=(data.get("job_title") or "").strip()[:200],
-        company=(data.get("company") or "").strip()[:200],
-        date_applied=(data.get("date_applied") or "").strip()[:20],
-        status=(data.get("status") or "applied").strip()[:20],
-        notes=(data.get("notes") or "").strip()[:5000],
-    )
-    return jsonify({"ok": True, "tracker": db.get_tracker(tracker_id, user["id"])})
-
-
-@app.route("/api/trackers/<int:tracker_id>", methods=["PUT"])
-@auth.login_required
-def api_update_tracker(tracker_id):
-    user = auth.current_user()
-    if not db.get_tracker(tracker_id, user["id"]):
-        return jsonify({"ok": False, "error": "Tracker entry not found."}), 404
-    data = request.get_json(force=True)
-    db.update_tracker(
-        tracker_id,
-        user["id"],
-        job_title=(data.get("job_title") or "").strip()[:200],
-        company=(data.get("company") or "").strip()[:200],
-        date_applied=(data.get("date_applied") or "").strip()[:20],
-        status=(data.get("status") or "applied").strip()[:20],
-        notes=(data.get("notes") or "").strip()[:5000],
-    )
-    return jsonify({"ok": True, "tracker": db.get_tracker(tracker_id, user["id"])})
-
-
-@app.route("/api/trackers/<int:tracker_id>", methods=["DELETE"])
-@auth.login_required
-def api_delete_tracker(tracker_id):
-    user = auth.current_user()
-    db.delete_tracker(tracker_id, user["id"])
-    return jsonify({"ok": True})
-
-
-@app.route("/api/dashboard-state")
-@auth.login_required
-def api_dashboard_state():
-    """
-    Returns the full dashboard state as JSON. The frontend calls this
-    after any change to refresh the Cubic-Metric bars and skills list
-    without a page reload.
-    """
-    user = auth.current_user()
-    return jsonify(pipeline.get_dashboard_state(user["id"]))
 
 
 @app.route("/api/upload", methods=["POST"])
@@ -2827,6 +2672,7 @@ Never claim you can't see their documents — if the block above says no content
                     title=(first_user_msg or "Saved chat").strip()[:60],
                     body="\n\n".join(transcript_lines)[:20000],
                     color="default",
+                    source="chat",
                 )
                 return jsonify({"ok": True, "kind": "text", "reply": "Saved — you'll find this conversation in your notes."})
             else:

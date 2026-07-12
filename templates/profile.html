@@ -53,6 +53,12 @@
   <section class="profile-section">
     <h2 class="profile-section-title">Personality</h2>
     <p class="profile-section-desc">Tell Ploy how you want it to talk to you — tone, things to always do or avoid. It follows this permanently, in every conversation.</p>
+    <div class="profile-instructions-chips" id="profile-instructions-chips">
+      <button type="button" class="profile-instructions-chip" data-text="Keep replies short and to the point — 2-3 sentences unless I ask for more.">Keep it short</button>
+      <button type="button" class="profile-instructions-chip" data-text="Don't sugar-coat feedback. Tell me straight if something's weak.">Be blunt</button>
+      <button type="button" class="profile-instructions-chip" data-text="Talk to me casually, like a friend, not formally.">Casual tone</button>
+      <button type="button" class="profile-instructions-chip" data-text="Call me by my first name, not my full name.">Use my first name</button>
+    </div>
     <textarea class="profile-instructions-input" id="profile-instructions-input" placeholder="e.g. Keep replies short. Don't sugar-coat feedback on my CV. Call me by my first name." maxlength="3000">{{ user.custom_instructions or '' }}</textarea>
     <button type="button" class="btn btn-gold btn-sm" id="profile-instructions-save-btn">Save</button>
     <p class="profile-status" id="profile-instructions-status" hidden></p>
@@ -108,6 +114,7 @@
     </button>
     <div class="profile-section-collapse" id="profile-memory-collapse" hidden>
       <p class="profile-section-desc" id="profile-memory-desc">Every conversation Ploy remembers.</p>
+      <div class="profile-memory-preview" id="profile-memory-preview"></div>
       <a href="{{ url_for('conversations_page') }}" class="btn btn-ghost btn-sm profile-memory-viewall-btn">View all conversations</a>
       <button type="button" class="btn btn-ghost btn-sm profile-memory-clear-btn" id="profile-memory-clear-btn">Clear all conversations</button>
       <p class="profile-status" id="profile-memory-status" hidden></p>

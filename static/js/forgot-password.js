@@ -7,6 +7,49 @@
   var confirmPasswordInput = document.getElementById("reset-confirm-password");
   var errorEl = document.getElementById("forgot-error");
   var submitBtn = document.getElementById("reset-submit-btn");
+  var keyFormatHint = document.getElementById("key-format-hint");
+
+  // Matches auth._normalize_security_key/generate_security_key exactly:
+  // 25 characters from an alphabet that excludes visually ambiguous ones
+  // (no I, O, 0, 1), dashes are pure formatting and stripped either side.
+  var KEY_LENGTH = 25;
+  var KEY_ALPHABET_RE = /^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]+$/;
+
+  function normalizeKey(raw) {
+    return (raw || "").replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+  }
+
+  // Returns null when the key is fine (or still too short to judge),
+  // otherwise a short, specific message about what's wrong -- catches a
+  // malformed key before the round trip instead of only after a 401.
+  function keyFormatProblem(stripped) {
+    if (stripped.length < KEY_LENGTH) return null;
+    if (stripped.length > KEY_LENGTH) {
+      return "That's " + stripped.length + " characters — a security key is exactly 25.";
+    }
+    if (!KEY_ALPHABET_RE.test(stripped)) {
+      return "Check for O, I, 0, or 1 — this key's letters/numbers never include those (easy to mistype).";
+    }
+    return null;
+  }
+
+  keyInput.addEventListener("input", function () {
+    var stripped = normalizeKey(keyInput.value);
+    if (!stripped.length) {
+      keyFormatHint.hidden = true;
+      return;
+    }
+    var problem = keyFormatProblem(stripped);
+    keyFormatHint.hidden = false;
+    keyFormatHint.classList.toggle("is-error", !!problem);
+    if (problem) {
+      keyFormatHint.textContent = problem;
+    } else if (stripped.length === KEY_LENGTH) {
+      keyFormatHint.textContent = "Looks right.";
+    } else {
+      keyFormatHint.textContent = stripped.length + " of 25 characters.";
+    }
+  });
 
   function setError(message) {
     errorEl.textContent = message;
@@ -39,6 +82,16 @@
       setError("Enter your email and security key.");
       return;
     }
+    var strippedKey = normalizeKey(securityKey);
+    if (strippedKey.length !== KEY_LENGTH) {
+      setError("A security key is exactly 25 characters — check yours and try again.");
+      return;
+    }
+    var keyProblem = keyFormatProblem(strippedKey);
+    if (keyProblem) {
+      setError(keyProblem);
+      return;
+    }
     setError("");
     submitBtn.disabled = true;
     fetch("/api/reset-password", {
@@ -62,7 +115,7 @@
         window.location.href = data.redirect || "/dashboard";
       })
       .catch(function () {
-        setError("Connection error — please try again.");
+        setError("Couldn't reach Ploy to reset your password — check your connection and try again.");
         submitBtn.disabled = false;
       });
   });

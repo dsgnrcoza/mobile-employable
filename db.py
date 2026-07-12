@@ -321,6 +321,7 @@ def init_db():
         "ALTER TABLE chat_conversations ADD COLUMN status_label TEXT NOT NULL DEFAULT ''",
         "ALTER TABLE users ADD COLUMN security_key_hash TEXT DEFAULT ''",
         "ALTER TABLE users ADD COLUMN custom_instructions TEXT DEFAULT ''",
+        "ALTER TABLE notes ADD COLUMN source TEXT NOT NULL DEFAULT 'user'",
         # Deliberately last and best-effort, not part of the CREATE TABLE
         # block above: if any pre-existing rows already share a non-blank
         # email (e.g. two accounts that both had their email set to the
@@ -848,6 +849,27 @@ def get_conversations_for_user(user_id):
         conn.close()
 
 
+def get_previous_fit_score(user_id, job_title, company):
+    """Most recent fit_score this user already has on record for the same
+    job (title + company, case-insensitive), if any -- used to show a
+    real "up/down from last time" trend rather than a fabricated one.
+    Returns None when there's nothing to compare against yet."""
+    if not job_title:
+        return None
+    conn = get_db()
+    try:
+        row = conn.execute(
+            """SELECT fit_score FROM chat_conversations
+               WHERE user_id = ? AND kind = 'job' AND fit_score IS NOT NULL
+                 AND lower(job_title) = lower(?) AND lower(company) = lower(?)
+               ORDER BY updated_at DESC LIMIT 1""",
+            (user_id, job_title, company or ""),
+        ).fetchone()
+        return row["fit_score"] if row else None
+    finally:
+        conn.close()
+
+
 def create_conversation(user_id, title="Conversation"):
     conn = get_db()
     try:
@@ -1064,13 +1086,13 @@ def count_pending_incoming_requests(user_id):
         conn.close()
 
 
-def create_note(user_id, title="", body="", color="default"):
+def create_note(user_id, title="", body="", color="default", source="user"):
     conn = get_db()
     try:
         now = now_iso()
         cur = conn.execute(
-            "INSERT INTO notes (user_id, title, body, color, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
-            (user_id, title, body, color, now, now),
+            "INSERT INTO notes (user_id, title, body, color, source, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (user_id, title, body, color, source, now, now),
         )
         conn.commit()
         return cur.lastrowid

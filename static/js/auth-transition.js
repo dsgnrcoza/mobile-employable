@@ -54,6 +54,7 @@
   function runPageInit(page) {
     if (page === "signup" && window.initSignupPage) window.initSignupPage();
     if (page === "login" && window.initInstallPrompt) window.initInstallPrompt();
+    if (page === "login" && window.initLoginPage) window.initLoginPage();
   }
 
   function applyEntry(entry, href, pushState) {

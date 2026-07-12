@@ -29,6 +29,8 @@
   var chatHistory = [];
   var chatConversationId = null;
   var chatSending = false;
+  var personalizedJobContext = null;
+  var personalizedBuilderMode = "cv";
 
   function escapeHtml(s) {
     return (s || "").replace(/[&<>"']/g, function (c) {
@@ -94,7 +96,7 @@
     fetch("/api/notes", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: title, body: body }),
+      body: JSON.stringify({ title: title, body: body, source: "chat" }),
     })
       .then(function (r) { return r.json(); })
       .then(function (data) {
@@ -103,6 +105,16 @@
           setTimeout(function () { btn.classList.remove("is-saved"); }, 1500);
         }
       });
+  }
+
+  function createTypingIndicator() {
+    var el = document.createElement("div");
+    el.className = "chat-msg-typing";
+    el.innerHTML =
+      '<span class="chat-typing-dot"></span>' +
+      '<span class="chat-typing-dot"></span>' +
+      '<span class="chat-typing-dot"></span>';
+    return el;
   }
 
   function appendChatMessage(role, text) {
@@ -199,6 +211,15 @@
     );
   }
 
+  function scoreTrendBadge(score, previousScore) {
+    if (previousScore == null) return "";
+    var delta = score - previousScore;
+    if (delta === 0) return '<span class="score-trend trend-flat">Same as last time</span>';
+    var cls = delta > 0 ? "trend-up" : "trend-down";
+    var arrow = delta > 0 ? "▲" : "▼";
+    return '<span class="score-trend ' + cls + '">' + arrow + " " + Math.abs(delta) + " vs last time</span>";
+  }
+
   function renderVerdictCard(card) {
     var wrap = document.createElement("div");
     wrap.className = "verdict-card";
@@ -209,12 +230,14 @@
       '<div class="verdict-job-title">' + escapeHtml(card.job_title || "This role") + "</div>" +
       (subtitle ? '<div class="verdict-job-sub">' + escapeHtml(subtitle) + "</div>" : "") +
       '<div class="verdict-score mono tier-' + tier + '">' + card.fit_score + '<span class="verdict-score-max">/100</span></div>' +
+      scoreTrendBadge(card.fit_score, card.previous_fit_score) +
       diamondList(card.strengths, "diamond-good") +
       diamondList(card.gaps, "diamond-bad") +
       '<div class="card-breakdown" hidden></div>' +
       '<div class="card-actions">' +
       '<button type="button" class="btn btn-gold btn-sm card-fix-btn">Fix my CV for this job</button>' +
       '<button type="button" class="btn btn-ghost btn-sm card-breakdown-btn">Show full breakdown</button>' +
+      '<button type="button" class="btn btn-ghost btn-sm card-save-note-btn">Save to notes</button>' +
       "</div>";
 
     wrap.querySelector(".card-fix-btn").addEventListener("click", function () {
@@ -228,6 +251,17 @@
       breakdownEl.textContent = card.breakdown || "";
       breakdownBtn.textContent = show ? "Hide breakdown" : "Show full breakdown";
       scrollChatToBottom();
+    });
+    wrap.querySelector(".card-save-note-btn").addEventListener("click", function () {
+      var noteBtn = wrap.querySelector(".card-save-note-btn");
+      var title = "Verdict — " + (card.job_title || "This role") + (card.company ? " at " + card.company : "");
+      var body = "Fit score: " + card.fit_score + "/100\n\n" +
+        (card.strengths && card.strengths.length ? "Strengths:\n" + card.strengths.map(function (s) { return "- " + s; }).join("\n") + "\n\n" : "") +
+        (card.gaps && card.gaps.length ? "Gaps:\n" + card.gaps.map(function (s) { return "- " + s; }).join("\n") + "\n\n" : "") +
+        (card.breakdown || "");
+      saveNoteFromText(title, body, noteBtn);
+      noteBtn.textContent = "Saved ✓";
+      setTimeout(function () { noteBtn.textContent = "Save to notes"; }, 1500);
     });
     return wrap;
   }
@@ -246,6 +280,7 @@
       '<div class="card-actions">' +
       '<button type="button" class="btn btn-gold btn-sm card-fix-btn">Build my CV</button>' +
       '<button type="button" class="btn btn-ghost btn-sm card-breakdown-btn">Show full breakdown</button>' +
+      '<button type="button" class="btn btn-ghost btn-sm card-save-note-btn">Save to notes</button>' +
       "</div>";
 
     wrap.querySelector(".card-fix-btn").addEventListener("click", function () {
@@ -259,6 +294,17 @@
       breakdownEl.textContent = card.breakdown || "";
       breakdownBtn.textContent = show ? "Hide breakdown" : "Show full breakdown";
       scrollChatToBottom();
+    });
+    wrap.querySelector(".card-save-note-btn").addEventListener("click", function () {
+      var noteBtn = wrap.querySelector(".card-save-note-btn");
+      var title = "Gap analysis — " + (card.target_role || "This role");
+      var body = "Readiness: " + card.readiness_score + "/100\n\n" +
+        (card.strengths && card.strengths.length ? "Strengths:\n" + card.strengths.map(function (s) { return "- " + s; }).join("\n") + "\n\n" : "") +
+        (card.gaps && card.gaps.length ? "Gaps:\n" + card.gaps.map(function (s) { return "- " + s; }).join("\n") + "\n\n" : "") +
+        (card.breakdown || "");
+      saveNoteFromText(title, body, noteBtn);
+      noteBtn.textContent = "Saved ✓";
+      setTimeout(function () { noteBtn.textContent = "Save to notes"; }, 1500);
     });
     return wrap;
   }
@@ -391,19 +437,56 @@
       : renderDocumentCard(card);
   }
 
+  function pick(options) {
+    return options[Math.floor(Math.random() * options.length)];
+  }
+
+  // The phrasing here becomes the AI's own remembered utterance for this
+  // turn (chatHistory is sent back as conversation context), so a single
+  // fixed template would make its own "memory" of showing a card read
+  // mechanically the same every time -- these vary the wording only,
+  // never the underlying facts (score/title/company/etc. stay exact).
+  function cardSummaryText(card) {
+    if (card.type === "verdict") {
+      var role = card.job_title || "this role";
+      var at = card.company ? " at " + card.company : "";
+      return pick([
+        "Verdict: " + card.fit_score + "/100 fit for " + role + at + ".",
+        "Scored " + role + at + " at " + card.fit_score + "/100.",
+        "Ran the numbers on " + role + at + " — " + card.fit_score + "/100.",
+      ]);
+    }
+    if (card.type === "gap") {
+      var target = card.target_role || "this role";
+      return pick([
+        "Gap analysis: " + card.readiness_score + "/100 ready for " + target + ".",
+        "Checked your readiness for " + target + " — " + card.readiness_score + "/100.",
+        target + " readiness: " + card.readiness_score + "/100.",
+      ]);
+    }
+    if (card.type === "chart") {
+      var labels = card.labels.join(", ");
+      return pick([
+        "Here's your " + card.chart_type + " chart of " + labels + ".",
+        "Charted " + labels + " as a " + card.chart_type + ".",
+        "Your " + labels + " breakdown, as a " + card.chart_type + " chart.",
+      ]);
+    }
+    var docLabel = card.kind === "cv" ? "CV" : "cover letter";
+    return pick([
+      "Document ready: " + card.filename,
+      "Your " + docLabel + " is ready — " + card.filename,
+      docLabel + " done: " + card.filename,
+    ]);
+  }
+
   function appendCardMessage(card) {
     clearQuickReplies();
     showEmptyState(false);
     var node = renderCardNode(card);
     messagesEl.appendChild(node);
     scrollChatToBottom();
-    var summary = card.type === "verdict"
-      ? "Verdict: " + card.fit_score + "/100 fit for " + (card.job_title || "this role") + (card.company ? " at " + card.company : "") + "."
-      : card.type === "gap"
-      ? "Gap analysis: " + card.readiness_score + "/100 ready for " + (card.target_role || "this role") + "."
-      : card.type === "chart"
-      ? "Here's your " + card.chart_type + " chart of " + card.labels.join(", ") + "."
-      : "Document ready: " + card.filename;
+    var summary = cardSummaryText(card);
     chatHistory.push({ role: "assistant", text: summary, card: card });
     saveConversation().then(function () {
       if (card.type !== "chart" && card.type !== "gap") promoteThreadForCard(card);
@@ -411,9 +494,7 @@
   }
 
   function requestCard(url, payload) {
-    var typingEl = document.createElement("div");
-    typingEl.className = "chat-msg-typing";
-    typingEl.textContent = "Thinking…";
+    var typingEl = createTypingIndicator();
     messagesEl.appendChild(typingEl);
     scrollChatToBottom();
     chatSending = true;
@@ -433,7 +514,7 @@
       })
       .catch(function () {
         typingEl.remove();
-        appendChatMessage("assistant", "Connection error — please try again.");
+        appendChatMessage("assistant", "Couldn't reach Ploy just now — check your connection and try again.");
       })
       .finally(function () {
         chatSending = false;
@@ -452,12 +533,14 @@
     requestCard("/api/document", context);
   }
 
-  function requestBuilderCard() {
+  function requestBuilderCard(context) {
+    context = context || {};
+    var label = context.job_title ? "Build my CV for " + context.job_title + "." : "Build my CV.";
     showEmptyState(false);
     clearQuickReplies();
-    appendChatMessage("user", "Build my CV.");
-    chatHistory.push({ role: "user", text: "Build my CV." });
-    requestCard("/api/document", {});
+    appendChatMessage("user", label);
+    chatHistory.push({ role: "user", text: label });
+    requestCard("/api/document", context);
   }
 
   function requestLetterCard(context) {
@@ -538,9 +621,7 @@
     appendChatMessage("user", text);
     chatHistory.push({ role: "user", text: text });
 
-    var typingEl = document.createElement("div");
-    typingEl.className = "chat-msg-typing";
-    typingEl.textContent = "Thinking…";
+    var typingEl = createTypingIndicator();
     messagesEl.appendChild(typingEl);
     scrollChatToBottom();
 
@@ -583,7 +664,7 @@
       })
       .catch(function () {
         typingEl.remove();
-        appendChatMessageTyped("Connection error — please try again.");
+        appendChatMessageTyped("Couldn't send that — check your connection and try again.");
       })
       .finally(function () {
         chatSending = false;
@@ -641,11 +722,23 @@
   });
 
   document.getElementById("chip-builder").addEventListener("click", function () {
-    requestBuilderCard();
+    if (personalizedBuilderMode === "letter" && personalizedJobContext && personalizedJobContext.job_title) {
+      var letterLabel = "Write a cover letter for " + personalizedJobContext.job_title + ".";
+      showEmptyState(false);
+      clearQuickReplies();
+      appendChatMessage("user", letterLabel);
+      chatHistory.push({ role: "user", text: letterLabel });
+      requestLetterCard(personalizedJobContext);
+    } else {
+      requestBuilderCard(personalizedJobContext);
+    }
   });
 
   document.getElementById("chip-gaps").addEventListener("click", function () {
-    sendChatMessage("What's holding me back?");
+    var gapsText = personalizedJobContext && personalizedJobContext.job_title
+      ? "What's holding me back from " + personalizedJobContext.job_title + "?"
+      : "What's holding me back?";
+    sendChatMessage(gapsText);
   });
 
   // ---------- Attach sheet ("Add context") ----------
@@ -735,7 +828,7 @@
           : (data.error || "Couldn't upload that file.");
       })
       .catch(function () {
-        attachUploadStatus.textContent = "Connection error — please try again.";
+        attachUploadStatus.textContent = "Couldn't upload that — check your connection and try again.";
       })
       .finally(function () {
         setTimeout(function () { attachUploadStatus.textContent = attachUploadStatusDefault; }, 3000);
@@ -1097,13 +1190,28 @@
 
   function personalizeChips(mostRecentJob) {
     if (!mostRecentJob) return;
+    personalizedJobContext = { job_title: mostRecentJob.job_title, company: mostRecentJob.company };
     var qualifyLabel = document.querySelector("#chip-qualify span:last-child");
+    var builderLabel = document.querySelector("#chip-builder span:last-child");
     var gapsLabel = document.querySelector("#chip-gaps span:last-child");
+    var score = mostRecentJob.fit_score;
     if (qualifyLabel) qualifyLabel.textContent = "Check my fit for another role";
+    if (builderLabel && mostRecentJob.job_title) {
+      personalizedBuilderMode = score != null && score >= 75 ? "letter" : "cv";
+      builderLabel.textContent = personalizedBuilderMode === "letter"
+        ? "Write a cover letter for " + mostRecentJob.job_title
+        : "Build my CV for " + mostRecentJob.job_title;
+    }
     if (gapsLabel) {
-      gapsLabel.textContent = mostRecentJob.fit_score != null
-        ? "Improve on my " + mostRecentJob.fit_score + "/100 fit"
-        : "What's still holding me back?";
+      if (score == null) {
+        gapsLabel.textContent = "What's still holding me back?";
+      } else if (score < 50) {
+        gapsLabel.textContent = "Close the gaps in my " + score + "/100 fit";
+      } else if (score < 75) {
+        gapsLabel.textContent = "Improve on my " + score + "/100 fit";
+      } else {
+        gapsLabel.textContent = "What's next after a " + score + "/100 fit?";
+      }
     }
   }
 

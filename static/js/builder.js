@@ -12,6 +12,7 @@
   var copyBtn = document.getElementById("builder-copy-btn");
   var downloadBtn = document.getElementById("builder-download-btn");
   var saveBtn = document.getElementById("builder-save-btn");
+  var saveStateEl = document.getElementById("builder-save-state");
 
   var activeType = "cv";
   var selectedTemplate = { cv: "Modern", letter: "Formal" };
@@ -21,10 +22,32 @@
   // button -- so "Save" can write edits back to that same document and
   // a card's "Download" later reflects them, not just the original draft.
   var loadedDocumentId = { cv: null, letter: null };
+  // Tracks whether each type's loaded document has edits since it was
+  // last saved, so "Save" isn't the only way to tell -- an always-visible
+  // "Unsaved changes" / "Saved" line makes it unambiguous whether an edit
+  // actually persisted or would be lost by navigating away.
+  var saveState = { cv: null, letter: null };
   var generating = false;
 
   function updateSaveBtnVisibility() {
     saveBtn.hidden = !loadedDocumentId[activeType];
+  }
+
+  function renderSaveState() {
+    var state = saveState[activeType];
+    if (!loadedDocumentId[activeType] || !state) {
+      saveStateEl.hidden = true;
+      return;
+    }
+    saveStateEl.hidden = false;
+    saveStateEl.textContent = state === "saved" ? "Saved" : "Unsaved changes";
+    saveStateEl.classList.toggle("is-unsaved", state === "unsaved");
+  }
+
+  function markUnsaved(type) {
+    if (!loadedDocumentId[type]) return;
+    saveState[type] = "unsaved";
+    if (type === activeType) renderSaveState();
   }
 
   function setActiveType(type) {
@@ -35,6 +58,7 @@
     templateRows.letter.hidden = type !== "letter";
     statusLine.hidden = true;
     updateSaveBtnVisibility();
+    renderSaveState();
     if (currentHtml[type]) {
       previewEl.innerHTML = currentHtml[type];
       previewEmpty.hidden = true;
@@ -52,6 +76,7 @@
   // live edited content, not a stale AI-generated snapshot.
   previewEl.addEventListener("input", function () {
     currentHtml[activeType] = previewEl.innerHTML;
+    markUnsaved(activeType);
   });
 
   typeBtns.cv.addEventListener("click", function () { setActiveType("cv"); });
@@ -109,9 +134,10 @@
         previewWrap.hidden = false;
         generateBtn.textContent = "Update";
         setStatus(data.description || "Done.", false);
+        markUnsaved(activeType);
       })
       .catch(function () {
-        setStatus("Connection error — please try again.", true);
+        setStatus("Couldn't reach Ploy to draft that — check your connection and try again.", true);
       })
       .finally(function () {
         generating = false;
@@ -164,9 +190,13 @@
       .then(function (r) { return r.json(); })
       .then(function (data) {
         setStatus(data.ok ? "Saved." : (data.error || "Couldn't save."), !data.ok);
+        if (data.ok) {
+          saveState[activeType] = "saved";
+          renderSaveState();
+        }
       })
       .catch(function () {
-        setStatus("Connection error — please try again.", true);
+        setStatus("Couldn't save just now — check your connection and try again.", true);
       })
       .finally(function () {
         saving = false;
@@ -180,6 +210,7 @@
   if (initial && initial.html) {
     currentHtml[initial.kind] = initial.html;
     loadedDocumentId[initial.kind] = initial.document_id;
+    saveState[initial.kind] = "saved";
     setActiveType(initial.kind);
   }
 })();

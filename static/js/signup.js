@@ -115,5 +115,20 @@
   });
   };
 
+  // Login is a plain server-rendered POST (no client-side fetch/celebrate
+  // flow to hook into like signup above), so this only adds visible
+  // "working on it" feedback for the round-trip -- it never calls
+  // preventDefault, the real submission proceeds exactly as before.
+  window.initLoginPage = function () {
+    var form = document.getElementById("login-form");
+    if (!form) return;
+    var submitBtn = form.querySelector("button[type=submit]");
+    form.addEventListener("submit", function () {
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Signing in…";
+    });
+  };
+
   window.initSignupPage();
+  window.initLoginPage();
 })();

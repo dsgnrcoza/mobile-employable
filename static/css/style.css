@@ -486,6 +486,22 @@ button.auth-tab.active {
   color: #2dd4bf;
 }
 
+.key-format-hint {
+  font-size: 12px;
+  color: #2dd4bf;
+  margin-top: -8px;
+  margin-bottom: 2px;
+  line-height: 1.4;
+}
+
+.key-format-hint[hidden] {
+  display: none;
+}
+
+.key-format-hint.is-error {
+  color: var(--bad);
+}
+
 .password-reqs {
   list-style: none;
   margin: 2px 0 0;
@@ -1369,54 +1385,6 @@ button.auth-tab.active {
   line-height: 1.6;
 }
 
-/* ==========================================================================
-   Dashboard
-   ========================================================================== */
-
-.dash-shell {
-  /* Pinned to the viewport itself (not just sized to it) so the tab bar
-     at the bottom of this flex column can never be carried off-screen
-     by page-level rubber-band/overscroll -- a real risk here since,
-     unlike the auth/onboarding shells, this one is meant to fully
-     occupy the screen with no outer page scroll at all. */
-  position: fixed;
-  inset: 0;
-  background: var(--bg);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.dash-header {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 20px 20px 8px;
-}
-
-.dash-header-left {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.dash-header-left[hidden] {
-  display: none;
-}
-
-.dash-username {
-  color: var(--fg);
-  font-size: 19px;
-  font-weight: 700;
-}
-
-.dash-header-icons {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
 .action-notif-list {
   display: flex;
   flex-direction: column;
@@ -1468,140 +1436,6 @@ button.auth-tab.active {
   transform: scale(0.94);
 }
 
-.dash-icon-btn,
-.dash-avatar-btn {
-  position: relative;
-  background: none;
-  border: 1px solid var(--line-strong);
-  border-radius: 50%;
-  width: 38px;
-  height: 38px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--fg);
-  cursor: pointer;
-  padding: 0;
-  overflow: hidden;
-  transition: transform 0.1s ease, background 0.15s ease;
-}
-
-.dash-notif-badge {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: #ff3b5c;
-  border: 1.5px solid var(--bg);
-}
-
-.dash-notif-badge[hidden] {
-  display: none;
-}
-
-.dash-icon-btn:active,
-.dash-avatar-btn:active {
-  transform: scale(0.92);
-  background: var(--surface);
-}
-
-.dash-icon-btn[hidden],
-.dash-avatar-btn[hidden] {
-  display: none;
-}
-
-.dash-icon-btn svg,
-.dash-avatar-btn svg {
-  width: 19px;
-  height: 19px;
-}
-
-.dash-avatar-btn img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  border-radius: 50%;
-}
-
-.dash-content {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding: 12px 20px 24px;
-  max-width: 480px;
-  width: 100%;
-  margin: 0 auto;
-}
-
-/* Full-bleed, no-padding container for this one view (by id, not the
-   shared .dash-content class) -- everything else in it sits in
-   .dash-sheet, a black card with a visible outline and rounded top
-   corners only. */
-#dash-view-dashboard {
-  padding: 0;
-  max-width: none;
-  width: 100%;
-  margin: 0;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-/* An id selector setting display:flex above beats the UA stylesheet's
-   plain [hidden] { display: none } (author styles win over UA styles
-   regardless of specificity) -- without this, switching to another
-   tab left this view's own display:flex in effect, so its fixed-
-   position .dash-sheet child kept rendering on top of every other
-   tab. Matching the id's specificity here is what makes hidden win. */
-#dash-view-dashboard[hidden] {
-  display: none;
-}
-
-.dash-score-header {
-  flex-shrink: 0;
-  padding: 8px 20px 24px;
-  text-align: center;
-}
-
-/* Draggable bottom sheet -- fixed to the full viewport height at all
-   times and moved purely with `transform: translateY(...)` rather
-   than animating `top`, since transform is compositor-only (no
-   layout/paint per frame) and stays smooth even on slower devices.
-   Collapsed rest = translateY(.dash-score-header's rendered height);
-   expanded = translateY(0). Both are set by dashboard.js. */
-.dash-sheet {
-  position: fixed;
-  left: 0;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  /* Same #0a0a0a + line-strong outline as .auth-form-box, for the same
-     reason: against a same-color background, a visible border is what
-     marks the card's edge instead of a color change. */
-  background: var(--card-bg);
-  border: 1px solid var(--line-strong);
-  border-bottom: none;
-  border-radius: 28px 28px 0 0;
-  display: flex;
-  flex-direction: column;
-  z-index: 30;
-  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.4);
-  will-change: transform;
-  transition: transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-.dash-sheet.is-dragging {
-  transition: none;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .dash-sheet {
-    transition: none;
-  }
-}
-
 /* Same opt-out for every fade/scale entrance transition added below --
    with transition: none, [hidden] just flips display instantly again,
    identical to how it behaved before any of these were added. */
@@ -1624,46 +1458,6 @@ button.auth-tab.active {
   .cv-dd-menu[hidden] {
     transition: none;
   }
-}
-
-/* Generous touch target (44px, the standard minimum) even though the
-   visible line is thin -- dragging works anywhere in this padded
-   area, not just directly on the 4px line itself. */
-.dash-sheet-handle-wrap {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 44px;
-  touch-action: none;
-  cursor: grab;
-}
-
-.dash-sheet-handle-wrap:active {
-  cursor: grabbing;
-}
-
-.dash-sheet-handle {
-  width: 36px;
-  height: 4px;
-  border-radius: 999px;
-  background: var(--line-strong);
-}
-
-.dash-sheet-body {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  padding: 8px 20px 24px;
-}
-
-/* Applied by dashboard.js while the sheet is collapsed -- scrolling
-   the content only makes sense once it's fully visible, and disabling
-   it here means every drag while collapsed can unambiguously expand
-   the sheet instead of fighting with an attempted scroll. */
-.dash-sheet-body.is-scroll-locked {
-  overflow-y: hidden;
 }
 
 /* Shared sliding sheet for Profile, Notifications, Store, and More --
@@ -1731,540 +1525,6 @@ button.auth-tab.active {
   margin: 4px 0 16px;
 }
 
-/* Full-bleed views (AI chat, CV editor) — no card/container, no max-width,
-   fills all space between the header and the tab bar exactly like the
-   signup screen fills the whole viewport. */
-.dash-view-full {
-  flex: 1;
-  min-height: 0;
-  width: 100%;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.dash-view-full[hidden] {
-  display: none;
-}
-
-.dash-gauge-title-row {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  margin-bottom: 14px;
-}
-
-.dash-gauge-title {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--muted);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.dash-info-btn {
-  background: none;
-  border: none;
-  color: var(--muted);
-  cursor: pointer;
-  /* Padding grows the actual tap target well past the tiny 15px icon
-     -- the matching negative margin keeps it from pushing its flex
-     siblings (the gauge title/label text) apart. */
-  padding: 10px;
-  margin: -8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform 0.1s ease;
-}
-
-.dash-info-btn:active {
-  transform: scale(0.85);
-}
-
-.dash-info-btn[hidden] {
-  display: none;
-}
-
-.dash-info-btn svg {
-  width: 15px;
-  height: 15px;
-}
-
-.dash-score-row {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 20px;
-  margin-bottom: 28px;
-}
-
-.dash-gauge-wrap {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  flex-shrink: 0;
-}
-
-.dash-gauge-card {
-  position: relative;
-  width: 132px;
-  height: 132px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.dash-gauge {
-  width: 132px;
-  height: 132px;
-}
-
-.dash-gauge-track {
-  fill: none;
-  stroke: var(--line);
-  stroke-width: 20;
-}
-
-/* One of these per primary metric (ATS/Skills/Experience) -- each is a
-   solid-color arc whose length is that metric's share of the combined
-   3-metric total, chained end-to-end (via stroke-dashoffset, set by
-   dashboard.js) into one continuous ring instead of 3 overlapping
-   circles. Butt caps (the default) so adjacent segments meet cleanly
-   instead of the rounded overlap .dash-gauge-fill used to have. */
-.dash-gauge-seg {
-  fill: none;
-  stroke-width: 20;
-  transform: rotate(-90deg);
-  transform-origin: 60px 60px;
-  transition: stroke-dashoffset 0.6s ease, stroke-dasharray 0.6s ease;
-}
-
-.dash-gauge-center {
-  position: absolute;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.dash-gauge-score {
-  font-size: 26px;
-  font-weight: 800;
-  /* Explicit rather than relying on inherited color -- body's own
-     color: var(--fg) resolves against --fg at body's scope, so a
-     descendant that never re-declares color itself would inherit
-     that already-resolved value and miss the .dash-score-header
-     override further down the tree. */
-  color: var(--fg);
-}
-
-.dash-gauge-outof {
-  font-size: 10px;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.dash-gauge-label-row {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  margin-top: 10px;
-}
-
-/* Color set inline by dashboard.js (LABEL_TIER_COLOR) based on which
-   of the 6 rating tiers this is -- currentColor lets both the border
-   and the tinted background derive from that one JS-set value instead
-   of needing a separate class per tier. */
-.dash-gauge-label {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--muted);
-  text-align: center;
-  padding: 5px 12px;
-  border-radius: 999px;
-  border: 1px solid currentColor;
-  background: color-mix(in srgb, currentColor 14%, transparent);
-}
-
-/* ==========================================================================
-   Primary metric legend (ATS / Skills / Experience) + Full Breakdown
-   ========================================================================== */
-
-.dash-primary-legend {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.dash-legend-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  background: transparent;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 12px 14px;
-  cursor: pointer;
-  text-align: left;
-  width: 100%;
-  font-family: inherit;
-  color: var(--fg);
-  transition: background 0.15s ease, transform 0.1s ease;
-}
-
-.dash-legend-row:active {
-  background: var(--surface);
-  transform: scale(0.98);
-}
-
-.dash-legend-dot {
-  flex-shrink: 0;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-}
-
-.dash-legend-info {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.dash-legend-top-row {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.dash-legend-name {
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.dash-legend-value {
-  font-size: 13px;
-  color: var(--muted);
-  flex-shrink: 0;
-}
-
-.dash-legend-preview {
-  font-size: 12px;
-  color: var(--muted);
-  line-height: 1.3;
-}
-
-.dash-breakdown-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  width: 100%;
-  background: none;
-  border: none;
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 600;
-  padding: 16px 0 6px;
-  cursor: pointer;
-  font-family: inherit;
-}
-
-.dash-breakdown-toggle[hidden] {
-  display: none;
-}
-
-.dash-breakdown-toggle:active {
-  color: var(--fg);
-}
-
-.dash-breakdown-chevron {
-  width: 14px;
-  height: 14px;
-  transition: transform 0.2s ease;
-}
-
-.dash-breakdown-toggle.is-expanded .dash-breakdown-chevron {
-  transform: rotate(180deg);
-}
-
-.dash-metrics {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  margin-top: 14px;
-}
-
-/* Matches .dash-metrics' own specificity (both are a single class
-   selector) so [hidden] actually wins over display:flex -- author
-   rules beat the UA stylesheet's plain [hidden]{display:none}
-   regardless of specificity, so a same-or-higher-specificity author
-   rule is required to make hidden work at all here. */
-.dash-metrics[hidden] {
-  display: none;
-}
-
-.dash-metric-row {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 14px 16px;
-  background: transparent;
-  cursor: pointer;
-  text-align: left;
-  width: 100%;
-  font-family: inherit;
-  color: var(--fg);
-  transition: background 0.15s ease, transform 0.1s ease;
-}
-
-/* :active (not just :hover, which never fires on a touch device) so
-   tapping a row gives immediate visual feedback -- without this the
-   row looked identically inert whether or not the tap registered. */
-.dash-metric-row:active {
-  background: var(--surface);
-  transform: scale(0.98);
-}
-
-.dash-metric-row:hover {
-  background: var(--surface);
-}
-
-.dash-metric-icon {
-  flex-shrink: 0;
-  width: 36px;
-  height: 36px;
-  border: 1px solid var(--line-strong);
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.dash-metric-icon svg {
-  width: 18px;
-  height: 18px;
-}
-
-.dash-metric-main {
-  flex: 1;
-  min-width: 0;
-}
-
-.dash-metric-top-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  margin-bottom: 8px;
-}
-
-.dash-metric-name {
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.dash-metric-value {
-  font-size: 13px;
-  color: var(--muted);
-}
-
-.dash-metric-bar-track {
-  display: block;
-  height: 5px;
-  border-radius: 3px;
-  background: var(--line);
-  overflow: hidden;
-}
-
-.dash-metric-bar-fill {
-  display: block;
-  height: 100%;
-  background: var(--fg);
-  border-radius: 3px;
-}
-
-.dash-empty {
-  text-align: center;
-  color: var(--muted);
-  font-size: 14px;
-  line-height: 1.6;
-  padding: 20px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-}
-
-.dash-empty p {
-  margin-bottom: 16px;
-}
-
-/* ==========================================================================
-   Dashboard insights: evidence, working well / hurting you, roadmap
-   ========================================================================== */
-
-.dash-insights {
-  margin-top: 32px;
-  display: flex;
-  flex-direction: column;
-  gap: 30px;
-}
-
-.dash-insights[hidden] {
-  display: none;
-}
-
-.dash-insight-block h3 {
-  font-size: 15px;
-  font-weight: 700;
-  margin-bottom: 8px;
-}
-
-.dash-insight-intro {
-  font-size: 13px;
-  color: var(--muted);
-  line-height: 1.5;
-  margin-bottom: 12px;
-}
-
-.dash-roadmap-potential {
-  font-size: 13px;
-  font-weight: 600;
-  color: #2dd4bf;
-  line-height: 1.5;
-  margin: -4px 0 12px;
-}
-
-.dash-evidence-list,
-.dash-working-list,
-.dash-issues-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.dash-evidence-list li,
-.dash-working-list li,
-.dash-issues-list li {
-  position: relative;
-  padding-left: 22px;
-  font-size: 13.5px;
-  line-height: 1.5;
-  color: var(--fg);
-}
-
-.dash-evidence-list li::before {
-  content: "✓";
-  position: absolute;
-  left: 0;
-  color: var(--muted);
-}
-
-.dash-working-list li::before {
-  content: "✓";
-  position: absolute;
-  left: 0;
-  color: #2dd4bf;
-}
-
-.dash-issues-list li::before {
-  content: "!";
-  position: absolute;
-  left: 2px;
-  color: #ec4899;
-  font-weight: 700;
-}
-
-.dash-roadmap-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.dash-roadmap-card {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  padding: 14px 16px;
-  background: transparent;
-  text-align: left;
-  width: 100%;
-  font-family: inherit;
-  color: var(--fg);
-  cursor: pointer;
-}
-
-.dash-roadmap-card:hover {
-  background: var(--surface);
-}
-
-.dash-roadmap-rank {
-  flex-shrink: 0;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  border: 1px solid var(--line-strong);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--muted);
-}
-
-.dash-roadmap-card.completed {
-  opacity: 0.5;
-}
-
-.dash-roadmap-main {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.dash-roadmap-what {
-  display: block;
-  font-size: 13.5px;
-  font-weight: 600;
-  line-height: 1.4;
-}
-
-.dash-roadmap-dim {
-  display: block;
-  font-size: 11.5px;
-  color: var(--muted);
-}
-
-.dash-roadmap-points {
-  flex-shrink: 0;
-  font-size: 12px;
-  font-weight: 700;
-  color: #2dd4bf;
-  border: 1px solid rgba(45, 212, 191, 0.4);
-  border-radius: 20px;
-  padding: 4px 10px;
-  white-space: nowrap;
-}
-
-.dash-roadmap-card.completed .dash-roadmap-points {
-  color: var(--muted);
-  border-color: var(--line);
-}
-
 .roadmap-detail-badge {
   display: inline-block;
   font-size: 12px;
@@ -2274,80 +1534,6 @@ button.auth-tab.active {
   border-radius: 20px;
   padding: 4px 10px;
   margin-bottom: 12px;
-}
-
-.dash-metric-modal {
-  text-align: left;
-}
-
-.dash-metric-modal h2 {
-  font-size: 18px;
-  margin-bottom: 6px;
-}
-
-.dash-metric-score {
-  font-size: 14px;
-  color: var(--muted);
-  margin-bottom: 14px;
-  font-weight: 600;
-}
-
-.dash-metric-modal p {
-  margin-bottom: 14px;
-}
-
-.dash-metric-simple {
-  color: var(--muted);
-  font-style: italic;
-}
-
-.dash-metric-why {
-  padding-top: 14px;
-  border-top: 1px solid var(--line);
-  color: var(--muted);
-}
-
-/* ==========================================================================
-   Placeholder views (CV Workshop / Profile / Store)
-   ========================================================================== */
-
-.dash-placeholder {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  padding-top: 60px;
-  gap: 12px;
-}
-
-.dash-placeholder-icon {
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  border: 1px solid var(--line-strong);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 20px;
-}
-
-.dash-placeholder-icon svg {
-  width: 26px;
-  height: 26px;
-}
-
-.dash-placeholder h1 {
-  font-size: 20px;
-  font-weight: 700;
-  margin-bottom: 10px;
-}
-
-.dash-placeholder p {
-  font-size: 14px;
-  color: var(--muted);
-  line-height: 1.6;
-  max-width: 320px;
-  margin-bottom: 28px;
 }
 
 /* ==========================================================================
@@ -2588,9 +1774,44 @@ button.auth-tab.active {
 
 .chat-msg-typing {
   align-self: flex-start;
-  color: var(--muted);
-  font-size: 13px;
-  padding: 4px 14px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 14px;
+}
+
+.chat-typing-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--muted);
+  animation: chat-typing-bounce 1.1s ease-in-out infinite;
+}
+
+.chat-typing-dot:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.chat-typing-dot:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes chat-typing-bounce {
+  0%, 60%, 100% {
+    transform: translateY(0);
+    opacity: 0.5;
+  }
+  30% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-typing-dot {
+    animation: none;
+    opacity: 0.8;
+  }
 }
 
 .chat-quick-replies {
@@ -2715,7 +1936,7 @@ button.auth-tab.active {
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.08em;
-  color: var(--dim);
+  color: var(--muted);
   margin-bottom: 8px;
 }
 
@@ -2745,8 +1966,19 @@ button.auth-tab.active {
 .verdict-score-max {
   font-size: 18px;
   font-weight: 500;
-  color: var(--dim);
+  color: var(--muted);
 }
+
+.score-trend {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  margin: -6px 0 10px;
+}
+
+.score-trend.trend-up { color: var(--good); }
+.score-trend.trend-down { color: var(--bad); }
+.score-trend.trend-flat { color: var(--muted); }
 
 .card-diamond-list {
   list-style: none;
@@ -2810,7 +2042,7 @@ button.auth-tab.active {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--dim);
+  color: var(--muted);
 }
 
 .document-thumb svg {
@@ -4034,14 +3266,6 @@ button.auth-tab.active {
   margin-top: 8px;
 }
 
-/* ==========================================================================
-   Full stat radar chart -- slides up from tapping the main score
-   ========================================================================== */
-
-.dash-gauge-card {
-  cursor: pointer;
-}
-
 .radar-overlay {
   position: fixed;
   inset: 0;
@@ -4857,7 +4081,41 @@ button.auth-tab.active {
   height: 22px;
 }
 
-.notes-empty {
+.notes-search-wrap {
+  position: relative;
+  flex-shrink: 0;
+  margin: 4px 16px 8px;
+}
+
+.notes-search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.notes-search-input {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 14px 10px 36px;
+  font-size: 14px;
+  color: var(--fg);
+  font-family: inherit;
+}
+
+.notes-search-input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.notes-empty,
+.notes-no-results {
   flex: 1;
   display: flex;
   align-items: center;
@@ -4868,8 +4126,25 @@ button.auth-tab.active {
   text-align: center;
 }
 
-.notes-empty[hidden] {
+.notes-empty[hidden],
+.notes-no-results[hidden] {
   display: none;
+}
+
+.note-card-source {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.note-card-source svg {
+  width: 12px;
+  height: 12px;
 }
 
 .notes-grid {
@@ -5146,203 +4421,6 @@ button.auth-tab.active {
   padding: 8px 16px 24px;
 }
 
-.tracker-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  text-align: left;
-  background: var(--card-bg);
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 14px 16px;
-  color: var(--fg);
-  cursor: pointer;
-  font-family: inherit;
-  transition: transform 0.1s ease;
-}
-
-.tracker-row:active {
-  transform: scale(0.98);
-}
-
-.tracker-row-main {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-}
-
-.tracker-row-title {
-  font-size: 14.5px;
-  font-weight: 700;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.tracker-row-company {
-  font-size: 12.5px;
-  color: var(--muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.tracker-row-meta {
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 6px;
-}
-
-.tracker-row-date {
-  font-size: 11.5px;
-  color: var(--muted);
-}
-
-.tracker-status-badge {
-  font-size: 11px;
-  font-weight: 700;
-  padding: 3px 10px;
-  border-radius: 999px;
-  white-space: nowrap;
-}
-
-.tracker-status-applied { color: #3b82f6; background: color-mix(in srgb, #3b82f6 16%, transparent); }
-.tracker-status-interviewing { color: #f59e0b; background: color-mix(in srgb, #f59e0b 16%, transparent); }
-.tracker-status-offer { color: #2dd4bf; background: color-mix(in srgb, #2dd4bf 16%, transparent); }
-.tracker-status-rejected { color: #ec4899; background: color-mix(in srgb, #ec4899 16%, transparent); }
-
-.tracker-editor-overlay {
-  position: fixed;
-  inset: 0;
-  background: var(--bg);
-  z-index: 9999;
-  display: flex;
-  flex-direction: column;
-  padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
-  opacity: 1;
-  transition: opacity 0.2s ease, display 0.2s allow-discrete;
-}
-
-.tracker-editor-overlay[hidden] {
-  display: none;
-  opacity: 0;
-  transition: opacity 0.2s ease, display 0.2s allow-discrete;
-}
-
-@starting-style {
-  .tracker-editor-overlay:not([hidden]) {
-    opacity: 0;
-  }
-}
-
-.tracker-editor-header {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 12px;
-}
-
-.tracker-editor-title {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--muted);
-}
-
-.tracker-field-input {
-  flex-shrink: 0;
-  background: none;
-  border: none;
-  border-bottom: 1px solid var(--line);
-  outline: none;
-  color: var(--fg);
-  font-size: 16px;
-  font-weight: 600;
-  font-family: inherit;
-  padding: 10px 0;
-}
-
-.tracker-field-input::placeholder {
-  color: var(--muted);
-}
-
-.tracker-field-row {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 12px 0;
-  border-bottom: 1px solid var(--line);
-}
-
-.tracker-field-label {
-  font-size: 14px;
-  color: var(--muted);
-}
-
-.tracker-date-input {
-  background: none;
-  border: none;
-  outline: none;
-  color: var(--fg);
-  font-size: 14px;
-  font-family: inherit;
-}
-
-.tracker-status-row {
-  flex-shrink: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 14px 0;
-}
-
-.tracker-status-chip {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--muted);
-  background: var(--card-bg);
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 7px 14px;
-  cursor: pointer;
-  font-family: inherit;
-  transition: transform 0.1s ease;
-}
-
-.tracker-status-chip:active {
-  transform: scale(0.95);
-}
-
-.tracker-status-chip.is-selected {
-  color: var(--bg);
-  background: var(--fg);
-  border-color: var(--fg);
-}
-
-.tracker-notes-input {
-  flex: 1;
-  background: none;
-  border: none;
-  outline: none;
-  resize: none;
-  color: var(--fg);
-  font-size: 15px;
-  line-height: 1.5;
-  font-family: inherit;
-  padding: 12px 0;
-}
-
-.tracker-notes-input::placeholder {
-  color: var(--muted);
-}
-
 /* ==========================================================================
    Builder
    ========================================================================== */
@@ -5521,6 +4599,32 @@ button.auth-tab.active {
   margin: 10px 0;
 }
 
+.builder-save-state {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--good);
+  margin-top: 10px;
+}
+
+.builder-save-state::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.builder-save-state[hidden] {
+  display: none;
+}
+
+.builder-save-state.is-unsaved {
+  color: var(--mid);
+}
+
 .builder-actions {
   display: flex;
   gap: 10px;
@@ -5596,6 +4700,47 @@ button.auth-tab.active {
 
 .profile-memory-viewall-btn {
   margin-right: 8px;
+}
+
+.profile-memory-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.profile-memory-preview-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 9px 12px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.profile-memory-preview-title {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.profile-memory-preview-sub {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.profile-memory-preview-more {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 0;
 }
 
 .profile-photo-row {
@@ -5737,6 +4882,29 @@ button.auth-tab.active {
   padding-top: 16px;
 }
 
+.profile-instructions-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.profile-instructions-chip {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 7px 13px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.profile-instructions-chip:active {
+  transform: scale(0.96);
+}
+
 .profile-instructions-input {
   width: 100%;
   min-height: 90px;
@@ -5797,14 +4965,14 @@ button.auth-tab.active {
 
 .profile-doc-sub {
   font-size: 11.5px;
-  color: var(--dim);
+  color: var(--muted);
 }
 
 .profile-doc-delete-btn {
   flex-shrink: 0;
   background: none;
   border: none;
-  color: var(--dim);
+  color: var(--muted);
   cursor: pointer;
   padding: 4px;
 }
@@ -5842,117 +5010,6 @@ button.auth-tab.active {
   .profile-section .download-app-menu:not([hidden]) {
     transform: scale(0.94);
   }
-}
-
-/* ==========================================================================
-   Qualify
-   ========================================================================== */
-
-.qualify-shell {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-}
-
-.qualify-upload-block {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-  padding: 24px;
-  text-align: center;
-  color: var(--muted);
-}
-
-.qualify-upload-block[hidden] {
-  display: none;
-}
-
-.qualify-upload-block svg {
-  width: 40px;
-  height: 40px;
-}
-
-.qualify-upload-block p {
-  font-size: 14px;
-  max-width: 260px;
-}
-
-.qualify-upload-status {
-  font-size: 13px;
-  color: var(--muted);
-}
-
-.qualify-upload-status[hidden] {
-  display: none;
-}
-
-.qualify-form-block {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  padding: 8px 16px 24px;
-}
-
-.qualify-form-block[hidden] {
-  display: none;
-}
-
-.qualify-form-block .btn {
-  margin-top: 16px;
-}
-
-.qualify-result {
-  margin-top: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.qualify-result[hidden] {
-  display: none;
-}
-
-.qualify-verdict-badge {
-  align-self: flex-start;
-  font-size: 12px;
-  font-weight: 700;
-  padding: 5px 14px;
-  border-radius: 999px;
-}
-
-.qualify-verdict-badge[hidden] {
-  display: none;
-}
-
-.qualify-verdict-yes { color: #2dd4bf; background: color-mix(in srgb, #2dd4bf 16%, transparent); }
-.qualify-verdict-no { color: #f59e0b; background: color-mix(in srgb, #f59e0b 16%, transparent); }
-
-.qualify-headline {
-  font-size: 16px;
-  font-weight: 700;
-  line-height: 1.4;
-}
-
-.qualify-section[hidden] {
-  display: none;
-}
-
-.qualify-section h3 {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--muted);
-  margin: 0 0 6px;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-}
-
-.qualify-section p {
-  font-size: 14px;
-  line-height: 1.6;
-  margin: 0;
 }
 
 /* ==========================================================================

@@ -345,7 +345,7 @@
       .catch(function () {
         readoutLoading.hidden = true;
         readoutError.hidden = false;
-        readoutError.textContent = "Connection error — please try again.";
+        readoutError.textContent = "Couldn't score your CV — check your connection and try again.";
       });
   }
 
