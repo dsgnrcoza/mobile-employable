@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Conversations — Ploy{% endblock %}
+{% block content %}
+<div class="notes-shell">
+  <header class="stub-header">
+    <a href="{{ url_for('profile_page') }}" class="stub-back-btn" aria-label="Back">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+    </a>
+    <span class="stub-header-title">All conversations</span>
+    <span class="stub-header-spacer"></span>
+  </header>
+
+  <div class="convs-empty" id="convs-empty" hidden>
+    <p>Nothing remembered yet.</p>
+  </div>
+
+  <div class="convs-list" id="convs-list"></div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/conversations.js') }}?v={{ asset_version }}"></script>
+{% endblock %}

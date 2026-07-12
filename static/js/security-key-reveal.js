@@ -27,32 +27,4 @@
         window.location.href = "/dashboard";
       });
   });
-
-  // ---------- One-time notification permission prompt ----------
-  // This page is a natural pause point -- the user already has to stop
-  // and read/copy a critical secret -- so it's a better moment to ask
-  // than mid-flow elsewhere. Tracked in localStorage (device-level, not
-  // per-account) and only ever asked once per device.
-
-  var NOTIF_ASKED_KEY = "ploy_notifications_asked";
-
-  function maybeAskForNotifications() {
-    if (!("Notification" in window)) return;
-    if (localStorage.getItem(NOTIF_ASKED_KEY)) return;
-    if (Notification.permission !== "default") {
-      localStorage.setItem(NOTIF_ASKED_KEY, "1");
-      return;
-    }
-    var row = document.getElementById("notif-permission-row");
-    var btn = document.getElementById("notif-permission-btn");
-    row.hidden = false;
-    btn.addEventListener("click", function () {
-      Notification.requestPermission().finally(function () {
-        localStorage.setItem(NOTIF_ASKED_KEY, "1");
-        row.hidden = true;
-      });
-    });
-  }
-
-  maybeAskForNotifications();
 })();

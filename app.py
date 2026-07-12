@@ -820,6 +820,58 @@ def _run_verdict(user, job_ad):
     }
 
 
+def _run_gap_analysis(user, target_role):
+    """Powers the Gap Analysis card -- the "What's holding me back?" move
+    promised by the system prompt and the chat-gaps chip, scoring the
+    user's real documents against what a given role/field typically
+    needs and returning concrete, specific gaps rather than generic
+    advice. Raises on failure; callers turn that into a JSON error
+    response."""
+    from openai import OpenAI
+
+    doc_content_block = _doc_content_block(_real_uploaded_docs(user["id"]))
+
+    system = (
+        "You are Ploy's honest gap analyst. Given the real content of this user's uploaded documents and "
+        "the role or field they're targeting, identify what's actually holding them back from being a "
+        "strong candidate for that kind of role right now.\n\n"
+        "GROUNDING: base this only on what's actually in the documents below versus what that role/field "
+        "typically and genuinely requires. Never invent experience they don't have, and never invent a "
+        "requirement that isn't a real, common expectation for that role.\n\n"
+        "OUTPUT RULES -- return a JSON object with exactly these keys:\n"
+        "- 'target_role': the role/field, cleaned up, as given.\n"
+        "- 'readiness_score': an integer 0-100 for how ready they are for that kind of role right now. Be "
+        "honest, not encouraging -- a real gap belongs in the 30s-60s, not inflated.\n"
+        "- 'strengths': an array of at most 4 short strings (max ~12 words each), specific things in their "
+        "real documents that already work in that direction.\n"
+        "- 'gaps': an array of at most 5 short strings (max ~12 words each), specific, concrete things "
+        "missing -- a skill, a certification, a type of experience, a portfolio -- not vague advice like "
+        "'gain more experience'.\n"
+        "- 'breakdown': 2-4 sentences of fuller reasoning, citing specifics from their real documents.\n\n"
+        "No markdown formatting inside any field -- plain text only."
+    )
+    prompt = f"Role/field the user is targeting: {target_role}\n\nFull content of the user's actual uploaded documents:\n{doc_content_block}"
+
+    client = OpenAI(api_key=analyzer.get_openai_api_key(), timeout=analyzer.get_client_timeout(), max_retries=analyzer.CLIENT_MAX_RETRIES)
+    resp = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "system", "content": system}, {"role": "user", "content": prompt}],
+        max_tokens=700,
+        response_format={"type": "json_object"},
+    )
+    parsed = json.loads(resp.choices[0].message.content.strip())
+    readiness_score = max(0, min(100, int(parsed.get("readiness_score") or 0)))
+    return {
+        "ok": True,
+        "type": "gap",
+        "target_role": (parsed.get("target_role") or target_role or "").strip()[:200] or "This role",
+        "readiness_score": readiness_score,
+        "strengths": [s for s in (parsed.get("strengths") or []) if s][:4],
+        "gaps": [s for s in (parsed.get("gaps") or []) if s][:5],
+        "breakdown": (parsed.get("breakdown") or "").strip(),
+    }
+
+
 def _filename_stub(full_name):
     first = (full_name or "").strip().split()[:1]
     stub = "".join(ch for ch in (first[0] if first else "My") if ch.isalnum())
@@ -1017,6 +1069,12 @@ def api_document_save(document_id):
 @auth.login_required
 def notes_page():
     return render_template("notes.html")
+
+
+@app.route("/conversations")
+@auth.login_required
+def conversations_page():
+    return render_template("conversations.html")
 
 
 @app.route("/api/notes", methods=["GET"])
@@ -2465,6 +2523,51 @@ _CHAT_TOOLS = [
     {
         "type": "function",
         "function": {
+            "name": "build_cover_letter",
+            "description": (
+                "Generate a tailored cover letter for this user as a downloadable Document card (a real "
+                "file, not a text description of one). Call this whenever the user asks to write, draft, or "
+                "build a cover letter -- directly, not only after a CV already exists. If a specific job has "
+                "already come up in this conversation, pass its title/company/ad so the letter is tailored "
+                "to it; otherwise call with no arguments for a strong general-purpose letter."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "job_title": {"type": "string", "description": "The job title being tailored for, if one has come up."},
+                    "company": {"type": "string", "description": "The company name, if one has come up."},
+                    "job_ad": {"type": "string", "description": "The full job ad text, if the user pasted one earlier in this conversation."},
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "analyze_skill_gaps",
+            "description": (
+                "Analyze what's holding this user back from a specific role or field, producing a Gap "
+                "Analysis card (a scored readiness breakdown, not text) -- this is the app's 'What's holding "
+                "me back?' move. Call this whenever the user asks, in any wording, what they're missing, "
+                "what's holding them back, or how ready they are for a role/field/career direction they've "
+                "named. Only call this once you know which role or field they mean -- if it's not clear from "
+                "this conversation or their profile, ask them which role/field first instead of guessing."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "target_role": {
+                        "type": "string",
+                        "description": "The role, job title, or field the user is targeting, as they described it.",
+                    },
+                },
+                "required": ["target_role"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "generate_skills_chart",
             "description": (
                 "Show the user a visual chart of their real Employability breakdown (a bar or pie chart of "
@@ -2580,10 +2683,11 @@ Voice: sharp, confident, on the user's side, zero corporate filler. Talk like a 
 - Reference what's actually in THEIR documents, not generic examples. Never invent CV details that aren't there.
 - Fragments and one-word reactions are fine. It's fine to have a light opinion, disagree, or push back if something in their plan seems off — a real friend wouldn't just validate everything.
 
-The three moves this app is built around — steer the user toward whichever is the useful next step, don't just wait to be asked:
+The moves this app is built around — steer the user toward whichever is the useful next step, don't just wait to be asked:
 - "Am I a fit for this job?" — paste a job ad, get a fit verdict scored against their real CV.
 - "Build my CV" — rewrite their CV tailored to a specific job.
-- "What's holding me back?" — a gap analysis against the roles they're targeting.
+- "Write me a cover letter" — draft one directly, tailored to a job if one's come up, without needing a CV card first.
+- "What's holding me back?" — a gap analysis against a role or field they name — ask which one if it isn't already clear.
 - Show them a real chart of their scored breakdown (bar or pie) when they ask to see/visualize their profile — never a fake or invented chart, only their actual scored dimensions.
 
 VISUALS, NOT JUST TEXT. This app is built to feel like a tool, not a wall of text -- when a card or chart is the right answer, lead with it. You're allowed (and encouraged) to send a short line of your own commentary alongside a card/chart in the same reply -- e.g. "Here's how you stack up:" right before a chart, or a one-line reaction after describing what you're about to show. That commentary appears as your own chat bubble right before the card in the same turn. Don't pad it into a paragraph -- a card or chart should do most of the talking.
@@ -2695,6 +2799,18 @@ Never claim you can't see their documents — if the block above says no content
                     company=(args.get("company") or "").strip()[:200],
                     job_ad=(args.get("job_ad") or "").strip()[:8000],
                 )
+            elif call.function.name == "build_cover_letter":
+                card = _generate_tailored_document(
+                    user, "letter",
+                    job_title=(args.get("job_title") or "").strip()[:200],
+                    company=(args.get("company") or "").strip()[:200],
+                    job_ad=(args.get("job_ad") or "").strip()[:8000],
+                )
+            elif call.function.name == "analyze_skill_gaps":
+                target_role = (args.get("target_role") or "").strip()[:200]
+                if not target_role:
+                    return jsonify({"ok": True, "kind": "text", "reply": "Which role or field do you want me to check you against?"})
+                card = _run_gap_analysis(user, target_role)
             elif call.function.name == "generate_skills_chart":
                 card = _build_skills_chart_card(user, (args.get("chart_type") or "bar").strip())
                 if not card:

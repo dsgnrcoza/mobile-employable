@@ -366,40 +366,31 @@
 
   // ---------- Memory (conversations) ----------
 
-  var memoryListEl = document.getElementById("profile-memory-list");
+  var memoryToggle = document.getElementById("profile-memory-toggle");
+  var memoryCollapse = document.getElementById("profile-memory-collapse");
+  var memoryDesc = document.getElementById("profile-memory-desc");
   var memoryClearBtn = document.getElementById("profile-memory-clear-btn");
   var memoryStatus = document.getElementById("profile-memory-status");
+
+  memoryToggle.addEventListener("click", function () {
+    var expanded = memoryToggle.getAttribute("aria-expanded") === "true";
+    memoryToggle.setAttribute("aria-expanded", String(!expanded));
+    memoryCollapse.hidden = expanded;
+  });
 
   function loadMemory() {
     fetch("/api/chat/conversations")
       .then(function (r) { return r.json(); })
       .then(function (data) {
         if (!data.ok) return;
-        memoryListEl.innerHTML = "";
         if (!data.conversations.length) {
-          var empty = document.createElement("p");
-          empty.className = "profile-memory-empty";
-          empty.textContent = "Nothing remembered yet.";
-          memoryListEl.appendChild(empty);
+          memoryDesc.textContent = "Nothing remembered yet.";
           memoryClearBtn.hidden = true;
           return;
         }
+        memoryDesc.textContent = "Ploy remembers " + data.conversations.length +
+          (data.conversations.length === 1 ? " conversation." : " conversations.");
         memoryClearBtn.hidden = false;
-        data.conversations.forEach(function (c) {
-          var row = document.createElement("div");
-          row.className = "profile-memory-item";
-          row.innerHTML =
-            '<span class="profile-memory-item-title"></span>' +
-            '<button type="button" class="profile-memory-item-delete" aria-label="Delete">' +
-            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
-            "</button>";
-          row.querySelector(".profile-memory-item-title").textContent = c.title || "Conversation";
-          row.querySelector(".profile-memory-item-delete").addEventListener("click", function () {
-            fetch("/api/chat/conversations/" + c.id, { method: "DELETE" })
-              .then(function () { loadMemory(); });
-          });
-          memoryListEl.appendChild(row);
-        });
       });
   }
 

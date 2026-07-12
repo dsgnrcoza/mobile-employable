@@ -102,11 +102,16 @@
   </section>
 
   <section class="profile-section">
-    <h2 class="profile-section-title">Memory</h2>
-    <p class="profile-section-desc">Every conversation Ploy remembers. Delete any of them, or clear everything.</p>
-    <div class="profile-memory-list" id="profile-memory-list"></div>
-    <button type="button" class="btn btn-ghost btn-sm profile-memory-clear-btn" id="profile-memory-clear-btn">Clear all conversations</button>
-    <p class="profile-status" id="profile-memory-status" hidden></p>
+    <button type="button" class="profile-section-toggle" id="profile-memory-toggle" aria-expanded="false">
+      <h2 class="profile-section-title">Memory</h2>
+      <svg class="profile-section-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+    </button>
+    <div class="profile-section-collapse" id="profile-memory-collapse" hidden>
+      <p class="profile-section-desc" id="profile-memory-desc">Every conversation Ploy remembers.</p>
+      <a href="{{ url_for('conversations_page') }}" class="btn btn-ghost btn-sm profile-memory-viewall-btn">View all conversations</a>
+      <button type="button" class="btn btn-ghost btn-sm profile-memory-clear-btn" id="profile-memory-clear-btn">Clear all conversations</button>
+      <p class="profile-status" id="profile-memory-status" hidden></p>
+    </div>
   </section>
 
   <h3 class="profile-group-title">App</h3>

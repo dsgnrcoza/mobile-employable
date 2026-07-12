@@ -546,6 +546,10 @@ button.auth-tab.active {
   transform: scale(0.97);
 }
 
+.btn[hidden] {
+  display: none;
+}
+
 .btn-block {
   width: 100%;
 }
@@ -619,26 +623,6 @@ button.auth-tab.active {
   color: var(--muted);
   text-decoration: none;
   cursor: default;
-}
-
-/* ---------- Blank post-auth placeholder ---------- */
-
-.notif-permission-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 12px 14px;
-  margin: 16px 0;
-}
-
-.notif-permission-row p {
-  font-size: 13px;
-  color: var(--fg);
-  margin: 0;
 }
 
 /* ---------- Security key reveal ---------- */
@@ -4897,6 +4881,87 @@ button.auth-tab.active {
   align-content: start;
 }
 
+.convs-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  font-size: 14px;
+  padding: 24px;
+  text-align: center;
+}
+
+.convs-empty[hidden] {
+  display: none;
+}
+
+.convs-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 16px 24px;
+}
+
+.convs-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.convs-item-link {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.convs-item-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.convs-item-sub {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--muted);
+  margin-left: auto;
+  padding-left: 8px;
+}
+
+.convs-item-badge {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--accent);
+}
+
+.convs-item-delete {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  padding: 4px;
+}
+
+.convs-item-delete svg {
+  width: 16px;
+  height: 16px;
+}
+
 .note-card {
   display: flex;
   flex-direction: column;
@@ -5494,6 +5559,45 @@ button.auth-tab.active {
   margin: -6px 0 12px;
 }
 
+.profile-section-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  color: inherit;
+  font-family: inherit;
+  text-align: left;
+}
+
+.profile-section-toggle .profile-section-title {
+  margin: 0;
+}
+
+.profile-section-chevron {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  color: var(--muted);
+  transition: transform 0.2s ease;
+}
+
+.profile-section-toggle[aria-expanded="true"] .profile-section-chevron {
+  transform: rotate(180deg);
+}
+
+.profile-section-collapse {
+  padding-top: 12px;
+}
+
+.profile-memory-viewall-btn {
+  margin-right: 8px;
+}
+
 .profile-photo-row {
   display: flex;
   align-items: center;
@@ -5651,53 +5755,6 @@ button.auth-tab.active {
 .profile-instructions-input:focus {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
-}
-
-.profile-memory-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.profile-memory-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 10px 12px;
-}
-
-.profile-memory-item-title {
-  flex: 1;
-  min-width: 0;
-  font-size: 13.5px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.profile-memory-item-delete {
-  flex-shrink: 0;
-  background: none;
-  border: none;
-  color: var(--muted);
-  cursor: pointer;
-  display: flex;
-  padding: 4px;
-}
-
-.profile-memory-item-delete svg {
-  width: 16px;
-  height: 16px;
-}
-
-.profile-memory-empty {
-  font-size: 13px;
-  color: var(--muted);
-  margin-bottom: 12px;
 }
 
 .profile-doc-list {

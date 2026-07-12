@@ -232,6 +232,37 @@
     return wrap;
   }
 
+  function renderGapCard(card) {
+    var wrap = document.createElement("div");
+    wrap.className = "verdict-card";
+    var tier = fitTier(card.readiness_score);
+    wrap.innerHTML =
+      '<div class="card-header mono">GAP ANALYSIS</div>' +
+      '<div class="verdict-job-title">' + escapeHtml(card.target_role || "This role") + "</div>" +
+      '<div class="verdict-score mono tier-' + tier + '">' + card.readiness_score + '<span class="verdict-score-max">/100 ready</span></div>' +
+      diamondList(card.strengths, "diamond-good") +
+      diamondList(card.gaps, "diamond-bad") +
+      '<div class="card-breakdown" hidden></div>' +
+      '<div class="card-actions">' +
+      '<button type="button" class="btn btn-gold btn-sm card-fix-btn">Build my CV</button>' +
+      '<button type="button" class="btn btn-ghost btn-sm card-breakdown-btn">Show full breakdown</button>' +
+      "</div>";
+
+    wrap.querySelector(".card-fix-btn").addEventListener("click", function () {
+      requestDocumentCard({});
+    });
+    var breakdownEl = wrap.querySelector(".card-breakdown");
+    var breakdownBtn = wrap.querySelector(".card-breakdown-btn");
+    breakdownBtn.addEventListener("click", function () {
+      var show = breakdownEl.hidden;
+      breakdownEl.hidden = !show;
+      breakdownEl.textContent = card.breakdown || "";
+      breakdownBtn.textContent = show ? "Hide breakdown" : "Show full breakdown";
+      scrollChatToBottom();
+    });
+    return wrap;
+  }
+
   // Real, grounded values only (the user's actual scored dimensions,
   // 0-10 each) -- never invented. Bar chart is horizontal bars scaled
   // to the widest value; pie chart is an SVG donut built from
@@ -279,7 +310,22 @@
 
     wrap.innerHTML =
       '<div class="card-header mono">CHART</div>' +
-      '<div class="chart-body">' + bodyHtml + "</div>";
+      '<div class="chart-body">' + bodyHtml + "</div>" +
+      '<div class="card-actions">' +
+      '<button type="button" class="btn btn-ghost btn-sm chart-improve-btn">What should I improve first?</button>' +
+      '<button type="button" class="btn btn-ghost btn-sm chart-save-note-btn">Save to notes</button>' +
+      "</div>";
+
+    wrap.querySelector(".chart-improve-btn").addEventListener("click", function () {
+      sendChatMessage("Looking at that chart, what should I improve first?");
+    });
+    wrap.querySelector(".chart-save-note-btn").addEventListener("click", function () {
+      var noteBtn = wrap.querySelector(".chart-save-note-btn");
+      var body = card.labels.map(function (label, i) { return label + ": " + card.values[i] + "/10"; }).join("\n");
+      saveNoteFromText("Skills chart", body, noteBtn);
+      noteBtn.textContent = "Saved ✓";
+      setTimeout(function () { noteBtn.textContent = "Save to notes"; }, 1500);
+    });
     return wrap;
   }
 
@@ -338,22 +384,29 @@
     return wrap;
   }
 
+  function renderCardNode(card) {
+    return card.type === "verdict" ? renderVerdictCard(card)
+      : card.type === "gap" ? renderGapCard(card)
+      : card.type === "chart" ? renderChartCard(card)
+      : renderDocumentCard(card);
+  }
+
   function appendCardMessage(card) {
     clearQuickReplies();
     showEmptyState(false);
-    var node = card.type === "verdict" ? renderVerdictCard(card)
-      : card.type === "chart" ? renderChartCard(card)
-      : renderDocumentCard(card);
+    var node = renderCardNode(card);
     messagesEl.appendChild(node);
     scrollChatToBottom();
     var summary = card.type === "verdict"
       ? "Verdict: " + card.fit_score + "/100 fit for " + (card.job_title || "this role") + (card.company ? " at " + card.company : "") + "."
+      : card.type === "gap"
+      ? "Gap analysis: " + card.readiness_score + "/100 ready for " + (card.target_role || "this role") + "."
       : card.type === "chart"
       ? "Here's your " + card.chart_type + " chart of " + card.labels.join(", ") + "."
       : "Document ready: " + card.filename;
     chatHistory.push({ role: "assistant", text: summary, card: card });
     saveConversation().then(function () {
-      if (card.type !== "chart") promoteThreadForCard(card);
+      if (card.type !== "chart" && card.type !== "gap") promoteThreadForCard(card);
     });
   }
 
@@ -746,7 +799,7 @@
         showEmptyState(false);
         chatHistory.forEach(function (m) {
           if (m.card) {
-            messagesEl.appendChild(m.card.type === "verdict" ? renderVerdictCard(m.card) : renderDocumentCard(m.card));
+            messagesEl.appendChild(renderCardNode(m.card));
           } else {
             appendChatMessage(m.role, m.text);
           }
@@ -1063,6 +1116,7 @@
   // where you left off.
   var isFreshAppOpen = !sessionStorage.getItem("ploy_session_active");
   sessionStorage.setItem("ploy_session_active", "1");
+  var requestedConvId = new URLSearchParams(window.location.search).get("conv");
 
   fetch("/api/chat/conversations")
     .then(function (r) { return r.json(); })
@@ -1074,7 +1128,10 @@
       var mostRecentJob = data.conversations.find(function (c) { return c.kind === "job"; });
       personalizeChips(mostRecentJob);
 
-      if (isFreshAppOpen || !data.conversations.length) {
+      if (requestedConvId) {
+        loadConversation(Number(requestedConvId));
+        window.history.replaceState({}, "", window.location.pathname);
+      } else if (isFreshAppOpen || !data.conversations.length) {
         showEmptyState(true);
       } else {
         loadConversation(data.conversations[0].id);
