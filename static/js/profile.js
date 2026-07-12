@@ -7,11 +7,131 @@
     el.classList.toggle("profile-status-error", !!isError);
   }
 
-  // ---------- Profile photo ----------
+  // ---------- Profile photo (with a basic crop/zoom step before upload) ----------
 
   var photoBtn = document.getElementById("profile-photo-btn");
   var photoInput = document.getElementById("profile-photo-input");
   var photoStatus = document.getElementById("profile-photo-status");
+
+  var cropOverlay = document.getElementById("photo-crop-overlay");
+  var cropViewport = document.getElementById("photo-crop-viewport");
+  var cropImg = document.getElementById("photo-crop-img");
+  var cropZoom = document.getElementById("photo-crop-zoom");
+  var cropCancelBtn = document.getElementById("photo-crop-cancel-btn");
+  var cropUseBtn = document.getElementById("photo-crop-use-btn");
+
+  var cropState = { naturalW: 0, naturalH: 0, baseScale: 1, zoom: 1, offsetX: 0, offsetY: 0 };
+  var dragging = false, dragStartX = 0, dragStartY = 0, dragOffsetStartX = 0, dragOffsetStartY = 0;
+
+  function clampOffsets() {
+    var size = cropViewport.clientWidth;
+    var scale = cropState.baseScale * cropState.zoom;
+    var w = cropState.naturalW * scale;
+    var h = cropState.naturalH * scale;
+    var maxX = Math.max(0, (w - size) / 2);
+    var maxY = Math.max(0, (h - size) / 2);
+    cropState.offsetX = Math.max(-maxX, Math.min(maxX, cropState.offsetX));
+    cropState.offsetY = Math.max(-maxY, Math.min(maxY, cropState.offsetY));
+  }
+
+  function renderCrop() {
+    clampOffsets();
+    var scale = cropState.baseScale * cropState.zoom;
+    cropImg.style.width = (cropState.naturalW * scale) + "px";
+    cropImg.style.height = (cropState.naturalH * scale) + "px";
+    cropImg.style.transform =
+      "translate(calc(-50% + " + cropState.offsetX + "px), calc(-50% + " + cropState.offsetY + "px))";
+  }
+
+  function startDrag(x, y) {
+    dragging = true;
+    dragStartX = x;
+    dragStartY = y;
+    dragOffsetStartX = cropState.offsetX;
+    dragOffsetStartY = cropState.offsetY;
+  }
+  function moveDrag(x, y) {
+    if (!dragging) return;
+    cropState.offsetX = dragOffsetStartX + (x - dragStartX);
+    cropState.offsetY = dragOffsetStartY + (y - dragStartY);
+    renderCrop();
+  }
+  function endDrag() { dragging = false; }
+
+  cropViewport.addEventListener("mousedown", function (e) { startDrag(e.clientX, e.clientY); });
+  window.addEventListener("mousemove", function (e) { moveDrag(e.clientX, e.clientY); });
+  window.addEventListener("mouseup", endDrag);
+  cropViewport.addEventListener("touchstart", function (e) {
+    var t = e.touches[0];
+    startDrag(t.clientX, t.clientY);
+  });
+  cropViewport.addEventListener("touchmove", function (e) {
+    var t = e.touches[0];
+    moveDrag(t.clientX, t.clientY);
+  });
+  cropViewport.addEventListener("touchend", endDrag);
+
+  cropZoom.addEventListener("input", function () {
+    cropState.zoom = parseFloat(cropZoom.value);
+    renderCrop();
+  });
+
+  function closeCropModal() {
+    cropOverlay.hidden = true;
+    if (cropImg.src) URL.revokeObjectURL(cropImg.src);
+    cropImg.src = "";
+  }
+
+  cropCancelBtn.addEventListener("click", closeCropModal);
+
+  function uploadCroppedPhoto() {
+    var size = cropViewport.clientWidth;
+    var scale = cropState.baseScale * cropState.zoom;
+    var OUTPUT = 512;
+    var outScale = OUTPUT / size;
+
+    var canvas = document.createElement("canvas");
+    canvas.width = OUTPUT;
+    canvas.height = OUTPUT;
+    var ctx = canvas.getContext("2d");
+    var drawW = cropState.naturalW * scale * outScale;
+    var drawH = cropState.naturalH * scale * outScale;
+    var drawX = OUTPUT / 2 - drawW / 2 + cropState.offsetX * outScale;
+    var drawY = OUTPUT / 2 - drawH / 2 + cropState.offsetY * outScale;
+    ctx.drawImage(cropImg, drawX, drawY, drawW, drawH);
+
+    canvas.toBlob(function (blob) {
+      if (!blob) {
+        setStatus(photoStatus, "Couldn't process that image.", true);
+        return;
+      }
+      var formData = new FormData();
+      formData.append("photo", blob, "avatar.jpg");
+      setStatus(photoStatus, "Uploading…", false);
+      closeCropModal();
+      fetch("/api/profile/photo", { method: "POST", body: formData })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (!data.ok) {
+            setStatus(photoStatus, data.error || "Couldn't upload that photo.", true);
+            return;
+          }
+          setStatus(photoStatus, "", false);
+          var preview = document.getElementById("profile-photo-preview");
+          var img = document.createElement("img");
+          img.id = "profile-photo-preview";
+          img.className = "profile-photo-preview";
+          img.alt = "";
+          img.src = data.avatar_url;
+          preview.replaceWith(img);
+        })
+        .catch(function () {
+          setStatus(photoStatus, "Connection error — please try again.", true);
+        });
+    }, "image/jpeg", 0.9);
+  }
+
+  cropUseBtn.addEventListener("click", uploadCroppedPhoto);
 
   photoBtn.addEventListener("click", function () { photoInput.click(); });
 
@@ -19,28 +139,21 @@
     var file = photoInput.files[0];
     photoInput.value = "";
     if (!file) return;
-    var formData = new FormData();
-    formData.append("photo", file);
-    setStatus(photoStatus, "Uploading…", false);
-    fetch("/api/profile/photo", { method: "POST", body: formData })
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        if (!data.ok) {
-          setStatus(photoStatus, data.error || "Couldn't upload that photo.", true);
-          return;
-        }
-        setStatus(photoStatus, "", false);
-        var preview = document.getElementById("profile-photo-preview");
-        var img = document.createElement("img");
-        img.id = "profile-photo-preview";
-        img.className = "profile-photo-preview";
-        img.alt = "";
-        img.src = data.avatar_url;
-        preview.replaceWith(img);
-      })
-      .catch(function () {
-        setStatus(photoStatus, "Connection error — please try again.", true);
-      });
+
+    var url = URL.createObjectURL(file);
+    cropImg.onload = function () {
+      cropState.naturalW = cropImg.naturalWidth;
+      cropState.naturalH = cropImg.naturalHeight;
+      cropState.zoom = 1;
+      cropState.offsetX = 0;
+      cropState.offsetY = 0;
+      cropZoom.value = 1;
+      cropOverlay.hidden = false;
+      var size = cropViewport.clientWidth;
+      cropState.baseScale = size / Math.min(cropState.naturalW, cropState.naturalH);
+      renderCrop();
+    };
+    cropImg.src = url;
   });
 
   // ---------- Account ----------
@@ -66,6 +179,31 @@
       })
       .finally(function () {
         accountSaveBtn.disabled = false;
+      });
+  });
+
+  // ---------- Personality (custom instructions) ----------
+
+  var instructionsInput = document.getElementById("profile-instructions-input");
+  var instructionsSaveBtn = document.getElementById("profile-instructions-save-btn");
+  var instructionsStatus = document.getElementById("profile-instructions-status");
+
+  instructionsSaveBtn.addEventListener("click", function () {
+    instructionsSaveBtn.disabled = true;
+    fetch("/api/custom-instructions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ custom_instructions: instructionsInput.value }),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        setStatus(instructionsStatus, data.ok ? "Saved." : (data.error || "Couldn't save."), !data.ok);
+      })
+      .catch(function () {
+        setStatus(instructionsStatus, "Connection error — please try again.", true);
+      })
+      .finally(function () {
+        instructionsSaveBtn.disabled = false;
       });
   });
 
@@ -225,6 +363,57 @@
   });
 
   loadDocuments();
+
+  // ---------- Memory (conversations) ----------
+
+  var memoryListEl = document.getElementById("profile-memory-list");
+  var memoryClearBtn = document.getElementById("profile-memory-clear-btn");
+  var memoryStatus = document.getElementById("profile-memory-status");
+
+  function loadMemory() {
+    fetch("/api/chat/conversations")
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data.ok) return;
+        memoryListEl.innerHTML = "";
+        if (!data.conversations.length) {
+          var empty = document.createElement("p");
+          empty.className = "profile-memory-empty";
+          empty.textContent = "Nothing remembered yet.";
+          memoryListEl.appendChild(empty);
+          memoryClearBtn.hidden = true;
+          return;
+        }
+        memoryClearBtn.hidden = false;
+        data.conversations.forEach(function (c) {
+          var row = document.createElement("div");
+          row.className = "profile-memory-item";
+          row.innerHTML =
+            '<span class="profile-memory-item-title"></span>' +
+            '<button type="button" class="profile-memory-item-delete" aria-label="Delete">' +
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
+            "</button>";
+          row.querySelector(".profile-memory-item-title").textContent = c.title || "Conversation";
+          row.querySelector(".profile-memory-item-delete").addEventListener("click", function () {
+            fetch("/api/chat/conversations/" + c.id, { method: "DELETE" })
+              .then(function () { loadMemory(); });
+          });
+          memoryListEl.appendChild(row);
+        });
+      });
+  }
+
+  memoryClearBtn.addEventListener("click", function () {
+    if (!window.confirm("Delete every conversation Ploy remembers? This can't be undone.")) return;
+    fetch("/api/chat/conversations", { method: "DELETE" })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        setStatus(memoryStatus, data.ok ? "Cleared." : (data.error || "Couldn't clear."), !data.ok);
+        loadMemory();
+      });
+  });
+
+  loadMemory();
 
   // ---------- Delete account ----------
 

@@ -90,10 +90,40 @@
     if (show) rollEmptyStateCopy();
   }
 
+  function saveNoteFromText(title, body, btn) {
+    fetch("/api/notes", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: title, body: body }),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.ok && btn) {
+          btn.classList.add("is-saved");
+          setTimeout(function () { btn.classList.remove("is-saved"); }, 1500);
+        }
+      });
+  }
+
   function appendChatMessage(role, text) {
     var el = document.createElement("div");
     el.className = "chat-msg " + (role === "user" ? "chat-msg-user" : "chat-msg-bot");
-    el.innerHTML = formatChatText(text);
+    var textEl = document.createElement("span");
+    textEl.className = "chat-msg-text";
+    textEl.innerHTML = formatChatText(text);
+    el.appendChild(textEl);
+    if (role !== "user") {
+      var saveBtn = document.createElement("button");
+      saveBtn.type = "button";
+      saveBtn.className = "chat-msg-save-btn";
+      saveBtn.setAttribute("aria-label", "Save to notes");
+      saveBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>';
+      saveBtn.addEventListener("click", function () {
+        saveNoteFromText("From chat", textEl.innerText, saveBtn);
+      });
+      el.appendChild(saveBtn);
+    }
+    el._textEl = textEl;
     messagesEl.appendChild(el);
     scrollChatToBottom();
     return el;
@@ -101,11 +131,12 @@
 
   function appendChatMessageTyped(text, onDone) {
     var el = appendChatMessage("assistant", "");
+    var textEl = el._textEl;
     var i = 0;
     var step = Math.max(1, Math.ceil(text.length / 40));
     var timer = setInterval(function () {
       i += step;
-      el.innerHTML = formatChatText(text.slice(0, i));
+      textEl.innerHTML = formatChatText(text.slice(0, i));
       scrollChatToBottom();
       if (i >= text.length) {
         clearInterval(timer);
@@ -201,6 +232,57 @@
     return wrap;
   }
 
+  // Real, grounded values only (the user's actual scored dimensions,
+  // 0-10 each) -- never invented. Bar chart is horizontal bars scaled
+  // to the widest value; pie chart is an SVG donut built from
+  // stroke-dasharray segments, since that's simpler and just as
+  // correct as true wedge paths for this many slices.
+  function renderChartCard(card) {
+    var wrap = document.createElement("div");
+    wrap.className = "chart-card";
+    var colors = ["var(--accent)", "var(--good)", "var(--mid)", "var(--bad)", "#8b5cf6", "#2dd4bf", "#ec4899", "#f59e0b"];
+
+    var bodyHtml;
+    if (card.chart_type === "pie") {
+      var total = card.values.reduce(function (a, b) { return a + b; }, 0) || 1;
+      var circumference = 2 * Math.PI * 40;
+      var offset = 0;
+      var segments = card.labels.map(function (label, i) {
+        var value = card.values[i];
+        var frac = value / total;
+        var dash = frac * circumference;
+        var seg = '<circle cx="60" cy="60" r="40" fill="none" stroke="' + colors[i % colors.length] +
+          '" stroke-width="18" stroke-dasharray="' + dash + " " + (circumference - dash) +
+          '" stroke-dashoffset="' + (-offset) + '" transform="rotate(-90 60 60)"></circle>';
+        offset += dash;
+        return seg;
+      }).join("");
+      bodyHtml =
+        '<svg viewBox="0 0 120 120" class="chart-pie-svg">' + segments + "</svg>" +
+        '<div class="chart-legend">' + card.labels.map(function (label, i) {
+          return '<span class="chart-legend-item"><span class="chart-legend-swatch" style="background:' + colors[i % colors.length] + '"></span>' +
+            escapeHtml(label) + " — " + card.values[i] + "/10</span>";
+        }).join("") + "</div>";
+    } else {
+      var maxVal = Math.max.apply(null, card.values.concat([10]));
+      bodyHtml = '<div class="chart-bars">' + card.labels.map(function (label, i) {
+        var value = card.values[i];
+        var pct = Math.round((value / maxVal) * 100);
+        var tier = value >= 7.5 ? "good" : value >= 5 ? "mid" : "bad";
+        return '<div class="chart-bar-row">' +
+          '<span class="chart-bar-label">' + escapeHtml(label) + "</span>" +
+          '<span class="chart-bar-track"><span class="chart-bar-fill chart-bar-' + tier + '" style="width:' + pct + '%"></span></span>' +
+          '<span class="chart-bar-value mono">' + value + "</span>" +
+          "</div>";
+      }).join("") + "</div>";
+    }
+
+    wrap.innerHTML =
+      '<div class="card-header mono">CHART</div>' +
+      '<div class="chart-body">' + bodyHtml + "</div>";
+    return wrap;
+  }
+
   function renderDocumentCard(card) {
     var wrap = document.createElement("div");
     wrap.className = "document-card";
@@ -223,6 +305,7 @@
       '<button type="button" class="btn btn-ghost btn-sm document-edit-btn">Edit</button>' +
       (card.kind === "cv" ? '<button type="button" class="btn btn-ghost btn-sm document-letter-btn">Cover letter</button>' : "") +
       (card.kind === "cv" ? '<button type="button" class="btn btn-ghost btn-sm document-applied-btn">Mark as applied</button>' : "") +
+      '<button type="button" class="btn btn-ghost btn-sm document-save-note-btn">Save to notes</button>' +
       "</div>";
 
     wrap.querySelector(".document-download-btn").addEventListener("click", function () {
@@ -230,6 +313,16 @@
     });
     wrap.querySelector(".document-edit-btn").addEventListener("click", function () {
       window.location.href = "/builder?doc=" + card.document_id;
+    });
+    wrap.querySelector(".document-save-note-btn").addEventListener("click", function () {
+      var noteBtn = wrap.querySelector(".document-save-note-btn");
+      var label = card.kind === "cv" ? "CV" : "Cover letter";
+      var context = [card.job_title, card.company].filter(Boolean).join(" at ");
+      var body = label + " (" + card.filename + ")" + (context ? " — tailored for " + context : "") +
+        ". Open it any time from Builder or download it from this chat.";
+      saveNoteFromText(label + (context ? " — " + context : ""), body, noteBtn);
+      noteBtn.textContent = "Saved ✓";
+      setTimeout(function () { noteBtn.textContent = "Save to notes"; }, 1500);
     });
     if (card.kind === "cv") {
       wrap.querySelector(".document-letter-btn").addEventListener("click", function () {
@@ -248,14 +341,20 @@
   function appendCardMessage(card) {
     clearQuickReplies();
     showEmptyState(false);
-    var node = card.type === "verdict" ? renderVerdictCard(card) : renderDocumentCard(card);
+    var node = card.type === "verdict" ? renderVerdictCard(card)
+      : card.type === "chart" ? renderChartCard(card)
+      : renderDocumentCard(card);
     messagesEl.appendChild(node);
     scrollChatToBottom();
     var summary = card.type === "verdict"
       ? "Verdict: " + card.fit_score + "/100 fit for " + (card.job_title || "this role") + (card.company ? " at " + card.company : "") + "."
+      : card.type === "chart"
+      ? "Here's your " + card.chart_type + " chart of " + card.labels.join(", ") + "."
       : "Document ready: " + card.filename;
     chatHistory.push({ role: "assistant", text: summary, card: card });
-    saveConversation().then(function () { promoteThreadForCard(card); });
+    saveConversation().then(function () {
+      if (card.type !== "chart") promoteThreadForCard(card);
+    });
   }
 
   function requestCard(url, payload) {
@@ -406,11 +505,20 @@
           return;
         }
         if (data.kind === "card") {
-          // Card-producing tool calls (fit check / CV build) render as
-          // their own card component, whether the user reached this via
-          // a chip or just typed the equivalent request -- never as a
-          // wall of text pretending to be one.
-          appendCardMessage(data.card);
+          // Card-producing tool calls (fit check / CV build / chart)
+          // render as their own card component, whether the user reached
+          // this via a chip or just typed the equivalent request --
+          // never as a wall of text pretending to be one. When the model
+          // also sent a short lead-in line, that shows as its own text
+          // bubble first, then the card follows -- "text, then visual"
+          // in one reply instead of the card always arriving mute.
+          if (data.pre_text) {
+            appendChatMessageTyped(data.pre_text, function () {
+              appendCardMessage(data.card);
+            });
+          } else {
+            appendCardMessage(data.card);
+          }
           return;
         }
         var parsed = parseQuickReplies(data.reply || "");
@@ -504,6 +612,42 @@
   document.getElementById("attach-sheet-close-btn").addEventListener("click", closeAttachSheet);
   attachSheetOverlay.addEventListener("click", function (e) {
     if (e.target === attachSheetOverlay) closeAttachSheet();
+  });
+
+  // Swipe the sheet down to dismiss it, the standard bottom-sheet
+  // gesture -- past a distance or a fast enough flick, it closes;
+  // otherwise it springs back to where it started.
+  var attachSheetEl = document.querySelector(".attach-sheet");
+  var sheetDragStartY = null;
+  var sheetDragCurrentY = 0;
+  var sheetDragStartTime = 0;
+
+  attachSheetEl.addEventListener("touchstart", function (e) {
+    sheetDragStartY = e.touches[0].clientY;
+    sheetDragCurrentY = 0;
+    sheetDragStartTime = Date.now();
+    attachSheetEl.style.transition = "none";
+  });
+
+  attachSheetEl.addEventListener("touchmove", function (e) {
+    if (sheetDragStartY == null) return;
+    var dy = e.touches[0].clientY - sheetDragStartY;
+    if (dy <= 0) return; // only drag downward
+    sheetDragCurrentY = dy;
+    attachSheetEl.style.transform = "translateY(" + dy + "px)";
+  });
+
+  attachSheetEl.addEventListener("touchend", function () {
+    if (sheetDragStartY == null) return;
+    var elapsed = Date.now() - sheetDragStartTime;
+    var isFastFlick = sheetDragCurrentY > 40 && elapsed < 250;
+    attachSheetEl.style.transition = "";
+    attachSheetEl.style.transform = "";
+    if (sheetDragCurrentY > 100 || isFastFlick) {
+      closeAttachSheet();
+    }
+    sheetDragStartY = null;
+    sheetDragCurrentY = 0;
   });
 
   // ---------- Upload a document straight from chat ----------

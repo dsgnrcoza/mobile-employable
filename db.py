@@ -320,6 +320,7 @@ def init_db():
         "ALTER TABLE chat_conversations ADD COLUMN fit_score INTEGER DEFAULT NULL",
         "ALTER TABLE chat_conversations ADD COLUMN status_label TEXT NOT NULL DEFAULT ''",
         "ALTER TABLE users ADD COLUMN security_key_hash TEXT DEFAULT ''",
+        "ALTER TABLE users ADD COLUMN custom_instructions TEXT DEFAULT ''",
         # Deliberately last and best-effort, not part of the CREATE TABLE
         # block above: if any pre-existing rows already share a non-blank
         # email (e.g. two accounts that both had their email set to the
@@ -783,6 +784,15 @@ def set_target_field(user_id, target_field: str):
         conn.close()
 
 
+def set_custom_instructions(user_id, custom_instructions: str):
+    conn = get_db()
+    try:
+        conn.execute("UPDATE users SET custom_instructions = ? WHERE id = ?", (custom_instructions.strip(), user_id))
+        conn.commit()
+    finally:
+        conn.close()
+
+
 # ---------------- CHAT ATTACHMENT QUERIES ----------------
 
 def add_chat_attachment(user_id, filename, stored_path, mime_type, text_content=""):
@@ -910,6 +920,15 @@ def delete_conversation(conv_id, user_id):
     conn = get_db()
     try:
         conn.execute("DELETE FROM chat_conversations WHERE id = ? AND user_id = ?", (conv_id, user_id))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def delete_all_conversations_for_user(user_id):
+    conn = get_db()
+    try:
+        conn.execute("DELETE FROM chat_conversations WHERE user_id = ?", (user_id,))
         conn.commit()
     finally:
         conn.close()

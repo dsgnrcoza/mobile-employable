@@ -10,8 +10,8 @@
     <span class="stub-header-spacer"></span>
   </header>
 
+  <h3 class="profile-group-title">Account</h3>
   <section class="profile-section">
-    <h2 class="profile-section-title">Account</h2>
     <div class="profile-photo-row">
       {% if avatar_url %}
       <img src="{{ avatar_url }}" class="profile-photo-preview" id="profile-photo-preview" alt="">
@@ -24,6 +24,20 @@
       </div>
     </div>
     <p class="profile-status" id="profile-photo-status" hidden></p>
+
+    <div class="photo-crop-overlay" id="photo-crop-overlay" hidden>
+      <div class="photo-crop-sheet">
+        <div class="photo-crop-viewport" id="photo-crop-viewport">
+          <img id="photo-crop-img" alt="" draggable="false">
+        </div>
+        <input type="range" id="photo-crop-zoom" class="photo-crop-zoom" min="1" max="3" step="0.01" value="1">
+        <div class="photo-crop-actions">
+          <button type="button" class="btn btn-ghost btn-sm" id="photo-crop-cancel-btn">Cancel</button>
+          <button type="button" class="btn btn-gold btn-sm" id="photo-crop-use-btn">Use photo</button>
+        </div>
+      </div>
+    </div>
+
     <label class="profile-field">
       <span class="profile-field-label">Name</span>
       <input type="text" id="profile-full-name" value="{{ user.full_name or '' }}" maxlength="80">
@@ -36,6 +50,15 @@
     <p class="profile-status" id="profile-account-status" hidden></p>
   </section>
 
+  <section class="profile-section">
+    <h2 class="profile-section-title">Personality</h2>
+    <p class="profile-section-desc">Tell Ploy how you want it to talk to you — tone, things to always do or avoid. It follows this permanently, in every conversation.</p>
+    <textarea class="profile-instructions-input" id="profile-instructions-input" placeholder="e.g. Keep replies short. Don't sugar-coat feedback on my CV. Call me by my first name." maxlength="3000">{{ user.custom_instructions or '' }}</textarea>
+    <button type="button" class="btn btn-gold btn-sm" id="profile-instructions-save-btn">Save</button>
+    <p class="profile-status" id="profile-instructions-status" hidden></p>
+  </section>
+
+  <h3 class="profile-group-title">Security</h3>
   <section class="profile-section">
     <h2 class="profile-section-title">Password</h2>
     <label class="profile-field">
@@ -69,6 +92,7 @@
     <p class="security-key-warning" id="profile-key-reveal-warning" hidden>Save this now — it won't be shown again. Losing it and your password means losing the account for good.</p>
   </section>
 
+  <h3 class="profile-group-title">Your data</h3>
   <section class="profile-section">
     <h2 class="profile-section-title">Documents</h2>
     <div class="profile-doc-list" id="profile-doc-list"></div>
@@ -77,6 +101,15 @@
     <p class="profile-status" id="profile-doc-status" hidden></p>
   </section>
 
+  <section class="profile-section">
+    <h2 class="profile-section-title">Memory</h2>
+    <p class="profile-section-desc">Every conversation Ploy remembers. Delete any of them, or clear everything.</p>
+    <div class="profile-memory-list" id="profile-memory-list"></div>
+    <button type="button" class="btn btn-ghost btn-sm profile-memory-clear-btn" id="profile-memory-clear-btn">Clear all conversations</button>
+    <p class="profile-status" id="profile-memory-status" hidden></p>
+  </section>
+
+  <h3 class="profile-group-title">App</h3>
   <section class="profile-section">
     <h2 class="profile-section-title">Get the app</h2>
     <p class="profile-section-desc">Install Ploy on your phone or desktop for the full app experience.</p>

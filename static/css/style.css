@@ -27,7 +27,7 @@
   --card-bg: #16191E;
   --panel: #16191E;
   --panel-2: #1C2026;
-  --accent: #4067F0;
+  --accent: #5286FF;
   /* Back to the flat blue -- --accent-gradient is kept as an alias
      (rather than reverting every rule that references it) so the
      button/wordmark/avatar/badge rules that use it for backgrounds and
@@ -652,6 +652,10 @@ button.auth-tab.active {
   border-radius: 14px;
   padding: 16px;
   margin: 16px 0 10px;
+}
+
+.security-key-box[hidden] {
+  display: none;
 }
 
 .security-key-value {
@@ -2546,7 +2550,7 @@ button.auth-tab.active {
   max-width: 82%;
   padding: 10px 14px;
   border-radius: 14px;
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.45;
   white-space: pre-wrap;
 }
@@ -2556,6 +2560,39 @@ button.auth-tab.active {
   background: var(--surface);
   border: 1px solid var(--line);
   border-bottom-left-radius: 4px;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.chat-msg-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.chat-msg-save-btn {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  padding: 2px;
+  opacity: 0.6;
+}
+
+.chat-msg-save-btn:active {
+  opacity: 1;
+}
+
+.chat-msg-save-btn svg {
+  width: 15px;
+  height: 15px;
+}
+
+.chat-msg-save-btn.is-saved {
+  color: #2dd4bf;
+  opacity: 1;
 }
 
 .chat-msg-user {
@@ -2600,13 +2637,94 @@ button.auth-tab.active {
 /* ---------- Signature cards: Verdict + Document ---------- */
 
 .verdict-card,
-.document-card {
+.document-card,
+.chart-card {
   align-self: stretch;
   background: var(--panel-2);
   border: 1px solid var(--line);
   border-radius: 14px;
   padding: 16px;
   max-width: 100%;
+}
+
+.chart-body {
+  margin-top: 10px;
+}
+
+.chart-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.chart-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.chart-bar-label {
+  flex: 0 0 34%;
+  font-size: 12.5px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chart-bar-track {
+  flex: 1;
+  height: 10px;
+  border-radius: 5px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.chart-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 5px;
+}
+
+.chart-bar-good { background: var(--good); }
+.chart-bar-mid { background: var(--mid); }
+.chart-bar-bad { background: var(--bad); }
+
+.chart-bar-value {
+  flex-shrink: 0;
+  font-size: 12.5px;
+  color: var(--fg);
+  width: 26px;
+  text-align: right;
+}
+
+.chart-pie-svg {
+  display: block;
+  width: 160px;
+  height: 160px;
+  margin: 0 auto;
+}
+
+.chart-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.chart-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.chart-legend-swatch {
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
 }
 
 .card-header {
@@ -5402,6 +5520,67 @@ button.auth-tab.active {
   font-weight: 600;
 }
 
+/* ---------- Profile photo crop ---------- */
+
+.photo-crop-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 600;
+  padding: 20px;
+}
+
+.photo-crop-overlay[hidden] {
+  display: none;
+}
+
+.photo-crop-sheet {
+  background: var(--card-bg);
+  border: 1px solid var(--line-strong);
+  border-radius: 20px;
+  padding: 20px;
+  width: 100%;
+  max-width: 340px;
+}
+
+.photo-crop-viewport {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #000;
+  touch-action: none;
+  cursor: grab;
+  position: relative;
+}
+
+.photo-crop-viewport:active {
+  cursor: grabbing;
+}
+
+.photo-crop-viewport img {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  max-width: none;
+  user-select: none;
+  pointer-events: none;
+}
+
+.photo-crop-zoom {
+  width: 100%;
+  margin: 16px 0;
+}
+
+.photo-crop-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
 .profile-field {
   display: block;
   margin-bottom: 12px;
@@ -5410,7 +5589,7 @@ button.auth-tab.active {
 .profile-field-label {
   display: block;
   font-size: 12.5px;
-  color: var(--dim);
+  color: var(--muted);
   margin-bottom: 6px;
 }
 
@@ -5438,6 +5617,87 @@ button.auth-tab.active {
 
 .profile-status-error {
   color: var(--bad);
+}
+
+.profile-group-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 22px 20px 4px;
+  margin: 0;
+}
+
+.profile-group-title:first-of-type {
+  padding-top: 16px;
+}
+
+.profile-instructions-input {
+  width: 100%;
+  min-height: 90px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 11px 14px;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--fg);
+  font-family: inherit;
+  resize: vertical;
+  margin-bottom: 12px;
+}
+
+.profile-instructions-input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.profile-memory-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.profile-memory-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.profile-memory-item-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 13.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-memory-item-delete {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  padding: 4px;
+}
+
+.profile-memory-item-delete svg {
+  width: 16px;
+  height: 16px;
+}
+
+.profile-memory-empty {
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 12px;
 }
 
 .profile-doc-list {
@@ -5504,6 +5764,27 @@ button.auth-tab.active {
      everything on Profile is left-aligned, so it belongs on the left
      here instead of floating in the middle of the section. */
   justify-content: flex-start;
+}
+
+/* The menu's left:50%/translateX(-50%) centers it against the WRAP,
+   not the button -- harmless on auth pages where the wrap only ever
+   contains the button and both are centered together, but wrong here
+   now that the wrap spans the full section width while the button
+   itself hugs the left edge. Anchor it to the button's own left edge
+   instead so it doesn't float off toward the middle of the page. */
+.profile-section .download-app-menu {
+  left: 0;
+  transform: none;
+}
+
+.profile-section .download-app-menu[hidden] {
+  transform: none;
+}
+
+@starting-style {
+  .profile-section .download-app-menu:not([hidden]) {
+    transform: scale(0.94);
+  }
 }
 
 /* ==========================================================================

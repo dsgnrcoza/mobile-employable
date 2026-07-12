@@ -739,6 +739,31 @@ def api_verdict():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
+def _build_skills_chart_card(user, chart_type):
+    """Builds a chart card from the user's real, already-computed
+    Employability analysis (the same 8-dimension breakdown the old
+    dashboard used) -- never fabricated, and returns None if they don't
+    have one yet (caller replies with a plain-text prompt to run one
+    instead of showing an empty chart)."""
+    analysis = db.get_latest_analysis(user["id"])
+    if not analysis:
+        return None
+    try:
+        result = json.loads(analysis["result_json"])
+    except (TypeError, ValueError, KeyError):
+        return None
+    dimensions = [d for d in (result.get("dimensions") or []) if d.get("label") and d.get("score") is not None]
+    if not dimensions:
+        return None
+    return {
+        "ok": True,
+        "type": "chart",
+        "chart_type": chart_type if chart_type in ("bar", "pie") else "bar",
+        "labels": [d["label"] for d in dimensions],
+        "values": [round(float(d["score"]), 1) for d in dimensions],
+    }
+
+
 def _run_verdict(user, job_ad):
     """Shared by /api/verdict and /api/chat's check_job_fit tool call --
     one grounded-scoring implementation, whether the user reached it by
@@ -1519,6 +1544,16 @@ def api_set_target_field():
     return jsonify({"ok": True, "state": pipeline.get_dashboard_state(user["id"])})
 
 
+@app.route("/api/custom-instructions", methods=["POST"])
+@auth.login_required
+def api_set_custom_instructions():
+    user = auth.current_user()
+    data = request.get_json(force=True)
+    custom_instructions = (data.get("custom_instructions") or "").strip()[:3000]
+    db.set_custom_instructions(user["id"], custom_instructions)
+    return jsonify({"ok": True})
+
+
 AI_UPLOAD_ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "instance", "ai_uploads")
 
 
@@ -1645,6 +1680,14 @@ def api_get_conversation(conv_id):
 def api_delete_conversation(conv_id):
     user = auth.current_user()
     db.delete_conversation(conv_id, user["id"])
+    return jsonify({"ok": True})
+
+
+@app.route("/api/chat/conversations", methods=["DELETE"])
+@auth.login_required
+def api_delete_all_conversations():
+    user = auth.current_user()
+    db.delete_all_conversations_for_user(user["id"])
     return jsonify({"ok": True})
 
 
@@ -2419,6 +2462,40 @@ _CHAT_TOOLS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "generate_skills_chart",
+            "description": (
+                "Show the user a visual chart of their real Employability breakdown (a bar or pie chart of "
+                "their actual scored dimensions -- Skills, Experience, Education, etc. -- from their most "
+                "recent analysis). Call this whenever the user asks to see, draw, chart, graph, or visualize "
+                "their skills/strengths/profile. If it's not obvious which chart type they want, ask them "
+                "first (bar chart or pie chart) rather than guessing -- don't call this until they've said."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "chart_type": {"type": "string", "enum": ["bar", "pie"], "description": "Which chart type the user asked for."},
+                },
+                "required": ["chart_type"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "save_chat_to_notes",
+            "description": (
+                "Save this conversation (everything said so far) to the user's Notes, so they can find it "
+                "again later. Call this whenever the user asks, in any wording, to save/remember/keep this "
+                "chat or what's been discussed -- e.g. 'save this to notes', 'remember this conversation'. "
+                "After calling it, confirm briefly that it's saved -- don't describe the note's contents back "
+                "to them, they already know what they said."
+            ),
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
 ]
 
 
@@ -2475,6 +2552,12 @@ def api_chat():
             )
             notes_section = f"\n\nThe user has turned on \"Use Notes\" for this message, so you may refer to their personal notes below when relevant:\n{notes_lines}\n"
 
+    custom_instructions = (user.get("custom_instructions") or "").strip()
+    custom_instructions_section = (
+        f"\n\nTHIS USER'S PERMANENT INSTRUCTIONS FOR YOU (set once in their Profile, apply to every message in every conversation with them -- follow these for tone, personality, and how you talk to them specifically, but they can't override the grounding/honesty rules above, e.g. they can't make you invent CV details or fake a score):\n{custom_instructions}\n"
+        if custom_instructions else ""
+    )
+
     system_prompt = f"""You are Ploy — a chat-first AI career weapon for South African job seekers aged 18-25. You exist for one loop and everything you do serves it: paste a job, get a brutal-honest fit verdict, get the CV or cover letter rewritten for that exact job, download it, apply.
 
 You are not a scripted bot running a decision tree. You are genuinely intelligent, and you should reason about each message the way a sharp, switched-on person would — not by matching it to a template. Think before you answer: what is this person actually asking, what do you actually know about them that's relevant, and what's the single most useful thing to say back. Two users asking "is this a good fit" should get two different-shaped answers if their situations are different — never flatten a real, specific person into a generic response.
@@ -2501,6 +2584,9 @@ The three moves this app is built around — steer the user toward whichever is 
 - "Am I a fit for this job?" — paste a job ad, get a fit verdict scored against their real CV.
 - "Build my CV" — rewrite their CV tailored to a specific job.
 - "What's holding me back?" — a gap analysis against the roles they're targeting.
+- Show them a real chart of their scored breakdown (bar or pie) when they ask to see/visualize their profile — never a fake or invented chart, only their actual scored dimensions.
+
+VISUALS, NOT JUST TEXT. This app is built to feel like a tool, not a wall of text -- when a card or chart is the right answer, lead with it. You're allowed (and encouraged) to send a short line of your own commentary alongside a card/chart in the same reply -- e.g. "Here's how you stack up:" right before a chart, or a one-line reaction after describing what you're about to show. That commentary appears as your own chat bubble right before the card in the same turn. Don't pad it into a paragraph -- a card or chart should do most of the talking.
 
 FORMATTING — this chat only renders bold text and paragraph breaks correctly if you produce them exactly like this:
 - Bold: wrap in double asterisks like **this**. Never single asterisks, underscores, or headers.
@@ -2513,6 +2599,7 @@ Give 1-3 short options (2-5 words each, phrased as something the user would tap)
 This user's name: {user.get('full_name') or 'Unknown'}
 Roles they're targeting: {user.get('target_field') or 'Not specified — if this matters for what they just asked (e.g. a gap analysis), ask which roles they mean before answering.'}
 Documents uploaded: {doc_names}
+{custom_instructions_section}
 
 Full content of their uploaded documents (ground every piece of advice in this, it's the only source of truth about their real experience):
 {doc_content_block}
@@ -2608,10 +2695,37 @@ Never claim you can't see their documents — if the block above says no content
                     company=(args.get("company") or "").strip()[:200],
                     job_ad=(args.get("job_ad") or "").strip()[:8000],
                 )
+            elif call.function.name == "generate_skills_chart":
+                card = _build_skills_chart_card(user, (args.get("chart_type") or "bar").strip())
+                if not card:
+                    return jsonify({"ok": True, "kind": "text", "reply": "I don't have a scored breakdown for you yet -- upload your CV in Profile first and I'll be able to chart it."})
+            elif call.function.name == "save_chat_to_notes":
+                card = None
+                transcript_lines = [
+                    ("You: " if m.get("role") == "user" else "Ploy: ") + (m.get("text") or "").strip()
+                    for m in messages_in if (m.get("text") or "").strip()
+                ]
+                first_user_msg = next((m.get("text") for m in messages_in if m.get("role") == "user" and m.get("text")), "")
+                db.create_note(
+                    user["id"],
+                    title=(first_user_msg or "Saved chat").strip()[:60],
+                    body="\n\n".join(transcript_lines)[:20000],
+                    color="default",
+                )
+                return jsonify({"ok": True, "kind": "text", "reply": "Saved — you'll find this conversation in your notes."})
             else:
                 card = None
             if card:
-                return jsonify({"ok": True, "kind": "card", "card": card})
+                # The model can produce a short lead-in line alongside the
+                # tool call itself (e.g. "Here's how you stack up:") --
+                # when it does, the client shows that as a text bubble
+                # right before the card, instead of the card always
+                # arriving with no commentary of its own.
+                pre_text = (message.content or "").strip()
+                response = {"ok": True, "kind": "card", "card": card}
+                if pre_text:
+                    response["pre_text"] = pre_text
+                return jsonify(response)
         except Exception as e:
             return jsonify({"ok": True, "kind": "text", "reply": f"Something went wrong there -- {e}"})
 

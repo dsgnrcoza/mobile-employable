@@ -101,16 +101,16 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h13l3 3v13H4Z"/><path d="M17 4v6h6"/></svg>
       </span>
       <span class="attach-notes-text">
-        <span class="attach-notes-label">Use my documents</span>
-        <span class="attach-notes-desc">Let the chat refer to everything you've uploaded</span>
+        <span class="attach-notes-label">Use my notes</span>
+        <span class="attach-notes-desc">Let the chat refer to everything in your notes</span>
       </span>
-      <button type="button" class="toggle-switch" id="use-notes-toggle" role="switch" aria-checked="false" aria-label="Use my documents">
+      <button type="button" class="toggle-switch" id="use-notes-toggle" role="switch" aria-checked="false" aria-label="Use my notes">
         <span class="toggle-switch-knob"></span>
       </button>
     </div>
 
     <div class="use-notes-tooltip" id="use-notes-tooltip" hidden>
-      <p>Ploy can now dig into everything you've uploaded when it answers you. Only while this is switched on.</p>
+      <p>Ploy can now dig into everything in your notes when it answers you. Only while this is switched on.</p>
       <button type="button" class="btn btn-gold btn-sm" id="use-notes-tooltip-got-it">Got it</button>
     </div>
   </div>
@@ -123,6 +123,10 @@
   </div>
   <div class="sidebar-chats" id="sidebar-chats"></div>
   <div class="sidebar-footer">
+    <a href="{{ url_for('notes_page') }}" class="sidebar-builder-btn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6l5 5v13H4V3z"/><path d="M14 3v6h6"/></svg>
+      Notes
+    </a>
     <a href="{{ url_for('builder_page') }}" class="sidebar-builder-btn">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h13l3 3v13H4Z"/><path d="M17 4v6h6"/><line x1="7.5" y1="12" x2="16" y2="12"/><line x1="7.5" y1="15.5" x2="16" y2="15.5"/></svg>
       Builder
