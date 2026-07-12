@@ -542,19 +542,21 @@ def dashboard():
     # (Cubic-Metric score, CV Workshop, etc.) is untouched on disk,
     # just no longer rendered from here.
     user = auth.current_user()
-    avatar_path = user.get("avatar_path") or ""
-    if avatar_path.startswith("data:"):
-        avatar_url = avatar_path
-    elif avatar_path:
-        avatar_url = f"/static/{avatar_path}"
-    else:
-        avatar_url = ""
     profile = {
         "full_name": user.get("full_name") or "",
-        "avatar_url": avatar_url,
+        "avatar_url": _avatar_url_for(user),
         "initials": _initials(user.get("full_name") or ""),
     }
     return render_template("home.html", profile=profile)
+
+
+def _avatar_url_for(user):
+    avatar_path = user.get("avatar_path") or ""
+    if avatar_path.startswith("data:"):
+        return avatar_path
+    if avatar_path:
+        return f"/static/{avatar_path}"
+    return ""
 
 
 def _initials(full_name):
@@ -1295,7 +1297,10 @@ def api_profile_documents():
 @auth.login_required
 def profile_page():
     user = auth.current_user()
-    return render_template("profile.html", user=user)
+    return render_template(
+        "profile.html", user=user,
+        avatar_url=_avatar_url_for(user), initials=_initials(user.get("full_name") or ""),
+    )
 
 
 @app.route("/api/friends/invite", methods=["POST"])

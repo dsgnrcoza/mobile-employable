@@ -12,6 +12,18 @@
 
   <section class="profile-section">
     <h2 class="profile-section-title">Account</h2>
+    <div class="profile-photo-row">
+      {% if avatar_url %}
+      <img src="{{ avatar_url }}" class="profile-photo-preview" id="profile-photo-preview" alt="">
+      {% else %}
+      <span class="profile-photo-preview profile-photo-placeholder" id="profile-photo-preview">{{ initials }}</span>
+      {% endif %}
+      <div>
+        <button type="button" class="btn btn-ghost btn-sm" id="profile-photo-btn">Change photo</button>
+        <input type="file" id="profile-photo-input" accept="image/*" hidden>
+      </div>
+    </div>
+    <p class="profile-status" id="profile-photo-status" hidden></p>
     <label class="profile-field">
       <span class="profile-field-label">Name</span>
       <input type="text" id="profile-full-name" value="{{ user.full_name or '' }}" maxlength="80">

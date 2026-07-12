@@ -7,6 +7,42 @@
     el.classList.toggle("profile-status-error", !!isError);
   }
 
+  // ---------- Profile photo ----------
+
+  var photoBtn = document.getElementById("profile-photo-btn");
+  var photoInput = document.getElementById("profile-photo-input");
+  var photoStatus = document.getElementById("profile-photo-status");
+
+  photoBtn.addEventListener("click", function () { photoInput.click(); });
+
+  photoInput.addEventListener("change", function () {
+    var file = photoInput.files[0];
+    photoInput.value = "";
+    if (!file) return;
+    var formData = new FormData();
+    formData.append("photo", file);
+    setStatus(photoStatus, "Uploading…", false);
+    fetch("/api/profile/photo", { method: "POST", body: formData })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data.ok) {
+          setStatus(photoStatus, data.error || "Couldn't upload that photo.", true);
+          return;
+        }
+        setStatus(photoStatus, "", false);
+        var preview = document.getElementById("profile-photo-preview");
+        var img = document.createElement("img");
+        img.id = "profile-photo-preview";
+        img.className = "profile-photo-preview";
+        img.alt = "";
+        img.src = data.avatar_url;
+        preview.replaceWith(img);
+      })
+      .catch(function () {
+        setStatus(photoStatus, "Connection error — please try again.", true);
+      });
+  });
+
   // ---------- Account ----------
 
   var fullNameInput = document.getElementById("profile-full-name");
