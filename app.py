@@ -124,6 +124,8 @@ _TERMS_EXEMPT_ENDPOINTS = {
     "android_asset_links",
     "privacy_policy",
     "landing",
+    "security_key_reveal",
+    "api_security_key_acknowledge",
 }
 
 
@@ -162,6 +164,8 @@ _ONBOARDING_EXEMPT_ENDPOINTS = {
     # further redirect happens — it hands the actual "where next"
     # decision to /dashboard itself, one hop later.
     "landing",
+    "security_key_reveal",
+    "api_security_key_acknowledge",
 }
 
 
@@ -273,18 +277,48 @@ def signup_page():
 
     if request.method == "POST":
         try:
-            auth.signup(
+            _user_id, security_key = auth.signup(
                 full_name=request.form.get("full_name", ""),
                 email=request.form.get("email", ""),
                 password=request.form.get("password", ""),
                 confirm_password=request.form.get("confirm_password", ""),
             )
-            flash("Account created. Welcome to Ploy.", "success")
-            return redirect(url_for("dashboard"))
+            # Stashed in the session until the reveal page's "Continue"
+            # button acknowledges it (see api_security_key_acknowledge) --
+            # the plaintext key is never written anywhere more durable
+            # than this.
+            session["_reveal_security_key"] = security_key
+            return redirect(url_for("security_key_reveal"))
         except auth.AuthError as e:
             flash(str(e), "error")
 
     return render_template("signup.html")
+
+
+@app.route("/security-key")
+@auth.login_required
+def security_key_reveal():
+    """
+    Shows a freshly generated security key. Reached right after signup,
+    and after any regenerate/reset that issues a new key. Left in the
+    session (not popped here) until the "Continue" button explicitly
+    acknowledges it via /api/security-key/acknowledge -- signup's own
+    fetch-then-celebrate flow already makes one GET of this page in the
+    background to detect success, before the user ever sees or clicks
+    anything, so popping on GET would clear it before the real,
+    user-visible navigation that follows.
+    """
+    security_key = session.get("_reveal_security_key")
+    if not security_key:
+        return redirect(url_for("dashboard"))
+    return render_template("security_key_reveal.html", security_key=security_key)
+
+
+@app.route("/api/security-key/acknowledge", methods=["POST"])
+@auth.login_required
+def api_security_key_acknowledge():
+    session.pop("_reveal_security_key", None)
+    return jsonify({"ok": True})
 
 
 @app.route("/login", methods=["GET", "POST"])
@@ -312,48 +346,33 @@ def logout_page():
 @app.route("/forgot-password")
 def forgot_password_page():
     """
-    A two-step page (email -> 6-digit code + new password), driven
-    entirely by static/js/forgot-password.js via the two JSON endpoints
-    below -- no server-rendered POST branch needed here.
+    A single form (email + security key + new password), driven by
+    static/js/forgot-password.js via the JSON endpoint below -- there's
+    no separate "request a code" step since the security key itself is
+    the proof of identity.
     """
     if auth.current_user():
         return redirect(url_for("dashboard"))
     return render_template("forgot_password.html")
 
 
-@app.route("/api/forgot-password", methods=["POST"])
-def api_forgot_password():
-    """
-    Always returns ok, regardless of whether the address has an
-    account -- auth.request_password_reset_code() only ever emails a
-    real code when one does, so the response can't be used to
-    enumerate which emails are registered here.
-    """
-    if auth.current_user():
-        return jsonify({"ok": False, "error": "Already signed in."}), 400
-    data = request.get_json(force=True)
-    email = data.get("email", "")
-    try:
-        auth.validate_email(email)
-    except auth.AuthError as e:
-        return jsonify({"ok": False, "error": str(e)}), 400
-    auth.request_password_reset_code(email)
-    return jsonify({"ok": True})
-
-
-@app.route("/api/reset-password-code", methods=["POST"])
-def api_reset_password_code():
+@app.route("/api/reset-password", methods=["POST"])
+def api_reset_password():
     if auth.current_user():
         return jsonify({"ok": False, "error": "Already signed in."}), 400
     data = request.get_json(force=True)
     try:
-        auth.verify_and_consume_reset_code(
+        new_security_key = auth.reset_password_with_security_key(
             data.get("email", ""),
-            data.get("code", ""),
+            data.get("security_key", ""),
             data.get("new_password", ""),
             data.get("confirm_password", ""),
         )
-        return jsonify({"ok": True})
+        # reset_password_with_security_key already logs the user in --
+        # reusing the same one-time reveal page as signup keeps there
+        # being exactly one path that ever shows a plaintext key.
+        session["_reveal_security_key"] = new_security_key
+        return jsonify({"ok": True, "redirect": url_for("security_key_reveal")})
     except auth.AuthError as e:
         return jsonify({"ok": False, "error": str(e)}), 400
 
@@ -1279,15 +1298,26 @@ def api_change_password():
     user = auth.current_user()
     data = request.get_json(force=True)
     try:
-        auth.change_password(
+        new_security_key = auth.change_password(
             user["id"],
-            data.get("current_password") or "",
+            data.get("current_password_or_key") or "",
             data.get("new_password") or "",
             data.get("confirm_password") or "",
         )
-        return jsonify({"ok": True})
+        # Only non-None when the security key (rather than the ordinary
+        # password) was used as proof -- it's rotated on use, so the
+        # caller needs the new one to show the user once.
+        return jsonify({"ok": True, "new_security_key": new_security_key})
     except auth.AuthError as e:
         return jsonify({"ok": False, "error": str(e)}), 400
+
+
+@app.route("/api/profile/security-key/regenerate", methods=["POST"])
+@auth.login_required
+def api_regenerate_security_key():
+    user = auth.current_user()
+    new_security_key = auth.regenerate_security_key(user["id"])
+    return jsonify({"ok": True, "security_key": new_security_key})
 
 
 @app.route("/api/profile/documents")
@@ -1375,10 +1405,21 @@ def api_friends_list():
     return jsonify({"friends": db.get_friends_for_user(user["id"])})
 
 
+# Avatars render at most ~64px on screen (sidebar/profile), so a phone
+# photo straight off the camera (often several MB) would otherwise get
+# base64-embedded at full resolution into every page that shows it --
+# dashboard, profile, every sidebar render. Downscaling once at upload
+# time keeps that inline payload small permanently.
+AVATAR_MAX_DIMENSION = 256
+
+
 @app.route("/api/profile/photo", methods=["POST"])
 @auth.login_required
 def api_upload_avatar():
     import base64
+    import io
+    from PIL import Image, ImageOps
+
     user = auth.current_user()
     f = request.files.get("photo")
     if not f or f.filename == "":
@@ -1386,11 +1427,25 @@ def api_upload_avatar():
     ext = f.filename.rsplit(".", 1)[-1].lower() if "." in f.filename else ""
     if ext not in ALLOWED_IMAGE_EXTENSIONS:
         return jsonify({"ok": False, "error": "Unsupported image type."}), 400
-    mime = "image/jpeg" if ext in ("jpg", "jpeg") else f"image/{ext}"
-    encoded = base64.b64encode(f.read()).decode("ascii")
-    data_uri = f"data:{mime};base64,{encoded}"
+
+    try:
+        image = Image.open(f.stream)
+        image = ImageOps.exif_transpose(image)  # respect the camera's rotation before resizing
+        image.thumbnail((AVATAR_MAX_DIMENSION, AVATAR_MAX_DIMENSION), Image.LANCZOS)
+        if image.mode != "RGB":
+            image = image.convert("RGB")
+        buf = io.BytesIO()
+        image.save(buf, format="JPEG", quality=82)
+        encoded = base64.b64encode(buf.getvalue()).decode("ascii")
+        data_uri = f"data:image/jpeg;base64,{encoded}"
+    except Exception:
+        return jsonify({"ok": False, "error": "Couldn't read that image."}), 400
+
     db.update_profile_fields(user["id"], avatar_path=data_uri)
-    return jsonify({"ok": True, "avatar_url": data_uri, "state": pipeline.get_dashboard_state(user["id"])})
+    # No "state" field here -- the caller (profile.js) only ever reads
+    # avatar_url, so computing the full multi-query dashboard state on
+    # every photo upload was pure wasted work.
+    return jsonify({"ok": True, "avatar_url": data_uri})
 
 
 @app.route("/api/account/delete", methods=["POST"])
@@ -2430,7 +2485,7 @@ BE ADAPTIVE, NOT REPETITIVE. Don't reuse the same opener, sentence shape, or phr
 
 ASK WHEN YOU DON'T KNOW, DON'T GUESS. Two different situations call for this, and both matter:
 1. Their INTENT is ambiguous — "help me with my CV," "should I apply" — ask ONE short, specific clarifying question rather than dumping generic advice across every possible interpretation.
-2. The FACTS you'd need aren't in their documents or in anything they've told you — a specific number, a certification, whether they've done something specific this job cares about. Don't fill that gap with a plausible-sounding guess. Say what's missing and ask for it directly ("Do you have a portfolio link for this? I don't see one in what you've uploaded") — or tell them to add it in Profile if it's the kind of thing that belongs in their documents long-term.
+2. The FACTS you'd need aren't in their documents or in anything they've told you — a specific number, a certification, whether they've done something specific this job cares about. Don't fill that gap with a plausible-sounding guess. Say what's missing and ask for it directly ("Do you have a portfolio link for this? I don't see one in what you've uploaded") — or tell them to add it in Profile if it's the kind of thing that belongs in their documents long-term. When there's more than one gap, list them concretely instead of picking just one — "Right now I've only got your CV. To do this properly I'd also need: the actual job ad, and whether you've got a portfolio link" reads as useful triage, not an interrogation. They can upload documents right from the chat (the + button next to the input) — point them there instead of sending them away to Profile.
 It's completely fine — good, even — to ask a real question mid-conversation instead of always producing a complete answer. That's what a genuinely helpful person does; it's not a failure mode.
 
 Voice: sharp, confident, on the user's side, zero corporate filler. Talk like a smart friend who won't waste their time, not a customer-service bot.
@@ -2481,8 +2536,11 @@ Never claim you can't see their documents — if the block above says no content
                 if not att:
                     continue
                 if att["mime_type"].startswith("image/"):
-                    with open(att["stored_path"], "rb") as img_f:
-                        b64 = _b64.b64encode(img_f.read()).decode("utf-8")
+                    try:
+                        with open(att["stored_path"], "rb") as img_f:
+                            b64 = _b64.b64encode(img_f.read()).decode("utf-8")
+                    except OSError:
+                        continue  # file no longer on disk (e.g. an older attachment on ephemeral storage)
                     content.append({
                         "type": "image_url",
                         "image_url": {"url": f"data:{att['mime_type']};base64,{b64}", "detail": "high"}

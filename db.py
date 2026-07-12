@@ -319,6 +319,7 @@ def init_db():
         "ALTER TABLE chat_conversations ADD COLUMN company TEXT NOT NULL DEFAULT ''",
         "ALTER TABLE chat_conversations ADD COLUMN fit_score INTEGER DEFAULT NULL",
         "ALTER TABLE chat_conversations ADD COLUMN status_label TEXT NOT NULL DEFAULT ''",
+        "ALTER TABLE users ADD COLUMN security_key_hash TEXT DEFAULT ''",
         # Deliberately last and best-effort, not part of the CREATE TABLE
         # block above: if any pre-existing rows already share a non-blank
         # email (e.g. two accounts that both had their email set to the
@@ -395,6 +396,15 @@ def update_password(user_id, new_password_hash):
     conn = get_db()
     try:
         conn.execute("UPDATE users SET password_hash = ? WHERE id = ?", (new_password_hash, user_id))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def set_security_key_hash(user_id, security_key_hash):
+    conn = get_db()
+    try:
+        conn.execute("UPDATE users SET security_key_hash = ? WHERE id = ?", (security_key_hash, user_id))
         conn.commit()
     finally:
         conn.close()

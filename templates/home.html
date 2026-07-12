@@ -13,8 +13,8 @@
   </header>
 
   <div class="chat-empty" id="chat-empty">
-    <h1>Where are we getting you hired?</h1>
-    <p>Paste a job ad, or pick a move below.</p>
+    <h1 id="chat-empty-headline">Where are we getting you hired?</h1>
+    <p id="chat-empty-subtext">Paste a job ad, or pick a move below.</p>
   </div>
 
   <div class="chat-messages" id="chat-messages" hidden></div>
@@ -29,19 +29,17 @@
 
   <div class="chat-chips" id="chat-chips">
     <button type="button" class="chat-chip" id="chip-qualify" data-chip="qualify">
-      <span class="chip-num mono">01</span><span>Am I a fit for this job?</span>
+      <span class="chip-num mono">01</span><span>Paste a job ad — see your fit score</span>
     </button>
     <button type="button" class="chat-chip" id="chip-builder" data-chip="builder">
-      <span class="chip-num mono">02</span><span>Build my CV</span>
+      <span class="chip-num mono">02</span><span>Build a CV from what I've uploaded</span>
     </button>
     <button type="button" class="chat-chip" id="chip-gaps" data-chip="gaps">
-      <span class="chip-num mono">03</span><span>What's holding me back?</span>
+      <span class="chip-num mono">03</span><span>What's weak in my CV right now?</span>
     </button>
   </div>
 
   <div class="chat-input-wrap">
-    <div class="pending-attachments" id="pending-attachments" hidden></div>
-
     <div class="chat-dictation-preview" id="chat-dictation-preview" hidden></div>
 
     <div class="chat-input-shell">
@@ -52,7 +50,7 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
           <div class="chat-voice-waveform" aria-hidden="true">
-            <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+            <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
           </div>
           <button type="button" class="chat-voice-confirm-btn" id="chat-voice-confirm-btn" aria-label="Use this text">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 12 9 17 20 6"/></svg>
@@ -76,10 +74,6 @@
   </div>
 </div>
 
-<input type="file" id="attach-camera-input" accept="image/*" capture="environment" hidden>
-<input type="file" id="attach-photos-input" accept="image/*" hidden>
-<input type="file" id="attach-files-input" hidden>
-
 <div class="attach-sheet-overlay" id="attach-sheet-overlay" hidden>
   <div class="attach-sheet">
     <div class="attach-sheet-handle"></div>
@@ -91,20 +85,16 @@
       <span class="attach-sheet-spacer"></span>
     </div>
 
-    <div class="attach-sheet-grid">
-      <button type="button" class="attach-option" id="attach-camera-btn">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.5"/></svg>
-        <span>Camera</span>
-      </button>
-      <button type="button" class="attach-option" id="attach-photos-btn">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>
-        <span>Photos</span>
-      </button>
-      <button type="button" class="attach-option" id="attach-files-btn">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h13l3 3v13H4Z"/><path d="M17 4v6h6"/><path d="M12 12v6"/><path d="m9 15 3-3 3 3"/></svg>
-        <span>Files</span>
-      </button>
-    </div>
+    <button type="button" class="attach-upload-row" id="attach-upload-btn">
+      <span class="attach-notes-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 8 5-5 5 5"/><path d="M5 21h14"/></svg>
+      </span>
+      <span class="attach-notes-text">
+        <span class="attach-notes-label">Upload a document</span>
+        <span class="attach-notes-desc" id="attach-upload-status">Add a CV, cover letter, or anything else — no need to go to Profile</span>
+      </span>
+    </button>
+    <input type="file" id="attach-upload-input" hidden accept=".pdf,.doc,.docx,.txt">
 
     <div class="attach-notes-row">
       <span class="attach-notes-icon">
@@ -131,12 +121,12 @@
   <div class="sidebar-header">
     <span class="wordmark">PL<span class="wordmark-o">O</span>Y</span>
   </div>
-  <a href="{{ url_for('builder_page') }}" class="sidebar-nav-link">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h13l3 3v13H4Z"/><path d="M17 4v6h6"/><line x1="7.5" y1="12" x2="16" y2="12"/><line x1="7.5" y1="15.5" x2="16" y2="15.5"/></svg>
-    Builder
-  </a>
   <div class="sidebar-chats" id="sidebar-chats"></div>
   <div class="sidebar-footer">
+    <a href="{{ url_for('builder_page') }}" class="sidebar-builder-btn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h13l3 3v13H4Z"/><path d="M17 4v6h6"/><line x1="7.5" y1="12" x2="16" y2="12"/><line x1="7.5" y1="15.5" x2="16" y2="15.5"/></svg>
+      Builder
+    </a>
     <div class="sidebar-footer-row">
       <a href="{{ url_for('profile_page') }}" class="sidebar-link sidebar-link-profile">
         {% if profile.avatar_url %}

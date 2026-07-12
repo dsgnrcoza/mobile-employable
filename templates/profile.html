@@ -39,7 +39,7 @@
   <section class="profile-section">
     <h2 class="profile-section-title">Password</h2>
     <label class="profile-field">
-      <span class="profile-field-label">Current password</span>
+      <span class="profile-field-label">Current password or security key</span>
       <input type="password" id="profile-current-password" autocomplete="current-password">
     </label>
     <label class="profile-field">
@@ -55,22 +55,26 @@
   </section>
 
   <section class="profile-section">
+    <h2 class="profile-section-title">Security key</h2>
+    <p class="profile-section-desc">Your key for recovering the account if you ever forget your password. Only shown to you once, right when it's generated — regenerating replaces it and invalidates the old one.</p>
+    <button type="button" class="btn btn-ghost btn-sm" id="profile-regenerate-key-btn">Regenerate security key</button>
+    <p class="profile-status" id="profile-key-status" hidden></p>
+
+    <div class="security-key-box" id="profile-key-reveal" hidden>
+      <span class="security-key-value mono" id="profile-key-reveal-value"></span>
+      <button type="button" class="security-key-copy-btn" id="profile-key-reveal-copy-btn" aria-label="Copy security key">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+      </button>
+    </div>
+    <p class="security-key-warning" id="profile-key-reveal-warning" hidden>Save this now — it won't be shown again. Losing it and your password means losing the account for good.</p>
+  </section>
+
+  <section class="profile-section">
     <h2 class="profile-section-title">Documents</h2>
     <div class="profile-doc-list" id="profile-doc-list"></div>
     <input type="file" id="profile-upload-input" hidden accept=".pdf,.doc,.docx,.txt">
     <button type="button" class="btn btn-ghost btn-sm" id="profile-upload-btn">Add document</button>
     <p class="profile-status" id="profile-doc-status" hidden></p>
-  </section>
-
-  <section class="profile-section">
-    <h2 class="profile-section-title">Target roles</h2>
-    <p class="profile-section-desc">Optional -- feeds "What's holding me back?" in chat.</p>
-    <label class="profile-field">
-      <span class="profile-field-label">Roles you're aiming for</span>
-      <input type="text" id="profile-target-field" value="{{ user.target_field or '' }}" placeholder="e.g. Backend Engineer, DevOps" maxlength="200">
-    </label>
-    <button type="button" class="btn btn-gold btn-sm" id="profile-target-save-btn">Save</button>
-    <p class="profile-status" id="profile-target-status" hidden></p>
   </section>
 
   <section class="profile-section">

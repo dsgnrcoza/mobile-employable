@@ -83,7 +83,7 @@
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        current_password: currentPasswordInput.value,
+        current_password_or_key: currentPasswordInput.value,
         new_password: newPasswordInput.value,
         confirm_password: confirmPasswordInput.value,
       }),
@@ -95,6 +95,10 @@
           currentPasswordInput.value = "";
           newPasswordInput.value = "";
           confirmPasswordInput.value = "";
+          // Non-null only when the security key (not the ordinary
+          // password) was used as proof -- it's single-use, so a fresh
+          // one was just issued and needs to be shown right now.
+          if (data.new_security_key) revealSecurityKey(data.new_security_key);
         }
       })
       .catch(function () {
@@ -102,6 +106,51 @@
       })
       .finally(function () {
         passwordSaveBtn.disabled = false;
+      });
+  });
+
+  // ---------- Security key ----------
+
+  var regenerateKeyBtn = document.getElementById("profile-regenerate-key-btn");
+  var keyStatus = document.getElementById("profile-key-status");
+  var keyRevealBox = document.getElementById("profile-key-reveal");
+  var keyRevealValue = document.getElementById("profile-key-reveal-value");
+  var keyRevealCopyBtn = document.getElementById("profile-key-reveal-copy-btn");
+  var keyRevealWarning = document.getElementById("profile-key-reveal-warning");
+
+  function revealSecurityKey(key) {
+    keyRevealValue.textContent = key;
+    keyRevealBox.hidden = false;
+    keyRevealWarning.hidden = false;
+  }
+
+  keyRevealCopyBtn.addEventListener("click", function () {
+    var text = keyRevealValue.textContent || "";
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(function () {
+      keyRevealCopyBtn.classList.add("is-copied");
+      setTimeout(function () { keyRevealCopyBtn.classList.remove("is-copied"); }, 1500);
+    });
+  });
+
+  regenerateKeyBtn.addEventListener("click", function () {
+    if (!window.confirm("This replaces your current security key and invalidates the old one immediately. Continue?")) return;
+    regenerateKeyBtn.disabled = true;
+    fetch("/api/profile/security-key/regenerate", { method: "POST" })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data.ok) {
+          setStatus(keyStatus, data.error || "Couldn't regenerate.", true);
+          return;
+        }
+        setStatus(keyStatus, "", false);
+        revealSecurityKey(data.security_key);
+      })
+      .catch(function () {
+        setStatus(keyStatus, "Connection error — please try again.", true);
+      })
+      .finally(function () {
+        regenerateKeyBtn.disabled = false;
       });
   });
 
@@ -176,31 +225,6 @@
   });
 
   loadDocuments();
-
-  // ---------- Target roles ----------
-
-  var targetFieldInput = document.getElementById("profile-target-field");
-  var targetSaveBtn = document.getElementById("profile-target-save-btn");
-  var targetStatus = document.getElementById("profile-target-status");
-
-  targetSaveBtn.addEventListener("click", function () {
-    targetSaveBtn.disabled = true;
-    fetch("/api/target-field", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ target_field: targetFieldInput.value }),
-    })
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        setStatus(targetStatus, data.ok ? "Saved." : "Couldn't save.", !data.ok);
-      })
-      .catch(function () {
-        setStatus(targetStatus, "Connection error — please try again.", true);
-      })
-      .finally(function () {
-        targetSaveBtn.disabled = false;
-      });
-  });
 
   // ---------- Delete account ----------
 

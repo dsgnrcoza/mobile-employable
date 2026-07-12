@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Your Security Key — Ploy{% endblock %}
+{% block content %}
+<div class="auth-shell">
+  <div class="auth-card">
+
+    <div class="auth-visual">
+      <div class="auth-wordmark wordmark">PL<span class="wordmark-o">O</span>Y</div>
+    </div>
+
+    <div class="auth-form-side">
+      <div class="auth-form-box">
+
+        <h1>Save your security key</h1>
+        <span class="sub">This is the only way to get back into your account if you ever forget your password. It is shown to you exactly once, right now.</span>
+
+        <div class="security-key-box">
+          <span class="security-key-value mono" id="security-key-value">{{ security_key }}</span>
+          <button type="button" class="security-key-copy-btn" id="security-key-copy-btn" aria-label="Copy security key">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+          </button>
+        </div>
+        <p class="security-key-warning">Store this somewhere safe outside the app — a password manager, a note, written down. If you lose both your password and this key, <strong>your account cannot be recovered.</strong></p>
+
+        <div class="notif-permission-row" id="notif-permission-row" hidden>
+          <p>Want Ploy to notify you here in the future?</p>
+          <button type="button" class="btn btn-ghost btn-sm" id="notif-permission-btn">Enable notifications</button>
+        </div>
+
+        <label class="security-key-confirm-row">
+          <input type="checkbox" id="security-key-confirm-checkbox">
+          I've saved my security key somewhere safe
+        </label>
+        <button type="button" class="btn btn-gold btn-block" id="security-key-continue-btn" disabled>Continue</button>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/security-key-reveal.js') }}?v={{ asset_version }}"></script>
+{% endblock %}

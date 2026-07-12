@@ -18,22 +18,29 @@ At least 8 characters, with at least one uppercase letter, one
 lowercase letter, one number, and one special (non-alphanumeric)
 character.
 
-PASSWORD RESET / ENUMERATION RESISTANCE:
-request_password_reset_code() always behaves identically whether or not
-the email has an account -- it only ever generates+emails a 6-digit
-code when one does, but the caller never learns which case it was. The
-code expires after RESET_CODE_LIFETIME_MINUTES, is rate-limited to
-MAX_RESET_CODE_ATTEMPTS guesses, and is stored as a salted hash (never
-the raw code) so a leaked database can't be used to forge a reset.
+SECURITY KEY / ACCOUNT RECOVERY:
+Every account gets one 25-character security key at signup, shown to
+the user exactly once (right after signup, and again after any
+regenerate/consume) -- like a crypto wallet's seed phrase, it is never
+stored in a form the app could show them again. Only its salted hash
+is kept (generate_password_hash, same primitive as the password
+itself), so a leaked database can't be used to forge one. Forgetting
+it while also forgetting the password means the account is
+unrecoverable by design -- that tradeoff is the whole point of it being
+a real bearer secret instead of a "security question" someone could
+guess from a Facebook profile.
+
+The key is single-use as a recovery credential: every time it
+successfully authenticates a password reset (whether through "forgot
+password" or as the current_password_or_key proof in an in-app password
+change), a fresh key is generated and the old one is invalidated in the
+same step, and the new one is surfaced to the caller to show once. This
+stops a leaked-but-unused-yet key from being replayed after its first
+use.
 """
 
-import hashlib
-import os
 import re
 import secrets
-import smtplib
-from datetime import datetime, timedelta, timezone
-from email.message import EmailMessage
 from functools import wraps
 from flask import session, redirect, url_for, flash, g
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -45,8 +52,12 @@ USERNAME_PATTERN = re.compile(r"^[A-Za-z0-9_.\-]{3,32}$")
 PASSWORD_MIN_LENGTH = 8
 _SPECIAL_CHAR = re.compile(r"[^A-Za-z0-9]")
 
-RESET_CODE_LIFETIME_MINUTES = 10
-MAX_RESET_CODE_ATTEMPTS = 5
+# Excludes visually-ambiguous characters (0/O, 1/I/L) since this gets
+# hand-copied and possibly hand-retyped -- every remaining character is
+# unambiguous at a glance in most fonts.
+_SECURITY_KEY_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
+SECURITY_KEY_LENGTH = 25
+SECURITY_KEY_GROUP_SIZE = 5
 
 
 class AuthError(Exception):
@@ -101,12 +112,30 @@ def _generate_username_from_email(email: str) -> str:
     return candidate
 
 
+def generate_security_key() -> str:
+    """A 25-character recovery secret, grouped for readability (e.g.
+    "9ZAB3-89K56-89XYZ-Q2R7T-M4N6P"). Generated with `secrets`, the
+    same CSPRNG used for the reset codes this replaced."""
+    raw = "".join(secrets.choice(_SECURITY_KEY_ALPHABET) for _ in range(SECURITY_KEY_LENGTH))
+    groups = [raw[i:i + SECURITY_KEY_GROUP_SIZE] for i in range(0, len(raw), SECURITY_KEY_GROUP_SIZE)]
+    return "-".join(groups)
+
+
+def _normalize_security_key(security_key: str) -> str:
+    """Case/dash-insensitive so a hand-retyped key still matches --
+    only the alphabet's characters carry entropy, the dashes are pure
+    formatting."""
+    return re.sub(r"[^A-Za-z0-9]", "", (security_key or "")).upper()
+
+
 def signup(full_name, email, password, confirm_password):
     """
     Creates a new account with a name, email, and password -- nothing
     else. Raises AuthError with a user-facing message on any problem
     (duplicate email, weak password, mismatch, etc). On success, logs
-    the new user in immediately and returns their id.
+    the new user in immediately and returns (user_id, security_key) --
+    the plaintext key is returned ONLY here, for the caller to show the
+    user once; it is never retrievable again after this call returns.
     """
     full_name = validate_full_name(full_name)
     email = validate_email(email)
@@ -120,8 +149,10 @@ def signup(full_name, email, password, confirm_password):
     username = _generate_username_from_email(email)
     password_hash = generate_password_hash(password)
     user_id = db.create_user(username, password_hash, "", "", full_name, email=email)
+    security_key = generate_security_key()
+    db.set_security_key_hash(user_id, generate_password_hash(_normalize_security_key(security_key)))
     log_in_user(user_id)
-    return user_id
+    return user_id, security_key
 
 
 def login(email, password):
@@ -139,110 +170,73 @@ def login(email, password):
     return user["id"]
 
 
-def _hash_code(code: str) -> str:
-    return hashlib.sha256(code.encode("utf-8")).hexdigest()
-
-
-def _send_reset_code_email(email: str, code: str):
+def reset_password_with_security_key(email: str, security_key: str, new_password: str, confirm_password: str) -> str:
     """
-    Sends the 6-digit reset code over SMTP if SMTP_HOST/SMTP_USERNAME/
-    SMTP_PASSWORD/SMTP_FROM_EMAIL are configured (see .env.example).
-    Without them, this just logs the code server-side instead of
-    raising -- request_password_reset_code()'s caller-facing behavior
-    must stay identical whether or not an account exists, so a missing
-    mail provider can never surface as an error to the user.
+    Proves identity with the account's security key instead of a
+    password, then sets the new password. Returns the freshly
+    generated replacement security key (the one just used is
+    invalidated in the same step) -- the caller must show this to the
+    user once, the same as at signup.
     """
-    host = os.environ.get("SMTP_HOST")
-    from_email = os.environ.get("SMTP_FROM_EMAIL")
-    if not host or not from_email:
-        print(f"[auth] SMTP not configured -- password reset code for {email}: {code}")
-        return
-
-    msg = EmailMessage()
-    msg["Subject"] = "Your Ploy password reset code"
-    msg["From"] = from_email
-    msg["To"] = email
-    msg.set_content(
-        "Someone requested a password reset for your Ploy account.\n\n"
-        f"Your code is: {code}\n\n"
-        f"It expires in {RESET_CODE_LIFETIME_MINUTES} minutes. "
-        "If you didn't request this, you can safely ignore this email."
-    )
-
-    port = int(os.environ.get("SMTP_PORT", "587"))
-    username = os.environ.get("SMTP_USERNAME", from_email)
-    password = os.environ.get("SMTP_PASSWORD", "")
-    try:
-        with smtplib.SMTP(host, port, timeout=10) as smtp:
-            smtp.starttls()
-            smtp.login(username, password)
-            smtp.send_message(msg)
-    except Exception as e:
-        print(f"[auth] Failed to send password reset code to {email}: {e}")
-
-
-def request_password_reset_code(email: str):
-    """
-    Always behaves identically whether or not `email` has an account --
-    the caller must never branch on the return value or its absence.
-    """
+    generic_error = "That email and security key don't match, or don't belong to an account."
     email = (email or "").strip().lower()
     user = db.get_user_by_email(email)
-    if not user:
-        return
-
-    code = f"{secrets.randbelow(1000000):06d}"
-    expires_at = (datetime.now(timezone.utc) + timedelta(minutes=RESET_CODE_LIFETIME_MINUTES)).isoformat()
-    db.set_pending_code(user["id"], _hash_code(code), "password_reset", expires_at)
-    _send_reset_code_email(email, code)
-
-
-def verify_and_consume_reset_code(email: str, code: str, new_password: str, confirm_password: str):
-    """
-    Verifies a 6-digit reset code for `email` and, if valid, sets the
-    new password in the same step -- the code is single-purpose (only
-    ever checked here, right before consuming it), so there's no
-    separate "verify" step that would leave a validated-but-unused code
-    lying around.
-    """
-    generic_error = "That code is incorrect or has expired."
-    email = (email or "").strip().lower()
-    user = db.get_user_by_email(email)
-    if not user or user.get("pending_code_purpose") != "password_reset" or not user.get("pending_code"):
+    if not user or not user.get("security_key_hash"):
         raise AuthError(generic_error)
-    if (user.get("pending_code_attempts") or 0) >= MAX_RESET_CODE_ATTEMPTS:
-        raise AuthError("Too many incorrect attempts. Request a new code.")
-
-    expires_at = user.get("pending_code_expires_at") or ""
-    try:
-        expired = not expires_at or datetime.fromisoformat(expires_at) < datetime.now(timezone.utc)
-    except ValueError:
-        expired = True
-    if expired:
-        raise AuthError(generic_error)
-
-    if _hash_code((code or "").strip()) != user["pending_code"]:
-        db.increment_pending_code_attempts(user["id"])
+    if not check_password_hash(user["security_key_hash"], _normalize_security_key(security_key)):
         raise AuthError(generic_error)
 
     validate_password(new_password)
     if new_password != confirm_password:
         raise AuthError("Passwords do not match.")
+
     db.update_password(user["id"], generate_password_hash(new_password))
-    db.clear_pending_code(user["id"])
+    new_key = generate_security_key()
+    db.set_security_key_hash(user["id"], generate_password_hash(_normalize_security_key(new_key)))
+    log_in_user(user["id"])
+    return new_key
 
 
-def change_password(user_id, current_password, new_password, confirm_password):
-    """Password change from the Profile page -- requires the current
-    password (unlike the email-reset flow, which proves identity via a
-    token instead)."""
+def regenerate_security_key(user_id) -> str:
+    """Issues a brand new security key, invalidating the old one
+    immediately. Used from Profile's "Regenerate" action."""
+    new_key = generate_security_key()
+    db.set_security_key_hash(user_id, generate_password_hash(_normalize_security_key(new_key)))
+    return new_key
+
+
+def change_password(user_id, current_password_or_key, new_password, confirm_password):
+    """
+    Password change from the Profile page -- accepts EITHER the
+    current password OR the security key as proof (the key is a valid
+    "current password" precisely because it's the account's ultimate
+    recovery credential). If the key was the one used, it's rotated in
+    the same step and the new one is returned for the caller to show
+    once; returns None when the ordinary password was used instead, since
+    nothing about the key changed.
+    """
     user = db.get_user_by_id(user_id)
-    if not user or not check_password_hash(user["password_hash"], current_password or ""):
+    if not user:
         raise AuthError("Current password is incorrect.")
+
+    proof = current_password_or_key or ""
+    if check_password_hash(user["password_hash"], proof):
+        used_key = False
+    elif user.get("security_key_hash") and check_password_hash(user["security_key_hash"], _normalize_security_key(proof)):
+        used_key = True
+    else:
+        raise AuthError("Current password or security key is incorrect.")
+
     validate_password(new_password)
     if new_password != confirm_password:
         raise AuthError("New passwords do not match.")
     db.update_password(user_id, generate_password_hash(new_password))
+
+    if not used_key:
+        return None
+    new_key = generate_security_key()
+    db.set_security_key_hash(user_id, generate_password_hash(_normalize_security_key(new_key)))
+    return new_key
 
 
 def log_in_user(user_id):

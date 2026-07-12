@@ -44,10 +44,50 @@
     messagesEl.scrollTop = messagesEl.scrollHeight;
   }
 
+  var emptyHeadlineEl = document.getElementById("chat-empty-headline");
+  var emptySubtextEl = document.getElementById("chat-empty-subtext");
+  var firstName = ((window.HOME_STATE && window.HOME_STATE.profile.full_name) || "").trim().split(/\s+/)[0] || "";
+
+  // A mix of name-personalized and plain openers -- picked fresh every
+  // time a new chat starts, so the empty state reads like a person
+  // asking "what are we doing today" instead of a static slogan. Named
+  // ones are a minority by design (repeating someone's name every
+  // single chat gets old fast).
+  var EMPTY_HEADLINES = [
+    ["What are we working on?", "Paste a job ad, or pick a move below."],
+    ["Hey" + (firstName ? " " + firstName : "") + ", what's the move?", "A job ad, a CV tweak, whatever's next."],
+    ["Did you apply anywhere new?", "Tell me about it, or paste the job ad."],
+    ["What can we sort out today?", "Paste a job ad, or pick a move below."],
+    ["Where do we start?", "Paste a job ad, or ask me anything."],
+    ["Got a job in mind?", "Paste the ad and I'll check your fit."],
+    [(firstName ? firstName + ", " : "") + "what's on your mind?", "Job hunting, CV, cover letter — just say it."],
+    ["Let's get into it.", "Paste a job ad, or pick a move below."],
+    ["What's next on the list?", "A job to check, a CV to fix, up to you."],
+    ["Any new leads?", "Paste the job ad and I'll take a look."],
+    ["What do you want to tackle?", "Paste a job ad, or ask me anything."],
+    ["Ready when you are" + (firstName ? ", " + firstName : "") + ".", "Paste a job ad, or pick a move below."],
+    ["Something new to look at?", "Paste a job ad, or pick a move below."],
+    ["What's the plan today?", "A job ad, a CV question, anything."],
+    ["Talk to me.", "Paste a job ad, or pick a move below."],
+    ["Anything to report back on?", "Applications, interviews, whatever's up."],
+    ["What are we chasing today?", "Paste a job ad, or pick a move below."],
+    ["Back at it" + (firstName ? ", " + firstName : "") + "?", "Paste a job ad, or pick a move below."],
+    ["What can I help with?", "Paste a job ad, or ask me anything."],
+    ["Found something worth checking?", "Paste the job ad and I'll score your fit."],
+  ];
+
+  function rollEmptyStateCopy() {
+    if (!emptyHeadlineEl) return;
+    var pick = EMPTY_HEADLINES[Math.floor(Math.random() * EMPTY_HEADLINES.length)];
+    emptyHeadlineEl.textContent = pick[0];
+    emptySubtextEl.textContent = pick[1];
+  }
+
   function showEmptyState(show) {
     emptyEl.hidden = !show;
     messagesEl.hidden = show;
     chatChipsEl.hidden = !show;
+    if (show) rollEmptyStateCopy();
   }
 
   function appendChatMessage(role, text) {
@@ -334,69 +374,17 @@
     }).catch(function () {});
   }
 
-  // ---------- Pending attachments (staged before the next send) ----------
-
-  var pendingAttachmentsEl = document.getElementById("pending-attachments");
-  var pendingAttachments = []; // { id, name, is_image }
-
-  function renderPendingAttachments() {
-    pendingAttachmentsEl.innerHTML = "";
-    pendingAttachmentsEl.hidden = pendingAttachments.length === 0;
-    pendingAttachments.forEach(function (att) {
-      var chip = document.createElement("span");
-      chip.className = "attachment-chip";
-      chip.innerHTML =
-        '<span class="attachment-chip-name"></span>' +
-        '<button type="button" class="attachment-chip-remove" aria-label="Remove">' +
-        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>';
-      chip.querySelector(".attachment-chip-name").textContent = att.name;
-      chip.querySelector(".attachment-chip-remove").addEventListener("click", function () {
-        pendingAttachments = pendingAttachments.filter(function (a) { return a.id !== att.id; });
-        renderPendingAttachments();
-      });
-      pendingAttachmentsEl.appendChild(chip);
-    });
-  }
-
-  function uploadFile(file) {
-    if (!file) return;
-    var formData = new FormData();
-    formData.append("file", file);
-    fetch("/api/chat/upload", { method: "POST", body: formData })
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        if (data.ok) {
-          pendingAttachments.push({ id: data.id, name: data.name, is_image: data.is_image });
-          renderPendingAttachments();
-        }
-      });
-  }
-
-  ["attach-camera-input", "attach-photos-input", "attach-files-input"].forEach(function (id) {
-    document.getElementById(id).addEventListener("change", function (e) {
-      if (e.target.files && e.target.files[0]) uploadFile(e.target.files[0]);
-      e.target.value = "";
-    });
-  });
-
   // ---------- Send ----------
 
   function sendChatMessage(overrideText) {
     var text = (overrideText != null ? overrideText : chatInput.value).trim();
-    if ((!text && pendingAttachments.length === 0) || chatSending) return;
-    var attachmentIds = pendingAttachments.map(function (a) { return a.id; });
-    var displayText = text;
-    if (pendingAttachments.length) {
-      displayText += pendingAttachments.map(function (a) { return " [Attached: " + a.name + "]"; }).join("");
-    }
+    if (!text || chatSending) return;
     chatInput.value = "";
     autoGrowChatInput();
-    pendingAttachments = [];
-    renderPendingAttachments();
     showEmptyState(false);
     clearQuickReplies();
-    appendChatMessage("user", displayText);
-    chatHistory.push({ role: "user", text: displayText, attachment_ids: attachmentIds });
+    appendChatMessage("user", text);
+    chatHistory.push({ role: "user", text: text });
 
     var typingEl = document.createElement("div");
     typingEl.className = "chat-msg-typing";
@@ -451,7 +439,7 @@
     }
   });
 
-  // Grows the textarea from 1 up to 3 lines as the user types (capped
+  // Grows the textarea from 1 up to 10 lines as the user types (capped
   // by max-height in CSS, which also takes over with an internal
   // scrollbar beyond that) instead of staying pinned to one line.
   function autoGrowChatInput() {
@@ -518,18 +506,44 @@
     if (e.target === attachSheetOverlay) closeAttachSheet();
   });
 
-  document.getElementById("attach-camera-btn").addEventListener("click", function () {
-    document.getElementById("attach-camera-input").click();
+  // ---------- Upload a document straight from chat ----------
+  // Reuses the same Vercel-safe endpoint as Profile's "Add document"
+  // (content is extracted and stored in the database, not relied on
+  // staying on disk) -- unlike the old chat-attachment upload this
+  // replaces, which wrote to a path that doesn't survive between
+  // serverless invocations in production.
+
+  var attachUploadBtn = document.getElementById("attach-upload-btn");
+  var attachUploadInput = document.getElementById("attach-upload-input");
+  var attachUploadStatus = document.getElementById("attach-upload-status");
+  var attachUploadStatusDefault = attachUploadStatus.textContent;
+
+  attachUploadBtn.addEventListener("click", function () {
+    attachUploadInput.click();
   });
-  document.getElementById("attach-photos-btn").addEventListener("click", function () {
-    document.getElementById("attach-photos-input").click();
+
+  attachUploadInput.addEventListener("change", function () {
+    var file = attachUploadInput.files[0];
+    attachUploadInput.value = "";
+    if (!file) return;
+    var formData = new FormData();
+    formData.append("documents", file);
+    formData.append("category", "cv");
+    attachUploadStatus.textContent = "Uploading…";
+    fetch("/api/onboarding/upload", { method: "POST", body: formData })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        attachUploadStatus.textContent = data.ok
+          ? "Uploaded — Ploy can use this now."
+          : (data.error || "Couldn't upload that file.");
+      })
+      .catch(function () {
+        attachUploadStatus.textContent = "Connection error — please try again.";
+      })
+      .finally(function () {
+        setTimeout(function () { attachUploadStatus.textContent = attachUploadStatusDefault; }, 3000);
+      });
   });
-  document.getElementById("attach-files-btn").addEventListener("click", function () {
-    document.getElementById("attach-files-input").click();
-  });
-  document.getElementById("attach-camera-btn").addEventListener("click", closeAttachSheet);
-  document.getElementById("attach-photos-btn").addEventListener("click", closeAttachSheet);
-  document.getElementById("attach-files-btn").addEventListener("click", closeAttachSheet);
 
   // ---------- "Use my documents" toggle ----------
   // Off by default and never sent to the server at all unless it's
@@ -798,6 +812,7 @@
       var combined = (finalTranscript + (interim ? " " + interim : "")).trim();
       chatDictationPreview.hidden = false;
       chatDictationPreview.textContent = combined || "Listening…";
+      chatDictationPreview.scrollTop = chatDictationPreview.scrollHeight;
     }
 
     function commitTranscript() {
@@ -879,14 +894,26 @@
 
   // ---------- Initial load ----------
 
-  fetch("/api/chat/conversations")
-    .then(function (r) { return r.json(); })
-    .then(function (data) {
-      if (data.ok && data.conversations.length) {
-        loadConversation(data.conversations[0].id);
-      } else {
-        showEmptyState(true);
-      }
-    })
-    .catch(function () { showEmptyState(true); });
+  // sessionStorage survives normal in-app navigation (e.g. Profile ->
+  // back) but is cleared when the tab/PWA is actually closed and
+  // reopened -- so a true fresh open always lands on a new chat,
+  // while clicking around within the same open session still resumes
+  // where you left off.
+  var isFreshAppOpen = !sessionStorage.getItem("ploy_session_active");
+  sessionStorage.setItem("ploy_session_active", "1");
+
+  if (isFreshAppOpen) {
+    showEmptyState(true);
+  } else {
+    fetch("/api/chat/conversations")
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.ok && data.conversations.length) {
+          loadConversation(data.conversations[0].id);
+        } else {
+          showEmptyState(true);
+        }
+      })
+      .catch(function () { showEmptyState(true); });
+  }
 })();
