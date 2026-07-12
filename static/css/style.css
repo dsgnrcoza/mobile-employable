@@ -533,7 +533,7 @@ button.auth-tab.active {
   align-items: center;
   justify-content: center;
   padding: 15px 24px;
-  border-radius: 999px;
+  border-radius: 16px;
   font-size: 15px;
   font-weight: 600;
   text-decoration: none;
@@ -573,6 +573,10 @@ button.auth-tab.active {
 .btn-sm {
   padding: 9px 16px;
   font-size: 13px;
+  /* A smaller button needs a smaller radius too, or 16px (proportional
+     to .btn's full height) reads as a near-full pill again once the
+     button itself is this short. */
+  border-radius: 12px;
 }
 
 .btn:disabled {
@@ -1414,7 +1418,7 @@ button.auth-tab.active {
   color: var(--fg);
   font-size: 12px;
   font-weight: 600;
-  border-radius: 999px;
+  border-radius: 12px;
   padding: 6px 14px;
   cursor: pointer;
   font-family: inherit;
@@ -2536,7 +2540,7 @@ button.auth-tab.active {
   border: 1px solid var(--accent);
   background: transparent;
   color: var(--accent);
-  border-radius: 999px;
+  border-radius: 12px;
   padding: 7px 14px;
   font-size: 13px;
   font-weight: 600;
@@ -2911,7 +2915,7 @@ button.auth-tab.active {
   align-items: center;
   gap: 6px;
   padding: 10px 18px;
-  border-radius: 999px;
+  border-radius: 14px;
   background: var(--fg);
   color: var(--bg);
   border: none;
@@ -4121,6 +4125,15 @@ button.auth-tab.active {
   height: 21px;
 }
 
+.chat-icon-btn-lg svg {
+  width: 26px;
+  height: 26px;
+}
+
+.chat-topbar-spacer {
+  flex: 1;
+}
+
 .chat-avatar-btn {
   width: 30px;
   height: 30px;
@@ -4262,14 +4275,32 @@ button.auth-tab.active {
   padding: 8px 12px max(12px, env(safe-area-inset-bottom));
 }
 
-.chat-input-bar {
+/* Two-half input: a growing text area up top, the button row pinned
+   below it -- both inside one rounded shell, rather than everything
+   crammed into a single row that never had room to show more than one
+   line at a time. */
+.chat-input-shell {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+.chat-input-top {
+  padding: 10px 14px 2px;
+}
+
+.chat-input-bottom {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 26px;
-  padding: 6px 8px 6px 6px;
+  padding: 4px 8px 8px;
+}
+
+.chat-input-bottom-spacer {
+  flex: 1;
 }
 
 .chat-plus-btn,
@@ -4317,6 +4348,10 @@ button.auth-tab.active {
   display: none;
 }
 
+.chat-mic-stop-icon[hidden] {
+  display: none;
+}
+
 .chat-plus-btn:active,
 .chat-mic-btn:active,
 .chat-send-btn:active {
@@ -4331,19 +4366,121 @@ button.auth-tab.active {
 }
 
 .chat-input {
-  flex: 1;
+  display: block;
+  width: 100%;
   min-width: 0;
   background: transparent;
   border: none;
   outline: none;
+  resize: none;
   color: var(--fg);
   font-size: 15px;
   font-family: inherit;
-  padding: 8px 4px;
+  line-height: 1.4;
+  padding: 6px 4px;
+  /* Caps at 3 lines (line-height 1.4 * 15px * 3 + padding) -- home.js
+     grows this element's height on input up to that point, then lets
+     it scroll internally instead of growing further. */
+  max-height: calc(1.4em * 3 + 12px);
+  overflow-y: auto;
 }
 
 .chat-input::placeholder {
   color: var(--muted);
+}
+
+.chat-input[hidden] {
+  display: none;
+}
+
+/* ---------- Live voice dictation ---------- */
+
+.chat-dictation-preview {
+  padding: 0 16px 8px;
+  font-size: 14px;
+  font-style: italic;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.chat-dictation-preview[hidden] {
+  display: none;
+}
+
+.chat-voice-live {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+}
+
+.chat-voice-live[hidden] {
+  display: none;
+}
+
+.chat-voice-cancel-btn,
+.chat-voice-confirm-btn {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.chat-voice-cancel-btn {
+  background: var(--surface);
+  color: var(--muted);
+}
+
+.chat-voice-confirm-btn {
+  background: var(--accent-gradient);
+  color: var(--accent-ink);
+}
+
+.chat-voice-cancel-btn svg,
+.chat-voice-confirm-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.chat-voice-waveform {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  height: 28px;
+}
+
+.chat-voice-waveform span {
+  flex: 1;
+  max-width: 4px;
+  background: var(--fg);
+  border-radius: 2px;
+  height: 30%;
+  animation: voice-wave 1.1s ease-in-out infinite;
+}
+
+.chat-voice-waveform span:nth-child(odd) { animation-duration: 0.9s; }
+.chat-voice-waveform span:nth-child(3n) { animation-delay: -0.6s; }
+.chat-voice-waveform span:nth-child(3n+1) { animation-delay: -0.3s; }
+.chat-voice-waveform span:nth-child(3n+2) { animation-delay: -0.9s; }
+
+@keyframes voice-wave {
+  0%, 100% { height: 20%; }
+  50% { height: 90%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-voice-waveform span {
+    animation: none;
+    height: 55%;
+  }
 }
 
 /* ---------- Sidebar (chat history, slides in from the left) ---------- */
@@ -4473,6 +4610,13 @@ button.auth-tab.active {
   flex-shrink: 0;
   padding-top: 12px;
   border-top: 1px solid var(--line);
+}
+
+.sidebar-footer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
 }
 
 .sidebar-link {
@@ -5000,7 +5144,7 @@ button.auth-tab.active {
   color: var(--muted);
   background: var(--card-bg);
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: 12px;
   padding: 7px 14px;
   cursor: pointer;
   font-family: inherit;
@@ -5381,7 +5525,7 @@ button.auth-tab.active {
   gap: 6px;
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: 10px;
   padding: 5px 8px 5px 10px;
   font-size: 12px;
   color: var(--fg);

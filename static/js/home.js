@@ -398,6 +398,7 @@
       displayText += pendingAttachments.map(function (a) { return " [Attached: " + a.name + "]"; }).join("");
     }
     chatInput.value = "";
+    autoGrowChatInput();
     pendingAttachments = [];
     renderPendingAttachments();
     showEmptyState(false);
@@ -461,8 +462,22 @@
 
   chatSendBtn.addEventListener("click", function () { sendChatMessage(); });
   chatInput.addEventListener("keydown", function (e) {
-    if (e.key === "Enter") sendChatMessage();
+    // Shift+Enter inserts a real newline (now that this is a textarea,
+    // not a single-line input) -- only a plain Enter sends.
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendChatMessage();
+    }
   });
+
+  // Grows the textarea from 1 up to 3 lines as the user types (capped
+  // by max-height in CSS, which also takes over with an internal
+  // scrollbar beyond that) instead of staying pinned to one line.
+  function autoGrowChatInput() {
+    chatInput.style.height = "auto";
+    chatInput.style.height = chatInput.scrollHeight + "px";
+  }
+  chatInput.addEventListener("input", autoGrowChatInput);
 
   // ---------- The 3 numbered chips ----------
 
@@ -607,8 +622,11 @@
     messagesEl.innerHTML = "";
     showEmptyState(true);
     chatInput.value = "";
+    autoGrowChatInput();
     chatInput.focus();
   }
+
+  document.getElementById("chat-new-btn").addEventListener("click", startNewChat);
 
   // ---------- Sidebar (chat history) ----------
 
@@ -702,7 +720,7 @@
     closeSidebar();
   });
 
-  // A swipe starting from the left third of the screen opens the
+  // A swipe starting from the left 40% of the screen opens the
   // sidebar, matching the native "edge swipe" pattern most drawer UIs
   // support. Listens on the document itself (not a dedicated overlay
   // element) so it never intercepts taps on real UI -- only the
@@ -713,7 +731,7 @@
   document.addEventListener("touchstart", function (e) {
     if (sidebar.classList.contains("is-open")) return;
     var t = e.touches[0];
-    if (t.clientX > window.innerWidth / 3) return;
+    if (t.clientX > window.innerWidth * 0.4) return;
     swipeStartX = t.clientX;
     swipeStartY = t.clientY;
   }, { passive: true });
@@ -737,26 +755,39 @@
   });
 
   // ---------- Voice dictation ----------
-  // Transcribes speech straight into the text field -- the mic button
-  // just hides itself on browsers that don't support it rather than
-  // showing a control that would only ever fail.
+  // The mic button just hides itself on browsers that don't support
+  // speech recognition at all, rather than showing a control that
+  // would only ever fail.
 
   var chatMicBtn = document.getElementById("chat-mic-btn");
+  var micIcon = chatMicBtn.querySelector(".chat-mic-icon");
+  var micStopIcon = chatMicBtn.querySelector(".chat-mic-stop-icon");
+  var chatVoiceLive = document.getElementById("chat-voice-live");
+  var chatVoiceCancelBtn = document.getElementById("chat-voice-cancel-btn");
+  var chatVoiceConfirmBtn = document.getElementById("chat-voice-confirm-btn");
+  var chatDictationPreview = document.getElementById("chat-dictation-preview");
   var SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
 
   if (!SpeechRecognitionCtor) {
     chatMicBtn.hidden = true;
   } else {
     var recognition = new SpeechRecognitionCtor();
-    // continuous=true is what actually matters here -- with the default
-    // (false), Chrome auto-stops after roughly a second of silence no
-    // matter what. continuous mode keeps the session open indefinitely
-    // instead, so the 10s cutoff below is entirely our own timer, not
-    // the browser's much shorter built-in one.
-    recognition.continuous = true;
+    // continuous=false, with this file restarting it on every "end"
+    // (below) unless the user asked to stop, instead of continuous=true.
+    // Android Chrome's continuous mode is known to both auto-stop after
+    // a second or two of silence anyway AND duplicate the same
+    // utterance across many silent internal restarts. Restarting a
+    // fresh short session ourselves sidesteps both bugs: each session's
+    // results are simple and clean, and the restart is invisible to the
+    // user, who just experiences one continuous listening session.
+    recognition.continuous = false;
     recognition.interimResults = true;
     recognition.lang = "en-US";
+
     var listening = false;
+    var shouldRestart = false;
+    var cancelled = false;
+    var finalTranscript = "";
     var baseText = "";
     var silenceTimer = null;
     var SILENCE_TIMEOUT_MS = 10000;
@@ -764,45 +795,105 @@
     function setListening(on) {
       listening = on;
       chatMicBtn.classList.toggle("is-listening", on);
+      micIcon.hidden = on;
+      micStopIcon.hidden = !on;
+      chatVoiceLive.hidden = !on;
+      chatInput.hidden = on;
+      if (!on) {
+        chatDictationPreview.hidden = true;
+        chatDictationPreview.textContent = "";
+      }
     }
 
     function resetSilenceTimer() {
       clearTimeout(silenceTimer);
-      silenceTimer = setTimeout(function () { recognition.stop(); }, SILENCE_TIMEOUT_MS);
+      // A safety net, not the primary way this ends -- the user can
+      // dictate for as long as they keep talking (or pause briefly
+      // between sentences); this only fires after real silence.
+      silenceTimer = setTimeout(function () { stopListening(); }, SILENCE_TIMEOUT_MS);
+    }
+
+    function updatePreview(interim) {
+      var combined = (finalTranscript + (interim ? " " + interim : "")).trim();
+      chatDictationPreview.hidden = false;
+      chatDictationPreview.textContent = combined || "Listening…";
+    }
+
+    function commitTranscript() {
+      var combined = ((baseText ? baseText + " " : "") + finalTranscript).trim();
+      chatInput.value = combined;
+      autoGrowChatInput();
     }
 
     recognition.addEventListener("result", function (e) {
-      var transcript = "";
-      for (var i = 0; i < e.results.length; i++) {
-        transcript += e.results[i][0].transcript;
+      var interim = "";
+      for (var i = e.resultIndex; i < e.results.length; i++) {
+        var res = e.results[i];
+        if (res.isFinal) {
+          finalTranscript = (finalTranscript + " " + res[0].transcript).trim();
+        } else {
+          interim += res[0].transcript;
+        }
       }
-      chatInput.value = (baseText ? baseText + " " : "") + transcript;
+      updatePreview(interim);
       resetSilenceTimer();
     });
 
     recognition.addEventListener("end", function () {
-      setListening(false);
+      if (shouldRestart) {
+        try { recognition.start(); return; } catch (e) { /* fall through to a full stop below */ }
+      }
       clearTimeout(silenceTimer);
-    });
-    recognition.addEventListener("error", function () {
       setListening(false);
-      clearTimeout(silenceTimer);
+      if (!cancelled) commitTranscript();
+      cancelled = false;
     });
+
+    recognition.addEventListener("error", function (e) {
+      // "no-speech" fires constantly between the short restarted
+      // sessions above (there's simply been no speech since the last
+      // one ended) -- expected, not a real failure, so the restart
+      // loop keeps going. Anything else really did fail; stop trying.
+      if (e.error !== "no-speech" && e.error !== "aborted") {
+        shouldRestart = false;
+      }
+    });
+
+    function stopListening() {
+      shouldRestart = false;
+      clearTimeout(silenceTimer);
+      try { recognition.stop(); } catch (e) {}
+    }
+
+    function cancelListening() {
+      shouldRestart = false;
+      cancelled = true;
+      finalTranscript = "";
+      clearTimeout(silenceTimer);
+      try { recognition.stop(); } catch (e) {}
+    }
 
     chatMicBtn.addEventListener("click", function () {
       if (listening) {
-        recognition.stop();
+        stopListening();
         return;
       }
       baseText = chatInput.value.trim();
+      finalTranscript = "";
+      shouldRestart = true;
       try {
         recognition.start();
         setListening(true);
         resetSilenceTimer();
+        updatePreview("");
       } catch (e) {
+        shouldRestart = false;
         setListening(false);
       }
     });
+
+    chatVoiceConfirmBtn.addEventListener("click", stopListening);
+    chatVoiceCancelBtn.addEventListener("click", cancelListening);
   }
 
   // ---------- Initial load ----------

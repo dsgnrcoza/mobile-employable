@@ -3,8 +3,12 @@
 {% block content %}
 <div class="chat-shell">
   <header class="chat-topbar">
-    <button type="button" class="chat-icon-btn" id="sidebar-open-btn" aria-label="Menu">
+    <button type="button" class="chat-icon-btn chat-icon-btn-lg" id="sidebar-open-btn" aria-label="Menu">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+    </button>
+    <span class="chat-topbar-spacer"></span>
+    <button type="button" class="chat-icon-btn" id="chat-new-btn" aria-label="New chat">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
     </button>
   </header>
 
@@ -37,17 +41,37 @@
 
   <div class="chat-input-wrap">
     <div class="pending-attachments" id="pending-attachments" hidden></div>
-    <div class="chat-input-bar">
-      <button type="button" class="chat-plus-btn" id="chat-attach-btn" aria-label="Add">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      </button>
-      <input type="text" id="chat-input" class="chat-input" placeholder="Paste a job ad or ask anything…" autocomplete="off">
-      <button type="button" class="chat-mic-btn" id="chat-mic-btn" aria-label="Voice dictation">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="17" x2="12" y2="21"/><line x1="8" y1="21" x2="16" y2="21"/></svg>
-      </button>
-      <button type="button" class="chat-send-btn" id="chat-send-btn" aria-label="Send">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="6 11 12 5 18 11"/></svg>
-      </button>
+
+    <div class="chat-dictation-preview" id="chat-dictation-preview" hidden></div>
+
+    <div class="chat-input-shell">
+      <div class="chat-input-top">
+        <textarea id="chat-input" class="chat-input" placeholder="Paste a job ad or ask anything…" rows="1"></textarea>
+        <div class="chat-voice-live" id="chat-voice-live" hidden>
+          <button type="button" class="chat-voice-cancel-btn" id="chat-voice-cancel-btn" aria-label="Cancel dictation">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+          <div class="chat-voice-waveform" aria-hidden="true">
+            <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+          </div>
+          <button type="button" class="chat-voice-confirm-btn" id="chat-voice-confirm-btn" aria-label="Use this text">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 12 9 17 20 6"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="chat-input-bottom">
+        <button type="button" class="chat-plus-btn" id="chat-attach-btn" aria-label="Add">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
+        <span class="chat-input-bottom-spacer"></span>
+        <button type="button" class="chat-mic-btn" id="chat-mic-btn" aria-label="Voice dictation">
+          <svg class="chat-mic-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="17" x2="12" y2="21"/><line x1="8" y1="21" x2="16" y2="21"/></svg>
+          <svg class="chat-mic-stop-icon" viewBox="0 0 24 24" fill="currentColor" hidden><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+        </button>
+        <button type="button" class="chat-send-btn" id="chat-send-btn" aria-label="Send">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="6 11 12 5 18 11"/></svg>
+        </button>
+      </div>
     </div>
   </div>
 </div>
@@ -106,17 +130,18 @@
 <aside class="sidebar" id="sidebar" hidden>
   <div class="sidebar-header">
     <span class="wordmark">PL<span class="wordmark-o">O</span>Y</span>
-    <button type="button" class="chat-icon-btn" id="sidebar-new-chat-btn" aria-label="New chat">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-    </button>
   </div>
   <div class="sidebar-chats" id="sidebar-chats"></div>
   <div class="sidebar-footer">
-    <a href="{{ url_for('profile_page') }}" class="sidebar-link sidebar-link-profile">
-      <span class="chat-avatar-btn sidebar-profile-avatar" aria-hidden="true">{{ profile.initials }}</span>
-      Profile
-    </a>
-    <a href="{{ url_for('logout_page') }}" class="sidebar-link">Log out</a>
+    <div class="sidebar-footer-row">
+      <a href="{{ url_for('profile_page') }}" class="sidebar-link sidebar-link-profile">
+        <span class="chat-avatar-btn sidebar-profile-avatar" aria-hidden="true">{{ profile.initials }}</span>
+        Profile
+      </a>
+      <button type="button" class="chat-icon-btn" id="sidebar-new-chat-btn" aria-label="New chat">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      </button>
+    </div>
   </div>
 </aside>
 {% endblock %}
