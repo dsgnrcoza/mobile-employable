@@ -27,19 +27,13 @@
   --card-bg: #16191E;
   --panel: #16191E;
   --panel-2: #1C2026;
-  /* A single flat color can't render the abstract pink/purple/turquoise
-     wash the brand wants, so --accent is now a fallback/solid value for
-     contexts that technically can't take a gradient (outline, thin 1px
-     borders) -- --accent-gradient is the real accent everywhere else
-     (button fills, the wordmark's "O", avatar, badges). Layering
-     several off-center radial blobs over a linear base reads as an
-     organic wash rather than a straight banded gradient. */
-  --accent: #C13FD6;
-  --accent-gradient:
-    radial-gradient(at 12% 18%, #FF4FCB 0%, transparent 55%),
-    radial-gradient(at 88% 12%, #8B5CF6 0%, transparent 58%),
-    radial-gradient(at 45% 95%, #2FE6D9 0%, transparent 60%),
-    linear-gradient(135deg, #FF4FCB 0%, #B24FE0 45%, #35D8CE 100%);
+  --accent: #4067F0;
+  /* Back to the flat blue -- --accent-gradient is kept as an alias
+     (rather than reverting every rule that references it) so the
+     button/wordmark/avatar/badge rules that use it for backgrounds and
+     background-clip:text stay solid blue instead of needing to be
+     touched individually. */
+  --accent-gradient: var(--accent);
   --accent-ink: #EDEDE8;
   --good: #4CC38A;
   --mid: #E4B33C;
@@ -290,7 +284,7 @@ button.auth-tab.active {
   flex-shrink: 0;
   padding: 24px 24px 20px;
   text-align: left;
-  background: #2A2E35;
+  background: #0a0a0a;
 }
 
 .auth-wordmark {
