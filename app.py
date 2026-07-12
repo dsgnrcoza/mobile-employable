@@ -291,58 +291,53 @@ def logout_page():
     return redirect(url_for("login_page"))
 
 
-@app.route("/forgot-password", methods=["GET", "POST"])
+@app.route("/forgot-password")
 def forgot_password_page():
     """
-    Sends a reset link by email. Always shows the same "check your
-    email" confirmation regardless of whether the address has an
-    account -- auth.request_password_reset() only ever emails a real
-    token when one does, so the response can't be used to enumerate
-    which emails are registered here.
+    A two-step page (email -> 6-digit code + new password), driven
+    entirely by static/js/forgot-password.js via the two JSON endpoints
+    below -- no server-rendered POST branch needed here.
     """
     if auth.current_user():
         return redirect(url_for("dashboard"))
-
-    if request.method == "POST":
-        email = request.form.get("email", "")
-        try:
-            auth.validate_email(email)
-        except auth.AuthError as e:
-            flash(str(e), "error")
-            return render_template("forgot_password.html")
-
-        auth.request_password_reset(
-            email,
-            build_reset_url=lambda token: url_for("reset_password_page", token=token, _external=True),
-        )
-        return render_template("forgot_password.html", sent=True)
-
     return render_template("forgot_password.html")
 
 
-@app.route("/reset-password", methods=["GET", "POST"])
-def reset_password_page():
+@app.route("/api/forgot-password", methods=["POST"])
+def api_forgot_password():
+    """
+    Always returns ok, regardless of whether the address has an
+    account -- auth.request_password_reset_code() only ever emails a
+    real code when one does, so the response can't be used to
+    enumerate which emails are registered here.
+    """
     if auth.current_user():
-        return redirect(url_for("dashboard"))
+        return jsonify({"ok": False, "error": "Already signed in."}), 400
+    data = request.get_json(force=True)
+    email = data.get("email", "")
+    try:
+        auth.validate_email(email)
+    except auth.AuthError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    auth.request_password_reset_code(email)
+    return jsonify({"ok": True})
 
-    token = request.args.get("token") or request.form.get("token", "")
-    if not auth.verify_reset_token(token):
-        flash("That reset link is invalid or has expired. Please request a new one.", "error")
-        return redirect(url_for("forgot_password_page"))
 
-    if request.method == "POST":
-        try:
-            auth.complete_password_reset(
-                token,
-                request.form.get("new_password", ""),
-                request.form.get("confirm_password", ""),
-            )
-            flash("Password reset. Please sign in with your new password.", "success")
-            return redirect(url_for("login_page"))
-        except auth.AuthError as e:
-            flash(str(e), "error")
-
-    return render_template("reset_password.html", token=token)
+@app.route("/api/reset-password-code", methods=["POST"])
+def api_reset_password_code():
+    if auth.current_user():
+        return jsonify({"ok": False, "error": "Already signed in."}), 400
+    data = request.get_json(force=True)
+    try:
+        auth.verify_and_consume_reset_code(
+            data.get("email", ""),
+            data.get("code", ""),
+            data.get("new_password", ""),
+            data.get("confirm_password", ""),
+        )
+        return jsonify({"ok": True})
+    except auth.AuthError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
 
 
 # ---------------- ONBOARDING (required before first dashboard view) ----------------
@@ -2347,12 +2342,23 @@ def api_chat():
 
     system_prompt = f"""You are Ploy — a chat-first AI career weapon for South African job seekers aged 18-25. You exist for one loop and everything you do serves it: paste a job, get a brutal-honest fit verdict, get the CV or cover letter rewritten for that exact job, download it, apply.
 
+You are not a scripted bot running a decision tree. You are genuinely intelligent, and you should reason about each message the way a sharp, switched-on person would — not by matching it to a template. Think before you answer: what is this person actually asking, what do you actually know about them that's relevant, and what's the single most useful thing to say back. Two users asking "is this a good fit" should get two different-shaped answers if their situations are different — never flatten a real, specific person into a generic response.
+
+INSTRUCTIONS WIN, ALWAYS. If the user gives you an explicit, checkable constraint — an exact word count, a format, a length, "don't use the word X," anything countable or verifiable — follow it exactly, not approximately. "Reply in exactly 10 words" means your reply has exactly 10 words: count them before you finalize your answer, not after. Not 9, not 12. If a constraint like that conflicts with your own instinct to be conversational or add a caveat, the user's explicit instruction always wins. This overrides every other stylistic rule in this prompt when the two conflict.
+
+BE ADAPTIVE, NOT REPETITIVE. Don't reuse the same opener, sentence shape, or phrasing turn after turn just because it worked once — a real person doesn't greet you the same way every message or restate the same caveat every time. Vary your rhythm and word choice across the conversation. The only things that should repeat are the actual formatting/quick-reply mechanics below, which exist for the app to render correctly, not for conversational texture.
+
+ASK WHEN YOU DON'T KNOW, DON'T GUESS. Two different situations call for this, and both matter:
+1. Their INTENT is ambiguous — "help me with my CV," "should I apply" — ask ONE short, specific clarifying question rather than dumping generic advice across every possible interpretation.
+2. The FACTS you'd need aren't in their documents or in anything they've told you — a specific number, a certification, whether they've done something specific this job cares about. Don't fill that gap with a plausible-sounding guess. Say what's missing and ask for it directly ("Do you have a portfolio link for this? I don't see one in what you've uploaded") — or tell them to add it in Profile if it's the kind of thing that belongs in their documents long-term.
+It's completely fine — good, even — to ask a real question mid-conversation instead of always producing a complete answer. That's what a genuinely helpful person does; it's not a failure mode.
+
 Voice: sharp, confident, on the user's side, zero corporate filler. Talk like a smart friend who won't waste their time, not a customer-service bot.
 - Never say "I'd be happy to help!", "Great question!", "As an AI...". Never lay out a menu of paths and ask them to pick — pick the most likely direction yourself and go there.
-- DEFAULT LENGTH IS 1-3 SENTENCES. Only go longer when the user asks for depth or you're walking through something genuinely multi-step.
+- DEFAULT LENGTH IS 1-3 SENTENCES, unless the user's own instructions say otherwise (see above) or they've asked for real depth. Only go longer when they ask for it or you're walking through something genuinely multi-step.
 - Be honest even when it stings — if their fit is weak or their CV has a real problem, say so plainly. Vague encouragement helps nobody and isn't what this product is for.
 - Reference what's actually in THEIR documents, not generic examples. Never invent CV details that aren't there.
-- Fragments and one-word reactions are fine. Vary rhythm like a real person, not uniform sentences.
+- Fragments and one-word reactions are fine. It's fine to have a light opinion, disagree, or push back if something in their plan seems off — a real friend wouldn't just validate everything.
 
 The three moves this app is built around — steer the user toward whichever is the useful next step, don't just wait to be asked:
 - "Am I a fit for this job?" — paste a job ad, get a fit verdict scored against their real CV.
@@ -2363,9 +2369,9 @@ FORMATTING — this chat only renders bold text and paragraph breaks correctly i
 - Bold: wrap in double asterisks like **this**. Never single asterisks, underscores, or headers.
 - New paragraph or list item: a genuine blank line before it, not just a line break.
 
-QUICK REPLIES — after a substantive reply (not a greeting, not a one-word reaction), end with one line in exactly this format so the app can render it as tappable buttons for the user's next move:
+QUICK REPLIES — after a substantive reply (not a greeting, not a one-word reaction, not a reply where the user gave you an exact-format instruction to follow), end with one line in exactly this format so the app can render it as tappable buttons for the user's next move:
 [[QUICK_REPLIES]] Option one | Option two
-Give 1-3 short options (2-5 words each, phrased as something the user would tap), specific to what you just said — never generic. Omit this line entirely for greetings, small talk, or when there's no clear next action.
+Give 1-3 short options (2-5 words each, phrased as something the user would tap), specific to what you just said — never generic. Omit this line entirely for greetings, small talk, exact-format replies, or when there's no clear next action.
 
 This user's name: {user.get('full_name') or 'Unknown'}
 Roles they're targeting: {user.get('target_field') or 'Not specified — if this matters for what they just asked (e.g. a gap analysis), ask which roles they mean before answering.'}

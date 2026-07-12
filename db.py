@@ -1153,34 +1153,36 @@ def delete_tracker(tracker_id, user_id):
         conn.close()
 
 
-def create_password_reset(user_id, token_hash, expires_at):
+def set_pending_code(user_id, code_hash, purpose, expires_at):
     conn = get_db()
     try:
         conn.execute(
-            "INSERT INTO password_resets (user_id, token_hash, expires_at, created_at) VALUES (?, ?, ?, ?)",
-            (user_id, token_hash, expires_at, now_iso()),
+            "UPDATE users SET pending_code = ?, pending_code_purpose = ?, pending_code_expires_at = ?, pending_code_attempts = 0 WHERE id = ?",
+            (code_hash, purpose, expires_at, user_id),
         )
         conn.commit()
     finally:
         conn.close()
 
 
-def get_password_reset_by_token_hash(token_hash):
+def increment_pending_code_attempts(user_id):
     conn = get_db()
     try:
-        row = conn.execute(
-            "SELECT * FROM password_resets WHERE token_hash = ? ORDER BY id DESC LIMIT 1",
-            (token_hash,),
-        ).fetchone()
-        return dict(row) if row else None
+        conn.execute(
+            "UPDATE users SET pending_code_attempts = pending_code_attempts + 1 WHERE id = ?", (user_id,)
+        )
+        conn.commit()
     finally:
         conn.close()
 
 
-def mark_password_reset_used(token_hash):
+def clear_pending_code(user_id):
     conn = get_db()
     try:
-        conn.execute("UPDATE password_resets SET used = 1 WHERE token_hash = ?", (token_hash,))
+        conn.execute(
+            "UPDATE users SET pending_code = '', pending_code_purpose = '', pending_code_expires_at = '', pending_code_attempts = 0 WHERE id = ?",
+            (user_id,),
+        )
         conn.commit()
     finally:
         conn.close()

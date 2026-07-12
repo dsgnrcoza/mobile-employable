@@ -702,6 +702,40 @@
     closeSidebar();
   });
 
+  // A swipe starting from the left third of the screen opens the
+  // sidebar, matching the native "edge swipe" pattern most drawer UIs
+  // support. Listens on the document itself (not a dedicated overlay
+  // element) so it never intercepts taps on real UI -- only the
+  // *starting point* of the gesture has to fall in that zone, and a
+  // plain tap never travels far enough horizontally to trigger it.
+  var swipeStartX = null, swipeStartY = null;
+
+  document.addEventListener("touchstart", function (e) {
+    if (sidebar.classList.contains("is-open")) return;
+    var t = e.touches[0];
+    if (t.clientX > window.innerWidth / 3) return;
+    swipeStartX = t.clientX;
+    swipeStartY = t.clientY;
+  }, { passive: true });
+
+  document.addEventListener("touchmove", function (e) {
+    if (swipeStartX == null) return;
+    var t = e.touches[0];
+    var dx = t.clientX - swipeStartX;
+    var dy = t.clientY - swipeStartY;
+    // Require a clearly horizontal rightward drag so a vertical scroll
+    // starting near the edge doesn't accidentally trigger the drawer.
+    if (dx > 40 && Math.abs(dy) < 30) {
+      openSidebar();
+      swipeStartX = null;
+    }
+  }, { passive: true });
+
+  document.addEventListener("touchend", function () {
+    swipeStartX = null;
+    swipeStartY = null;
+  });
+
   // ---------- Voice dictation ----------
   // Transcribes speech straight into the text field -- the mic button
   // just hides itself on browsers that don't support it rather than
@@ -714,15 +748,27 @@
     chatMicBtn.hidden = true;
   } else {
     var recognition = new SpeechRecognitionCtor();
-    recognition.continuous = false;
+    // continuous=true is what actually matters here -- with the default
+    // (false), Chrome auto-stops after roughly a second of silence no
+    // matter what. continuous mode keeps the session open indefinitely
+    // instead, so the 10s cutoff below is entirely our own timer, not
+    // the browser's much shorter built-in one.
+    recognition.continuous = true;
     recognition.interimResults = true;
     recognition.lang = "en-US";
     var listening = false;
     var baseText = "";
+    var silenceTimer = null;
+    var SILENCE_TIMEOUT_MS = 10000;
 
     function setListening(on) {
       listening = on;
       chatMicBtn.classList.toggle("is-listening", on);
+    }
+
+    function resetSilenceTimer() {
+      clearTimeout(silenceTimer);
+      silenceTimer = setTimeout(function () { recognition.stop(); }, SILENCE_TIMEOUT_MS);
     }
 
     recognition.addEventListener("result", function (e) {
@@ -731,10 +777,17 @@
         transcript += e.results[i][0].transcript;
       }
       chatInput.value = (baseText ? baseText + " " : "") + transcript;
+      resetSilenceTimer();
     });
 
-    recognition.addEventListener("end", function () { setListening(false); });
-    recognition.addEventListener("error", function () { setListening(false); });
+    recognition.addEventListener("end", function () {
+      setListening(false);
+      clearTimeout(silenceTimer);
+    });
+    recognition.addEventListener("error", function () {
+      setListening(false);
+      clearTimeout(silenceTimer);
+    });
 
     chatMicBtn.addEventListener("click", function () {
       if (listening) {
@@ -745,6 +798,7 @@
       try {
         recognition.start();
         setListening(true);
+        resetSilenceTimer();
       } catch (e) {
         setListening(false);
       }

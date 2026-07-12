@@ -27,7 +27,19 @@
   --card-bg: #16191E;
   --panel: #16191E;
   --panel-2: #1C2026;
-  --accent: #4067F0;
+  /* A single flat color can't render the abstract pink/purple/turquoise
+     wash the brand wants, so --accent is now a fallback/solid value for
+     contexts that technically can't take a gradient (outline, thin 1px
+     borders) -- --accent-gradient is the real accent everywhere else
+     (button fills, the wordmark's "O", avatar, badges). Layering
+     several off-center radial blobs over a linear base reads as an
+     organic wash rather than a straight banded gradient. */
+  --accent: #C13FD6;
+  --accent-gradient:
+    radial-gradient(at 12% 18%, #FF4FCB 0%, transparent 55%),
+    radial-gradient(at 88% 12%, #8B5CF6 0%, transparent 58%),
+    radial-gradient(at 45% 95%, #2FE6D9 0%, transparent 60%),
+    linear-gradient(135deg, #FF4FCB 0%, #B24FE0 45%, #35D8CE 100%);
   --accent-ink: #EDEDE8;
   --good: #4CC38A;
   --mid: #E4B33C;
@@ -278,7 +290,7 @@ button.auth-tab.active {
   flex-shrink: 0;
   padding: 24px 24px 20px;
   text-align: left;
-  background: #fff;
+  background: #2A2E35;
 }
 
 .auth-wordmark {
@@ -299,8 +311,13 @@ button.auth-tab.active {
   letter-spacing: 0.08em;
 }
 
-.wordmark-o {
-  color: var(--accent);
+.wordmark-o,
+.accent-gradient-text {
+  background: var(--accent-gradient);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
 }
 
 .splash-logo {
@@ -310,7 +327,7 @@ button.auth-tab.active {
 
 .auth-wordmark {
   font-size: 15px;
-  color: #0a0a0a;
+  color: var(--fg);
 }
 
 /* App icon on the login/signup header -- the real logo asset, not a
@@ -327,14 +344,14 @@ button.auth-tab.active {
   font-size: 23px;
   font-weight: 700;
   line-height: 1.25;
-  color: #0a0a0a;
+  color: var(--fg);
 }
 
 .auth-subheading {
   display: block;
   font-size: 13px;
   line-height: 1.4;
-  color: rgba(10, 10, 10, 0.55);
+  color: rgba(237, 237, 232, 0.6);
   margin-top: 4px;
 }
 
@@ -541,7 +558,7 @@ button.auth-tab.active {
 }
 
 .btn-gold {
-  background: var(--accent);
+  background: var(--accent-gradient);
   color: var(--accent-ink);
 }
 
@@ -634,6 +651,24 @@ button.auth-tab.active {
   color: var(--muted);
   text-decoration: none;
   cursor: default;
+}
+
+.notif-permission-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+}
+
+.notif-permission-row p {
+  font-size: 13px;
+  color: var(--fg);
+  margin: 0;
 }
 
 /* ---------- Blank post-auth placeholder ---------- */
@@ -1026,7 +1061,11 @@ button.auth-tab.active {
 .ob-readout-stats {
   display: block;
   font-size: 15px;
-  color: var(--accent);
+  background: var(--accent-gradient);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
   margin-bottom: 20px;
 }
 
@@ -2512,7 +2551,7 @@ button.auth-tab.active {
 }
 
 .chat-quick-reply-btn:active {
-  background: var(--accent);
+  background: var(--accent-gradient);
   color: var(--accent-ink);
 }
 
@@ -4053,7 +4092,6 @@ button.auth-tab.active {
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  justify-content: space-between;
   padding: max(18px, env(safe-area-inset-top)) 16px 10px;
 }
 
@@ -4093,7 +4131,7 @@ button.auth-tab.active {
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--accent-gradient);
   color: var(--accent-ink);
   border: none;
   font-family: var(--font-mono);
@@ -4183,7 +4221,11 @@ button.auth-tab.active {
   flex-shrink: 0;
   font-size: 12px;
   font-weight: 600;
-  color: var(--accent);
+  background: var(--accent-gradient);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
 }
 
 .chat-chip-paste {
@@ -4254,15 +4296,27 @@ button.auth-tab.active {
 }
 
 .chat-send-btn {
-  background: var(--accent);
+  background: var(--accent-gradient);
   color: var(--accent-ink);
-  border-color: var(--accent);
+  border-color: transparent;
 }
 
 .chat-mic-btn.is-listening {
   background: var(--bad);
   color: #fff;
   border-color: var(--bad);
+  animation: mic-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes mic-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(224, 86, 75, 0.5); }
+  50% { box-shadow: 0 0 0 8px rgba(224, 86, 75, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-mic-btn.is-listening {
+    animation: none;
+  }
 }
 
 .chat-mic-btn[hidden] {
@@ -4413,7 +4467,11 @@ button.auth-tab.active {
 
 .sidebar-chat-badge {
   font-size: 11px;
-  color: var(--accent);
+  background: var(--accent-gradient);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
   letter-spacing: 0.02em;
 }
 
@@ -4429,6 +4487,19 @@ button.auth-tab.active {
   font-size: 14px;
   text-decoration: none;
   padding: 8px 4px;
+}
+
+.sidebar-link-profile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sidebar-profile-avatar {
+  width: 24px;
+  height: 24px;
+  font-size: 10.5px;
+  pointer-events: none;
 }
 
 /* ==========================================================================
@@ -5177,6 +5248,11 @@ button.auth-tab.active {
 .profile-doc-delete-btn svg {
   width: 16px;
   height: 16px;
+}
+
+.profile-section .auth-download-wrap {
+  position: relative;
+  padding: 0;
 }
 
 /* ==========================================================================

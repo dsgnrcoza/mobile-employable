@@ -3,13 +3,9 @@
 {% block content %}
 <div class="chat-shell">
   <header class="chat-topbar">
-    <span class="wordmark chat-wordmark">PL<span class="wordmark-o">O</span>Y</span>
-    <div class="chat-topbar-actions">
-      <button type="button" class="chat-icon-btn" id="sidebar-open-btn" aria-label="Menu">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
-      </button>
-      <button type="button" class="chat-avatar-btn" id="chat-avatar-btn" aria-label="Profile">{{ profile.initials }}</button>
-    </div>
+    <button type="button" class="chat-icon-btn" id="sidebar-open-btn" aria-label="Menu">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+    </button>
   </header>
 
   <div class="chat-empty" id="chat-empty">
@@ -116,7 +112,10 @@
   </div>
   <div class="sidebar-chats" id="sidebar-chats"></div>
   <div class="sidebar-footer">
-    <a href="{{ url_for('profile_page') }}" class="sidebar-link">Profile</a>
+    <a href="{{ url_for('profile_page') }}" class="sidebar-link sidebar-link-profile">
+      <span class="chat-avatar-btn sidebar-profile-avatar" aria-hidden="true">{{ profile.initials }}</span>
+      Profile
+    </a>
     <a href="{{ url_for('logout_page') }}" class="sidebar-link">Log out</a>
   </div>
 </aside>
