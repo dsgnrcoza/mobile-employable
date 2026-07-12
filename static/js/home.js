@@ -892,6 +892,24 @@
     chatVoiceCancelBtn.addEventListener("click", cancelListening);
   }
 
+  // ---------- Chip personalization based on history ----------
+  // Cosmetic only -- the chips still do exactly what they always did,
+  // this just swaps their label when there's a recent job thread to
+  // reference, so a returning user doesn't see the same "first-time"
+  // copy every single chat.
+
+  function personalizeChips(mostRecentJob) {
+    if (!mostRecentJob) return;
+    var qualifyLabel = document.querySelector("#chip-qualify span:last-child");
+    var gapsLabel = document.querySelector("#chip-gaps span:last-child");
+    if (qualifyLabel) qualifyLabel.textContent = "Check my fit for another role";
+    if (gapsLabel) {
+      gapsLabel.textContent = mostRecentJob.fit_score != null
+        ? "Improve on my " + mostRecentJob.fit_score + "/100 fit"
+        : "What's still holding me back?";
+    }
+  }
+
   // ---------- Initial load ----------
 
   // sessionStorage survives normal in-app navigation (e.g. Profile ->
@@ -902,18 +920,21 @@
   var isFreshAppOpen = !sessionStorage.getItem("ploy_session_active");
   sessionStorage.setItem("ploy_session_active", "1");
 
-  if (isFreshAppOpen) {
-    showEmptyState(true);
-  } else {
-    fetch("/api/chat/conversations")
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        if (data.ok && data.conversations.length) {
-          loadConversation(data.conversations[0].id);
-        } else {
-          showEmptyState(true);
-        }
-      })
-      .catch(function () { showEmptyState(true); });
-  }
+  fetch("/api/chat/conversations")
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      if (!data.ok) {
+        showEmptyState(true);
+        return;
+      }
+      var mostRecentJob = data.conversations.find(function (c) { return c.kind === "job"; });
+      personalizeChips(mostRecentJob);
+
+      if (isFreshAppOpen || !data.conversations.length) {
+        showEmptyState(true);
+      } else {
+        loadConversation(data.conversations[0].id);
+      }
+    })
+    .catch(function () { showEmptyState(true); });
 })();
