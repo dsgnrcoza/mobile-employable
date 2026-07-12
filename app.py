@@ -28,7 +28,7 @@ import os
 import uuid
 import json
 from dotenv import load_dotenv
-from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, Response, stream_with_context
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, Response
 import db
 import auth
 import pipeline
@@ -689,12 +689,23 @@ def api_verdict():
     Takes a raw pasted job ad, returns a structured fit verdict scored
     against this user's real documents -- rendered client-side as a card,
     never as a wall of chat text."""
-    from openai import OpenAI
     user = auth.current_user()
     data = request.get_json(force=True)
     job_ad = (data.get("job_ad") or "").strip()[:8000]
     if not job_ad:
         return jsonify({"ok": False, "error": "Paste a job ad first."}), 400
+    try:
+        return jsonify(_run_verdict(user, job_ad))
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+def _run_verdict(user, job_ad):
+    """Shared by /api/verdict and /api/chat's check_job_fit tool call --
+    one grounded-scoring implementation, whether the user reached it by
+    tapping chip 01 or just typing the equivalent request. Raises on
+    failure; callers turn that into a JSON error response."""
+    from openai import OpenAI
 
     doc_content_block = _doc_content_block(_real_uploaded_docs(user["id"]))
 
@@ -722,30 +733,27 @@ def api_verdict():
     )
     prompt = f"Job ad pasted by the user:\n{job_ad}\n\nFull content of the user's actual uploaded documents:\n{doc_content_block}"
 
-    try:
-        client = OpenAI(api_key=analyzer.get_openai_api_key(), timeout=analyzer.get_client_timeout(), max_retries=analyzer.CLIENT_MAX_RETRIES)
-        resp = client.chat.completions.create(
-            model="gpt-4o",
-            messages=[{"role": "system", "content": system}, {"role": "user", "content": prompt}],
-            max_tokens=700,
-            response_format={"type": "json_object"},
-        )
-        parsed = json.loads(resp.choices[0].message.content.strip())
-        fit_score = max(0, min(100, int(parsed.get("fit_score") or 0)))
-        return jsonify({
-            "ok": True,
-            "type": "verdict",
-            "job_title": (parsed.get("job_title") or "").strip()[:200] or "This role",
-            "company": (parsed.get("company") or "").strip()[:200],
-            "location": (parsed.get("location") or "").strip()[:200],
-            "fit_score": fit_score,
-            "strengths": [s for s in (parsed.get("strengths") or []) if s][:3],
-            "gaps": [s for s in (parsed.get("gaps") or []) if s][:3],
-            "breakdown": (parsed.get("breakdown") or "").strip(),
-            "job_ad": job_ad,
-        })
-    except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
+    client = OpenAI(api_key=analyzer.get_openai_api_key(), timeout=analyzer.get_client_timeout(), max_retries=analyzer.CLIENT_MAX_RETRIES)
+    resp = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "system", "content": system}, {"role": "user", "content": prompt}],
+        max_tokens=700,
+        response_format={"type": "json_object"},
+    )
+    parsed = json.loads(resp.choices[0].message.content.strip())
+    fit_score = max(0, min(100, int(parsed.get("fit_score") or 0)))
+    return {
+        "ok": True,
+        "type": "verdict",
+        "job_title": (parsed.get("job_title") or "").strip()[:200] or "This role",
+        "company": (parsed.get("company") or "").strip()[:200],
+        "location": (parsed.get("location") or "").strip()[:200],
+        "fit_score": fit_score,
+        "strengths": [s for s in (parsed.get("strengths") or []) if s][:3],
+        "gaps": [s for s in (parsed.get("gaps") or []) if s][:3],
+        "breakdown": (parsed.get("breakdown") or "").strip(),
+        "job_ad": job_ad,
+    }
 
 
 def _filename_stub(full_name):
@@ -2287,6 +2295,55 @@ def api_letter_edit():
         return jsonify({"error": str(e)}), 500
 
 
+_CHAT_TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "check_job_fit",
+            "description": (
+                "Score how well this user fits a specific job, producing a Verdict card (a scored fit "
+                "breakdown, not text). Call this whenever the user pastes or has already provided a job "
+                "ad/description earlier in this conversation and is asking, in any wording, whether they're "
+                "a fit, qualified, or should apply. Only call this once you actually have the real job ad "
+                "text -- if they're asking about fit but have never given you a job ad, don't call this; "
+                "ask them to paste it instead."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "job_ad": {
+                        "type": "string",
+                        "description": "The full job ad/description text, verbatim, from wherever the user provided it in this conversation.",
+                    },
+                },
+                "required": ["job_ad"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "build_tailored_cv",
+            "description": (
+                "Generate a tailored, ATS-safe CV for this user as a downloadable Document card (a real "
+                "file, not a text description of one). Call this whenever the user asks to build, write, "
+                "tailor, or fix their CV. If a specific job has already come up in this conversation, pass "
+                "its title/company/ad so the CV is tailored and re-scored against it; otherwise call with no "
+                "arguments for a strong general-purpose CV."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "job_title": {"type": "string", "description": "The job title being tailored for, if one has come up."},
+                    "company": {"type": "string", "description": "The company name, if one has come up."},
+                    "job_ad": {"type": "string", "description": "The full job ad text, if the user pasted one earlier in this conversation."},
+                },
+            },
+        },
+    },
+]
+
+
 @app.route("/api/chat", methods=["POST"])
 @auth.login_required
 def api_chat():
@@ -2426,37 +2483,56 @@ Never claim you can't see their documents — if the block above says no content
 
     model_name = "gpt-4o" if has_images else "gpt-4o-mini"
 
-    # Real token streaming: the request to OpenAI (and any auth/key error)
-    # happens synchronously in .create(), so a bad key still surfaces as a
-    # normal JSON error response here -- only once that's succeeded do we
-    # switch to a streamed plain-text body the client reads incrementally.
-    # If the underlying platform buffers the response instead of flushing
-    # it chunk-by-chunk, this just degrades to the client receiving it all
-    # at once -- still correct, just not progressively rendered.
+    # Tool-calling gives the model itself the judgment to reach for a
+    # Verdict/Document card, whether the user got there via chip 01/02 or
+    # just typed the equivalent request in plain chat -- a card is a card
+    # either way, never a wall of text pretending to be one. This means
+    # giving up raw token-by-token streaming (a tool call has to be seen
+    # in full before it's actionable), so the client instead gets one
+    # JSON response and fake-types plain-text replies client-side.
     try:
         client = OpenAI(api_key=analyzer.get_openai_api_key(), timeout=analyzer.get_client_timeout(), max_retries=analyzer.CLIENT_MAX_RETRIES)
-        stream = client.chat.completions.create(
+        resp = client.chat.completions.create(
             model=model_name,
             messages=openai_messages,
-            max_tokens=800,
+            max_tokens=2000,
             temperature=0.8,
-            stream=True,
+            tools=_CHAT_TOOLS,
+            tool_choice="auto",
         )
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
-    def generate():
-        try:
-            for chunk in stream:
-                if not chunk.choices:
-                    continue
-                delta = chunk.choices[0].delta.content
-                if delta:
-                    yield delta
-        except Exception as e:
-            yield "\n\n[[STREAM_ERROR]]" + str(e)
+    message = resp.choices[0].message
+    tool_calls = message.tool_calls or []
 
-    return Response(stream_with_context(generate()), mimetype="text/plain")
+    if tool_calls:
+        call = tool_calls[0]
+        try:
+            args = json.loads(call.function.arguments or "{}")
+        except Exception:
+            args = {}
+        try:
+            if call.function.name == "check_job_fit":
+                job_ad = (args.get("job_ad") or "").strip()[:8000]
+                if not job_ad:
+                    return jsonify({"ok": True, "kind": "text", "reply": "Paste the job ad and I'll check your fit against it."})
+                card = _run_verdict(user, job_ad)
+            elif call.function.name == "build_tailored_cv":
+                card = _generate_tailored_document(
+                    user, "cv",
+                    job_title=(args.get("job_title") or "").strip()[:200],
+                    company=(args.get("company") or "").strip()[:200],
+                    job_ad=(args.get("job_ad") or "").strip()[:8000],
+                )
+            else:
+                card = None
+            if card:
+                return jsonify({"ok": True, "kind": "card", "card": card})
+        except Exception as e:
+            return jsonify({"ok": True, "kind": "text", "reply": f"Something went wrong there -- {e}"})
+
+    return jsonify({"ok": True, "kind": "text", "reply": (message.content or "").strip()})
 
 
 if __name__ == "__main__":

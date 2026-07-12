@@ -59,7 +59,7 @@
     return el;
   }
 
-  function appendChatMessageTyped(text) {
+  function appendChatMessageTyped(text, onDone) {
     var el = appendChatMessage("assistant", "");
     var i = 0;
     var step = Math.max(1, Math.ceil(text.length / 40));
@@ -67,25 +67,17 @@
       i += step;
       el.innerHTML = formatChatText(text.slice(0, i));
       scrollChatToBottom();
-      if (i >= text.length) clearInterval(timer);
+      if (i >= text.length) {
+        clearInterval(timer);
+        if (onDone) onDone();
+      }
     }, 15);
   }
 
   // The model ends substantive replies with a "[[QUICK_REPLIES]] a | b"
-  // line -- strip it from what's displayed while a reply is still
-  // streaming in (raw "[[" never appears in legitimate reply text, since
-  // the formatting rules only allow ** for bold), then parse it out of
-  // the final buffer to render as tappable buttons.
-  function stripQuickReplyMarker(buffer) {
-    var idx = buffer.indexOf("[[");
-    return idx === -1 ? buffer : buffer.slice(0, idx);
-  }
-
+  // line -- parse it out of the reply text to render as tappable
+  // buttons instead of showing it as literal text.
   function parseQuickReplies(buffer) {
-    var errIdx = buffer.indexOf("[[STREAM_ERROR]]");
-    if (errIdx !== -1) {
-      return { text: buffer.slice(0, errIdx).trim() || "Something went wrong there. Try again?", replies: [] };
-    }
     var idx = buffer.indexOf("[[QUICK_REPLIES]]");
     if (idx === -1) return { text: buffer.trim(), replies: [] };
     var text = buffer.slice(0, idx).trim();
@@ -418,38 +410,27 @@
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ messages: chatHistory, use_notes: isUseNotesEnabled() }),
     })
-      .then(function (r) {
-        var contentType = r.headers.get("Content-Type") || "";
-        // A key/auth error returns plain JSON before any streaming starts;
-        // a healthy request returns a streamed text/plain body instead.
-        if (contentType.indexOf("application/json") !== -1) {
-          return r.json().then(function (data) {
-            typingEl.remove();
-            appendChatMessageTyped("Something went wrong there. Try again?");
-          });
-        }
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
         typingEl.remove();
-        var el = appendChatMessage("assistant", "");
-        var reader = r.body.getReader();
-        var decoder = new TextDecoder();
-        var buffer = "";
-        function pump() {
-          return reader.read().then(function (result) {
-            if (result.done) {
-              var parsed = parseQuickReplies(buffer);
-              el.innerHTML = formatChatText(parsed.text);
-              appendQuickReplies(parsed.replies);
-              chatHistory.push({ role: "assistant", text: parsed.text });
-              saveConversation();
-              return;
-            }
-            buffer += decoder.decode(result.value, { stream: true });
-            el.innerHTML = formatChatText(stripQuickReplyMarker(buffer));
-            scrollChatToBottom();
-            return pump();
-          });
+        if (!data.ok) {
+          appendChatMessageTyped("Something went wrong there. Try again?");
+          return;
         }
-        return pump();
+        if (data.kind === "card") {
+          // Card-producing tool calls (fit check / CV build) render as
+          // their own card component, whether the user reached this via
+          // a chip or just typed the equivalent request -- never as a
+          // wall of text pretending to be one.
+          appendCardMessage(data.card);
+          return;
+        }
+        var parsed = parseQuickReplies(data.reply || "");
+        appendChatMessageTyped(parsed.text, function () {
+          appendQuickReplies(parsed.replies);
+        });
+        chatHistory.push({ role: "assistant", text: parsed.text });
+        saveConversation();
       })
       .catch(function () {
         typingEl.remove();
