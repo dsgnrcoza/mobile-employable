@@ -2,9 +2,10 @@
   "use strict";
 
   var typeBtns = { cv: document.getElementById("builder-type-cv"), letter: document.getElementById("builder-type-letter") };
-  var templateRows = { cv: document.getElementById("builder-template-row-cv"), letter: document.getElementById("builder-template-row-letter") };
+  var galleries = { cv: document.getElementById("template-gallery-cv"), letter: document.getElementById("template-gallery-letter") };
   var instructionInput = document.getElementById("builder-instruction-input");
   var generateBtn = document.getElementById("builder-generate-btn");
+  var generateLabel = document.getElementById("builder-generate-label");
   var statusLine = document.getElementById("builder-status-line");
   var previewEmpty = document.getElementById("builder-preview-empty");
   var previewWrap = document.getElementById("builder-preview-wrap");
@@ -14,8 +15,9 @@
   var saveBtn = document.getElementById("builder-save-btn");
   var saveStateEl = document.getElementById("builder-save-state");
 
+  var defaults = window.BUILDER_DEFAULT_TEMPLATES || { cv: "signal", letter: "direct" };
   var activeType = "cv";
-  var selectedTemplate = { cv: "Modern", letter: "Formal" };
+  var selectedTemplate = { cv: defaults.cv, letter: defaults.letter };
   var currentHtml = { cv: "", letter: "" };
   // Set only when this type's content came from (or has been saved to) an
   // existing generated document -- e.g. reached via a card's "Edit"
@@ -28,6 +30,12 @@
   // actually persisted or would be lost by navigating away.
   var saveState = { cv: null, letter: null };
   var generating = false;
+
+  function templateLabel(type, key) {
+    var card = galleries[type].querySelector('.template-card[data-template="' + key + '"]');
+    var nameEl = card && card.querySelector(".template-card-name");
+    return nameEl ? nameEl.textContent : key;
+  }
 
   function updateSaveBtnVisibility() {
     saveBtn.hidden = !loadedDocumentId[activeType];
@@ -50,24 +58,31 @@
     if (type === activeType) renderSaveState();
   }
 
+  function applyPreviewTemplateClass() {
+    previewEl.className = "builder-preview" + (activeType === "cv"
+      ? " tmpl-" + selectedTemplate.cv
+      : " tmpl-letter-" + selectedTemplate.letter);
+  }
+
   function setActiveType(type) {
     activeType = type;
     typeBtns.cv.classList.toggle("is-selected", type === "cv");
     typeBtns.letter.classList.toggle("is-selected", type === "letter");
-    templateRows.cv.hidden = type !== "cv";
-    templateRows.letter.hidden = type !== "letter";
+    galleries.cv.hidden = type !== "cv";
+    galleries.letter.hidden = type !== "letter";
     statusLine.hidden = true;
     updateSaveBtnVisibility();
     renderSaveState();
+    applyPreviewTemplateClass();
     if (currentHtml[type]) {
       previewEl.innerHTML = currentHtml[type];
       previewEmpty.hidden = true;
       previewWrap.hidden = false;
-      generateBtn.textContent = "Update";
+      generateLabel.textContent = "Update";
     } else {
       previewEmpty.hidden = false;
       previewWrap.hidden = true;
-      generateBtn.textContent = "Generate";
+      generateLabel.textContent = "Generate";
     }
   }
 
@@ -82,18 +97,63 @@
   typeBtns.cv.addEventListener("click", function () { setActiveType("cv"); });
   typeBtns.letter.addEventListener("click", function () { setActiveType("letter"); });
 
-  function wireTemplateRow(type) {
-    templateRows[type].querySelectorAll(".builder-template-chip").forEach(function (chip) {
-      chip.addEventListener("click", function () {
-        selectedTemplate[type] = chip.dataset.template;
-        templateRows[type].querySelectorAll(".builder-template-chip").forEach(function (c) {
-          c.classList.toggle("is-selected", c === chip);
-        });
+  function selectTemplate(type, key) {
+    selectedTemplate[type] = key;
+    galleries[type].querySelectorAll(".template-card").forEach(function (card) {
+      card.classList.toggle("is-selected", card.dataset.template === key);
+    });
+    if (type === activeType) applyPreviewTemplateClass();
+  }
+
+  function wireGallery(type) {
+    galleries[type].querySelectorAll(".template-card").forEach(function (card) {
+      var key = card.dataset.template;
+      card.querySelector(".template-card-select").addEventListener("click", function () {
+        selectTemplate(type, key);
+      });
+      card.querySelector(".template-preview-btn").addEventListener("click", function () {
+        openTemplatePreview(type, key, card);
       });
     });
   }
-  wireTemplateRow("cv");
-  wireTemplateRow("letter");
+  wireGallery("cv");
+  wireGallery("letter");
+
+  // ---------- Full-size template preview overlay ----------
+
+  var previewOverlay = document.getElementById("template-preview-overlay");
+  var previewOverlayTitle = document.getElementById("template-preview-title");
+  var previewOverlayBody = document.getElementById("template-preview-body");
+  var previewOverlayCloseBtn = document.getElementById("template-preview-close-btn");
+  var previewOverlaySelectBtn = document.getElementById("template-preview-select-btn");
+  var previewingType = null;
+  var previewingKey = null;
+
+  function openTemplatePreview(type, key, card) {
+    previewingType = type;
+    previewingKey = key;
+    var thumb = card.querySelector(".template-thumb");
+    previewOverlayTitle.textContent = templateLabel(type, key);
+    previewOverlayBody.innerHTML = "";
+    previewOverlayBody.appendChild(thumb.cloneNode(true));
+    previewOverlay.hidden = false;
+  }
+
+  function closeTemplatePreview() {
+    previewOverlay.hidden = true;
+    previewOverlayBody.innerHTML = "";
+    previewingType = null;
+    previewingKey = null;
+  }
+
+  previewOverlayCloseBtn.addEventListener("click", closeTemplatePreview);
+  previewOverlay.addEventListener("click", function (e) {
+    if (e.target === previewOverlay) closeTemplatePreview();
+  });
+  previewOverlaySelectBtn.addEventListener("click", function () {
+    if (previewingType && previewingKey) selectTemplate(previewingType, previewingKey);
+    closeTemplatePreview();
+  });
 
   function setStatus(text, isError) {
     statusLine.textContent = text;
@@ -104,7 +164,7 @@
   function generate() {
     if (generating) return;
     var note = instructionInput.value.trim();
-    var template = selectedTemplate[activeType];
+    var template = templateLabel(activeType, selectedTemplate[activeType]);
     var docLabel = activeType === "cv" ? "CV" : "cover letter";
     var instruction = "Use a " + template + " style for this " + docLabel + "." + (note ? " " + note : "");
 
@@ -130,9 +190,10 @@
         }
         currentHtml[activeType] = data.updated_html || "";
         previewEl.innerHTML = currentHtml[activeType];
+        applyPreviewTemplateClass();
         previewEmpty.hidden = true;
         previewWrap.hidden = false;
-        generateBtn.textContent = "Update";
+        generateLabel.textContent = "Update";
         setStatus(data.description || "Done.", false);
         markUnsaved(activeType);
       })
@@ -161,7 +222,7 @@
     fetch("/api/cv-download/pdf", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ cv_html: html }),
+      body: JSON.stringify({ cv_html: html, template: activeType === "cv" ? selectedTemplate.cv : null }),
     })
       .then(function (r) { return r.blob(); })
       .then(function (blob) {
@@ -185,7 +246,7 @@
     fetch("/api/document/" + docId + "/save", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ html: currentHtml[activeType] }),
+      body: JSON.stringify({ html: currentHtml[activeType], template: activeType === "cv" ? selectedTemplate.cv : null }),
     })
       .then(function (r) { return r.json(); })
       .then(function (data) {
@@ -205,6 +266,8 @@
   });
 
   // ---------- Load an existing document when opened via a card's "Edit" ----------
+
+  applyPreviewTemplateClass();
 
   var initial = window.BUILDER_INITIAL;
   if (initial && initial.html) {

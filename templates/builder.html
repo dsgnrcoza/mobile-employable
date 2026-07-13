@@ -1,5 +1,24 @@
 {% extends "base.html" %}
 {% block title %}Builder — Ploy{% endblock %}
+
+{% macro cv_sample() %}
+<h1 class="cv-name">Jane Doe</h1>
+<p class="cv-contact">jane@example.com · 082 123 4567 · Cape Town</p>
+<h2>Experience</h2>
+<div class="cv-entry-row"><span class="cv-entry-title">Software Engineer, Acme Corp</span><span class="cv-entry-date">2022 - Present</span></div>
+<ul><li>Shipped a feature customers asked for by name.</li><li>Mentored two junior engineers.</li></ul>
+<h2>Education</h2>
+<div class="cv-entry-row"><span class="cv-entry-title">BSc Computer Science, UCT</span><span class="cv-entry-date">2018 - 2021</span></div>
+{% endmacro %}
+
+{% macro letter_sample() %}
+<p class="letter-date">13 July 2026</p>
+<p class="letter-greeting">Dear Hiring Manager,</p>
+<p>I've spent the last two years shipping features Acme's own customers asked for by name — that's the kind of ownership I want to bring to this role.</p>
+<p>Your team's focus on fast, honest customer feedback loops is exactly how I already work.</p>
+<p class="letter-signoff">Warm regards,<br>Jane Doe</p>
+{% endmacro %}
+
 {% block content %}
 <div class="builder-shell">
   <header class="stub-header">
@@ -21,36 +40,89 @@
     </button>
   </div>
 
-  <div class="builder-template-row" id="builder-template-row-cv">
-    <button type="button" class="builder-template-chip is-selected" data-template="Modern">Modern</button>
-    <button type="button" class="builder-template-chip" data-template="Classic">Classic</button>
-    <button type="button" class="builder-template-chip" data-template="Minimal">Minimal</button>
+  <div class="template-gallery" id="template-gallery-cv">
+    {% for key, meta in cv_templates.items() %}
+    <div class="template-card{{ ' is-selected' if key == default_cv_template else '' }}" data-template="{{ key }}">
+      <button type="button" class="template-card-select" aria-label="Select {{ meta.label }}">
+        <div class="template-thumb-frame">
+          <div class="template-thumb tmpl-{{ key }}">
+            {{ cv_sample() }}
+          </div>
+        </div>
+      </button>
+      <button type="button" class="template-preview-btn" aria-label="Preview {{ meta.label }}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+      </button>
+      <span class="template-card-name">{{ meta.label }}</span>
+      <span class="template-card-blurb">{{ meta.blurb }}</span>
+    </div>
+    {% endfor %}
   </div>
-  <div class="builder-template-row" id="builder-template-row-letter" hidden>
-    <button type="button" class="builder-template-chip is-selected" data-template="Formal">Formal</button>
-    <button type="button" class="builder-template-chip" data-template="Warm">Warm</button>
-    <button type="button" class="builder-template-chip" data-template="Direct">Direct</button>
+
+  <div class="template-gallery" id="template-gallery-letter" hidden>
+    {% for key, meta in letter_templates.items() %}
+    <div class="template-card{{ ' is-selected' if key == default_letter_template else '' }}" data-template="{{ key }}">
+      <button type="button" class="template-card-select" aria-label="Select {{ meta.label }}">
+        <div class="template-thumb-frame template-thumb-frame-letter">
+          <div class="template-thumb tmpl-letter-{{ key }}">
+            {{ letter_sample() }}
+          </div>
+        </div>
+      </button>
+      <button type="button" class="template-preview-btn" aria-label="Preview {{ meta.label }}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+      </button>
+      <span class="template-card-name">{{ meta.label }}</span>
+      <span class="template-card-blurb">{{ meta.blurb }}</span>
+    </div>
+    {% endfor %}
   </div>
 
   <div class="builder-instruction-row">
     <textarea id="builder-instruction-input" class="builder-instruction-input" placeholder="What should we focus on? e.g. a role title, tone, or key points to include…"></textarea>
-    <button type="button" class="btn btn-gold" id="builder-generate-btn">Generate</button>
+    <button type="button" class="btn btn-gold" id="builder-generate-btn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8"/></svg>
+      <span id="builder-generate-label">Generate</span>
+    </button>
   </div>
 
   <p class="builder-status-line" id="builder-status-line" hidden></p>
 
   <div class="builder-preview-empty" id="builder-preview-empty">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h13l3 3v13H4Z"/><path d="M17 4v6h6"/></svg>
     <p>Pick a template above and hit Generate — we'll draft it from your uploaded documents.</p>
   </div>
 
   <div class="builder-preview-wrap" id="builder-preview-wrap" hidden>
-    <div class="builder-preview" id="builder-preview" contenteditable="true"></div>
+    <div class="builder-preview tmpl-{{ default_cv_template }}" id="builder-preview" contenteditable="true"></div>
     <span class="builder-save-state" id="builder-save-state" hidden></span>
     <div class="builder-actions">
-      <button type="button" class="btn btn-ghost" id="builder-copy-btn">Copy text</button>
-      <button type="button" class="btn btn-ghost" id="builder-save-btn" hidden>Save</button>
-      <button type="button" class="btn btn-gold" id="builder-download-btn">Download PDF</button>
+      <button type="button" class="btn btn-ghost" id="builder-copy-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+        Copy text
+      </button>
+      <button type="button" class="btn btn-ghost" id="builder-save-btn" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>
+        Save
+      </button>
+      <button type="button" class="btn btn-gold" id="builder-download-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 11 5 5 5-5"/><path d="M5 21h14"/></svg>
+        Download PDF
+      </button>
     </div>
+  </div>
+</div>
+
+<div class="template-preview-overlay" id="template-preview-overlay" hidden>
+  <div class="template-preview-sheet">
+    <div class="template-preview-header">
+      <span class="template-preview-title" id="template-preview-title"></span>
+      <button type="button" class="stub-back-btn" id="template-preview-close-btn" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="template-preview-body" id="template-preview-body"></div>
+    <button type="button" class="btn btn-gold btn-block" id="template-preview-select-btn">Use this template</button>
   </div>
 </div>
 {% endblock %}
@@ -58,6 +130,7 @@
 {% block extra_scripts %}
 <script>
   window.BUILDER_INITIAL = {{ initial|tojson }};
+  window.BUILDER_DEFAULT_TEMPLATES = { cv: {{ default_cv_template|tojson }}, letter: {{ default_letter_template|tojson }} };
 </script>
 <script src="{{ url_for('static', filename='js/builder.js') }}?v={{ asset_version }}"></script>
 {% endblock %}

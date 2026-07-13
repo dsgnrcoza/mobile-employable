@@ -797,7 +797,7 @@ def _company_stub(company):
     return stub
 
 
-def _generate_tailored_document(user, kind, job_title="", company="", job_ad=""):
+def _generate_tailored_document(user, kind, job_title="", company="", job_ad="", template=None):
     """Shared by /api/document and /api/letter-document -- generates a
     fresh, ATS-safe CV or cover letter grounded in the user's real
     uploaded documents (never Ploy's own earlier output), tailored to a
@@ -821,8 +821,23 @@ def _generate_tailored_document(user, kind, job_title="", company="", job_ad="")
             "Apply real CV design sense: a clear name/contact header, short bold section headings "
             "(Experience, Education, Skills, etc.) in a consistent order, reverse-chronological entries, "
             "bullet points for achievements rather than dense paragraphs, generous spacing so it's scannable "
-            "in a 6-second recruiter skim. Keep it ATS-friendly: no tables, no unusual layouts, plain section "
-            "headings a parser would recognize."
+            "in a 6-second recruiter skim. Keep it ATS-friendly: no unusual layouts, plain section headings a "
+            "parser would recognize.\n\n"
+            "STRUCTURE -- follow this exact shape so the app can render your CV in different visual templates "
+            "without you having to think about styling at all (the app's own templates handle every visual "
+            "choice -- your only job is content, in this structure):\n"
+            "- '<h1>Full Name</h1>' once, at the very top.\n"
+            "- One '<p>' right after it with contact info (email, phone, location -- whatever's real and "
+            "available), separated by ' · '.\n"
+            "- Each section is an '<h2>SECTION NAME</h2>' (e.g. EXPERIENCE, EDUCATION, SKILLS).\n"
+            "- Each job or education entry starts with exactly this one-line pattern (title/company on the "
+            "left, dates on the right -- fill in the real values, keep the tags and classes exactly as shown):\n"
+            "  <div class=\"cv-entry-row\"><span class=\"cv-entry-title\">Role, Company</span>"
+            "<span class=\"cv-entry-date\">Month Year - Month Year</span></div>\n"
+            "  immediately followed by a normal '<ul><li>...</li></ul>' of 2-4 achievement bullets for that "
+            "entry. Never nest the row div inside another div -- each entry is just the row line followed by "
+            "its bullet list, as siblings.\n"
+            "- A skills section can just be a '<p>' or a plain '<ul>', no entry-row needed there."
         )
     else:
         doc_label = "cover letter"
@@ -830,7 +845,12 @@ def _generate_tailored_document(user, kind, job_title="", company="", job_ad="")
             "Write a genuine cover letter: a brief opening naming the role, 2-3 short paragraphs connecting "
             "the user's real, specific experience to what this job actually needs, a direct closing. No "
             "generic filler paragraphs ('I am writing to express my interest...'). Sharp and specific, not "
-            "corporate boilerplate."
+            "corporate boilerplate.\n\n"
+            "STRUCTURE -- follow this exact shape (the app applies its own visual template on top):\n"
+            "  <p class=\"letter-date\">today's real date</p>\n"
+            "  <p class=\"letter-greeting\">Dear Hiring Manager,</p> (or a real named greeting if known)\n"
+            "  <p>body paragraph</p> (2-3 of these)\n"
+            "  <p class=\"letter-signoff\">Warm regards,<br>Full Name</p>"
         )
 
     system = (
@@ -842,8 +862,10 @@ def _generate_tailored_document(user, kind, job_title="", company="", job_ad="")
         "NEVER invent a person, career, employer, or achievement that isn't actually theirs. If there isn't "
         "enough real information to write this, say so plainly in 'description' instead of fabricating.\n\n"
         "OUTPUT RULES -- return a JSON object with exactly these keys:\n"
-        "- 'html': the full document as valid HTML using <p>, <strong>, <em>, <ul>, <li>, <h2>, <h3>, <hr>, "
-        "<br> tags only. No markdown, no code fences, no <html>/<head>/<body> wrappers.\n"
+        "- 'html': the full document as valid HTML using <p>, <strong>, <em>, <ul>, <li>, <h1>, <h2>, <h3>, "
+        "<hr>, <br> tags"
+        + (", plus the exact <div class=\"cv-entry-row\">/<span> pattern described above for entries" if kind == "cv" else "")
+        + ". No markdown, no code fences, no <html>/<head>/<body> wrappers.\n"
         "- 'description': one short sentence (max 20 words) describing what was produced.\n"
         + ("- 'fit_score': an integer 0-100 estimating how strong a fit THIS tailored document now makes for "
            "the job above, judged the same way a recruiter would score the original documents.\n" if job_ad else "") +
@@ -863,7 +885,7 @@ def _generate_tailored_document(user, kind, job_title="", company="", job_ad="")
     if not html.strip():
         raise ValueError(parsed.get("description") or "Not enough real document content to generate this.")
 
-    pdf_bytes = _render_cv_pdf_bytes(cv_html=html)
+    pdf_bytes = _render_cv_pdf_bytes(cv_html=html, template=template if kind == "cv" else None)
     if pdf_bytes is None:
         raise ValueError("Couldn't render a document from that content.")
 
@@ -911,6 +933,7 @@ def api_document():
             job_title=(data.get("job_title") or "").strip()[:200],
             company=(data.get("company") or "").strip()[:200],
             job_ad=(data.get("job_ad") or "").strip()[:8000],
+            template=data.get("template") if data.get("template") in CV_TEMPLATES else None,
         )
         return jsonify(card)
     except Exception as e:
@@ -967,7 +990,8 @@ def api_document_save(document_id):
 
     data = request.get_json(force=True)
     html = (data.get("html") or "").strip()
-    pdf_bytes = _render_cv_pdf_bytes(cv_html=html)
+    template = data.get("template") if (doc_row.get("category") == "generated_cv" and data.get("template") in CV_TEMPLATES) else None
+    pdf_bytes = _render_cv_pdf_bytes(cv_html=html, template=template)
     if pdf_bytes is None:
         return jsonify({"ok": False, "error": "Nothing to save."}), 400
 
@@ -1949,7 +1973,8 @@ def api_cv_edit():
         "Never refuse, do nothing, or ask for clarification — silently make your best reasonable interpretation and act on it. "
         "OUTPUT RULES — you MUST follow these exactly:\n"
         "- Return a JSON object with exactly two keys: 'html' and 'description'.\n"
-        "- 'html': the full updated document as valid HTML. Use <p>, <strong>, <em>, <ul>, <li>, <h2>, <h3>, <hr>, <br> tags. "
+        "- 'html': the full updated document as valid HTML. Use <p>, <strong>, <em>, <ul>, <li>, <h1>, <h2>, "
+        "<h3>, <hr>, <br> tags, plus the exact entry-row pattern described below for job/education entries. "
         "NEVER use markdown asterisks, hyphens for bullets, --- separators, or backticks. "
         "No <html>, <head>, <body> wrappers. No code fences.\n"
         "- 'description': one short, specific sentence (max 20 words) describing exactly what you changed — e.g. "
@@ -1960,9 +1985,20 @@ def api_cv_edit():
         "headings (Experience, Education, Skills, etc.) in a consistent order, reverse-chronological entries "
         "within each section, bullet points for achievements rather than dense paragraphs, consistent bold "
         "usage for role titles or employer names (pick one convention and stick to it), and generous <hr>/"
-        "spacing between sections so it's scannable in a 6-second recruiter skim. Keep it ATS-friendly: no "
-        "tables or unusual layouts, plain section headings a parser would recognize, no relying on color or "
-        "font tricks to convey structure.\n\n"
+        "spacing between sections so it's scannable in a 6-second recruiter skim. The app applies its own "
+        "visual template on top of your HTML, so don't hand-roll layout styling yourself -- just follow this "
+        "structure:\n"
+        "- '<h1>Full Name</h1>' once, at the very top, then one '<p>' with contact info separated by ' · '.\n"
+        "- Section headings as '<h2>SECTION NAME</h2>'.\n"
+        "- Each job/education entry starts with exactly this one-line pattern (fill in real values, keep the "
+        "tags and classes exactly as shown):\n"
+        "  <div class=\"cv-entry-row\"><span class=\"cv-entry-title\">Role, Company</span>"
+        "<span class=\"cv-entry-date\">Month Year - Month Year</span></div>\n"
+        "  immediately followed by a normal '<ul><li>...</li></ul>' of achievement bullets -- never nest the "
+        "row div inside another div, it's a sibling of its own bullet list.\n"
+        "If the user's instruction is a small tweak to an existing document that's not in this format yet, "
+        "still convert entries to this pattern while making the requested change -- don't leave the old "
+        "shape in place.\n\n"
         "GROUNDING — this is the most important rule, above all others: every fact in the document "
         "(employer names, job titles, dates, schools, achievements, contact details) must come from "
         "the user's real profile/documents below, or already be present in the current document HTML. "
@@ -2047,11 +2083,36 @@ def api_cv_download_docx():
         section.left_margin = Inches(h_in)
         section.right_margin = Inches(h_in)
 
+    from docx.enum.text import WD_TAB_ALIGNMENT
+
     if blocks:
         for block in blocks:
             if block["kind"] == "hr":
                 p = doc.add_paragraph("─" * 40)
                 p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                continue
+
+            if block["kind"] == "row":
+                # Same title-left/date-right entry line as the PDF, done
+                # here with a right tab stop instead of a table -- python-docx
+                # can't easily add a borderless 2-cell table without extra
+                # ceremony, and a tab stop is the standard Word technique
+                # for this exact "left text ... right text" pattern anyway.
+                p = doc.add_paragraph()
+                p.paragraph_format.space_after = Pt(2)
+                p.paragraph_format.space_before = Pt(8)
+                usable_width = doc.sections[0].page_width - doc.sections[0].left_margin - doc.sections[0].right_margin
+                p.paragraph_format.tab_stops.add_tab_stop(usable_width, WD_TAB_ALIGNMENT.RIGHT)
+                title_run = p.add_run(block["title_text"])
+                title_run.font.name = "Arial"
+                title_run.font.size = Pt(11)
+                title_run.bold = True
+                if block["date_text"]:
+                    p.add_run("\t")
+                    date_run = p.add_run(block["date_text"])
+                    date_run.font.name = "Arial"
+                    date_run.font.size = Pt(10)
+                    date_run.italic = True
                 continue
 
             p = doc.add_paragraph(style="List Bullet" if (block["kind"] == "li" and not block["ordered"]) else
@@ -2091,7 +2152,62 @@ def api_cv_download_docx():
                      as_attachment=True, download_name="my-cv.docx")
 
 
-def _render_cv_pdf_bytes(cv_html="", content="", margins=None):
+# Three real, distinct visual identities layered as pure presentation
+# over one consistent HTML contract from the AI (name/contact header,
+# section headings, entry rows, bullets) -- never a different HTML
+# shape per template, just different type treatment for the same
+# content. Kept in one place so the Builder's live browser preview
+# (CSS classes, see style.css's .tmpl-* rules) and the actual PDF
+# (this dict) can't drift out of sync in what each template means.
+CV_TEMPLATES = {
+    "ledger": {
+        "label": "Ledger",
+        "blurb": "Classic and centered, built for a traditional recruiter skim.",
+        "name_align": "center",
+        "heading_align": "center",
+        "heading_upper": True,
+        "heading_underline": True,
+        "heading_spaced": False,
+        "heading_color": "#1a1a1a",
+        "date_style": "italic",
+        "rule_after_name": False,
+    },
+    "signal": {
+        "label": "Signal",
+        "blurb": "Modern and left-aligned, with a bright accent underline.",
+        "name_align": "left",
+        "heading_align": "left",
+        "heading_upper": False,
+        "heading_underline": False,
+        "heading_spaced": False,
+        "heading_color": "#3A63D8",
+        "date_style": "muted",
+        "rule_after_name": False,
+    },
+    "blueprint": {
+        "label": "Blueprint",
+        "blurb": "Bold and structured, with a strong rule under your name.",
+        "name_align": "left",
+        "heading_align": "left",
+        "heading_upper": True,
+        "heading_underline": False,
+        "heading_spaced": True,
+        "heading_color": "#1a1a1a",
+        "date_style": "bold",
+        "rule_after_name": True,
+    },
+}
+DEFAULT_CV_TEMPLATE = "signal"
+
+LETTER_TEMPLATES = {
+    "formal": {"label": "Formal", "blurb": "Traditional business-letter structure, right-aligned date."},
+    "direct": {"label": "Direct", "blurb": "Short, confident paragraphs, no filler."},
+    "warm": {"label": "Warm", "blurb": "A touch more personal, roomier spacing."},
+}
+DEFAULT_LETTER_TEMPLATE = "direct"
+
+
+def _render_cv_pdf_bytes(cv_html="", content="", margins=None, template=None):
     """Shared by the Builder's manual PDF download and the card-generated
     Document PDFs (Phase 4) -- same renderer, same ATS-safe output either
     way. Returns raw PDF bytes, or None if there's nothing to render."""
@@ -2099,7 +2215,7 @@ def _render_cv_pdf_bytes(cv_html="", content="", margins=None):
     from reportlab.lib.styles import ParagraphStyle
     from reportlab.lib.units import cm
     from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT, TA_JUSTIFY
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, HRFlowable
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, HRFlowable, Table, TableStyle
     import io
     from cv_export import parse_cv_html
 
@@ -2108,6 +2224,8 @@ def _render_cv_pdf_bytes(cv_html="", content="", margins=None):
     blocks = parse_cv_html(cv_html) if cv_html else []
     if not blocks and not content:
         return None
+
+    tmpl = CV_TEMPLATES.get(template, CV_TEMPLATES[DEFAULT_CV_TEMPLATE])
 
     ALIGN_MAP = {"left": TA_LEFT, "center": TA_CENTER, "right": TA_RIGHT, "justify": TA_JUSTIFY}
     FONT_SIZE = {"h1": 18, "h2": 13, "h3": 12}
@@ -2123,20 +2241,65 @@ def _render_cv_pdf_bytes(cv_html="", content="", margins=None):
     doc = SimpleDocTemplate(buf, pagesize=A4,
                             topMargin=v_cm*cm, bottomMargin=v_cm*cm,
                             leftMargin=h_cm*cm, rightMargin=h_cm*cm)
+    content_width = doc.width
 
-    def style_for(block):
+    def heading_markup(block):
+        markup = block["markup"]
+        if block["kind"] != "h2":
+            return markup
+        text = block["text"]
+        if tmpl["heading_upper"]:
+            text = text.upper()
+        if tmpl["heading_spaced"]:
+            text = " ".join(list(text))  # cheap letter-spacing: reportlab has no real tracking
+        if tmpl["heading_underline"]:
+            text = f"<u>{text}</u>"
+        return text
+
+    def style_for(block, align_override=None):
         is_heading = block["kind"] in FONT_SIZE
+        is_h1 = block["kind"] == "h1"
+        align = align_override or block["align"]
+        if is_h1:
+            align = tmpl["name_align"] if block["align"] == "left" else block["align"]
+        elif block["kind"] == "h2":
+            align = tmpl["heading_align"] if block["align"] == "left" else block["align"]
+        color = tmpl["heading_color"] if block["kind"] == "h2" else "#1a1a1a"
         return ParagraphStyle(
-            f"cv_{block['kind']}_{block['align']}",
+            f"cv_{block['kind']}_{align}",
             fontName="Helvetica-Bold" if is_heading else "Helvetica",
             fontSize=FONT_SIZE.get(block["kind"], 11),
             leading=LEADING.get(block["kind"], 16),
             spaceAfter=4 if is_heading else 2,
             spaceBefore=8 if is_heading else 0,
-            alignment=ALIGN_MAP.get(block["align"], TA_LEFT),
+            alignment=ALIGN_MAP.get(align, TA_LEFT),
             leftIndent=14 if block["kind"] == "li" else 0,
             bulletIndent=0,
+            textColor=color,
         )
+
+    def row_flowable(block):
+        title_markup = block["title_markup"] or block["title_text"]
+        date_markup = block["date_markup"] or block["date_text"]
+        if tmpl["date_style"] == "italic":
+            date_markup = f"<i>{date_markup}</i>"
+        elif tmpl["date_style"] == "bold":
+            date_markup = f"<b>{date_markup.upper()}</b>"
+        title_style = ParagraphStyle("row_title", fontName="Helvetica-Bold", fontSize=11, leading=15, textColor="#1a1a1a")
+        date_style = ParagraphStyle("row_date", fontName="Helvetica", fontSize=10, leading=15,
+                                    alignment=TA_RIGHT, textColor="#666666")
+        table = Table(
+            [[Paragraph(title_markup, title_style), Paragraph(date_markup, date_style)]],
+            colWidths=[content_width * 0.68, content_width * 0.32],
+        )
+        table.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "BOTTOM"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 0),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+            ("TOPPADDING", (0, 0), (-1, -1), 6),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+        ]))
+        return table
 
     story = []
     if blocks:
@@ -2150,7 +2313,10 @@ def _render_cv_pdf_bytes(cv_html="", content="", margins=None):
                 story.append(HRFlowable(width="100%", thickness=0.6, color="#999999"))
                 story.append(Spacer(1, 6))
                 continue
-            markup = block["markup"]
+            if block["kind"] == "row":
+                story.append(row_flowable(block))
+                continue
+            markup = heading_markup(block) if block["kind"] == "h2" else block["markup"]
             if block["kind"] == "li":
                 if block["ordered"]:
                     ordered_counter += 1
@@ -2159,6 +2325,10 @@ def _render_cv_pdf_bytes(cv_html="", content="", margins=None):
                     prefix = "•  "
                 markup = prefix + markup
             story.append(Paragraph(markup, style_for(block)))
+            if block["kind"] == "h1" and tmpl["rule_after_name"]:
+                story.append(Spacer(1, 4))
+                story.append(HRFlowable(width="100%", thickness=1.6, color="#1a1a1a"))
+                story.append(Spacer(1, 4))
     else:
         # Fallback for any caller still sending plain text.
         normal = ParagraphStyle("cv_normal", fontName="Helvetica", fontSize=11, leading=16, spaceAfter=2)
@@ -2191,7 +2361,8 @@ def api_cv_download_pdf():
     import io
 
     data = request.get_json(force=True)
-    pdf_bytes = _render_cv_pdf_bytes(data.get("cv_html"), data.get("content"), data.get("margins"))
+    template = data.get("template") if data.get("template") in CV_TEMPLATES else None
+    pdf_bytes = _render_cv_pdf_bytes(data.get("cv_html"), data.get("content"), data.get("margins"), template=template)
     if pdf_bytes is None:
         return jsonify({"error": "No content provided."}), 400
     return send_file(io.BytesIO(pdf_bytes), mimetype="application/pdf",
@@ -2221,7 +2392,11 @@ def builder_page():
                 "kind": "cv" if doc_row["category"] == "generated_cv" else "letter",
                 "html": doc_row.get("content") or "",
             }
-    return render_template("builder.html", initial=initial)
+    return render_template(
+        "builder.html", initial=initial,
+        cv_templates=CV_TEMPLATES, letter_templates=LETTER_TEMPLATES,
+        default_cv_template=DEFAULT_CV_TEMPLATE, default_letter_template=DEFAULT_LETTER_TEMPLATE,
+    )
 
 
 @app.route("/api/letter-edit", methods=["POST"])
@@ -2269,8 +2444,13 @@ def api_letter_edit():
         "Never refuse, do nothing, or ask for clarification — silently make your best reasonable interpretation and act on it. "
         "OUTPUT RULES — you MUST follow these exactly:\n"
         "- Return a JSON object with exactly two keys: 'html' and 'description'.\n"
-        "- 'html': the full updated cover letter as valid HTML. Use <p>, <strong>, <em>, <br> tags only "
-        "(no lists, headings, or <hr> — a cover letter is plain prose paragraphs). "
+        "- 'html': the full updated cover letter as valid HTML, in exactly this structure so the app's own "
+        "template can style it consistently:\n"
+        "  <p class=\"letter-date\">13 July 2026</p> (today's real date, or keep whatever date is already there)\n"
+        "  <p class=\"letter-greeting\">Dear Hiring Manager,</p> (or a real named greeting if one is known)\n"
+        "  <p>body paragraph</p> (2-3 of these, plain prose)\n"
+        "  <p class=\"letter-signoff\">Warm regards,<br>Full Name</p>\n"
+        "Use <strong>, <em>, <br> for inline emphasis only -- no lists, headings, <hr>, or any other tags. "
         "NEVER use markdown asterisks, hyphens for bullets, --- separators, or backticks. "
         "No <html>, <head>, <body> wrappers. No code fences.\n"
         "- 'description': one short, specific sentence (max 20 words) describing exactly what you changed.\n\n"
