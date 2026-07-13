@@ -3442,18 +3442,15 @@ button.auth-tab.active {
   display: flex;
   flex-direction: column;
   background: var(--bg);
-  /* --kb-offset is set by home.js from the VisualViewport API as the
-     on-screen keyboard opens/closes -- transitioning it here (rather
-     than letting the browser's own native resize just snap the layout)
-     is what makes the input bar glide up/down instead of jumping. */
+  /* --kb-offset is set by home.js from the VisualViewport API, which
+     fires "resize" repeatedly WHILE the on-screen keyboard is actually
+     animating in/out -- not once at the end -- so this already tracks
+     the keyboard's real motion in real time. A CSS transition here
+     used to re-ease toward each new, still-climbing value on every one
+     of those events, fighting the keyboard's own animation and
+     producing a visible bounce. No transition needed: just follow the
+     keyboard 1:1. */
   padding-bottom: var(--kb-offset, 0px);
-  transition: padding-bottom 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .chat-shell {
-    transition: none;
-  }
 }
 
 .chat-topbar {
