@@ -2,13 +2,21 @@
 {% block title %}Builder — Ploy{% endblock %}
 
 {% macro cv_sample() %}
-<h1 class="cv-name">Jane Doe</h1>
-<p class="cv-contact">jane@example.com · 082 123 4567 · Cape Town</p>
+<div class="cv-header">
+  <span class="cv-header-name">Jane Doe</span>
+  <span class="cv-header-title">Software Engineer</span>
+  <span class="cv-header-contact">Cape Town<br>jane@example.com<br>082 123 4567</span>
+</div>
+<p>Product-minded engineer who ships features customers actually ask for.</p>
 <h2>Experience</h2>
-<div class="cv-entry-row"><span class="cv-entry-title">Software Engineer, Acme Corp</span><span class="cv-entry-date">2022 - Present</span></div>
+<p class="cv-entry-title">Software Engineer</p>
+<p class="cv-entry-company">Acme Corp, Cape Town</p>
+<p class="cv-entry-dates">2022 - Present</p>
 <ul><li>Shipped a feature customers asked for by name.</li><li>Mentored two junior engineers.</li></ul>
 <h2>Education</h2>
-<div class="cv-entry-row"><span class="cv-entry-title">BSc Computer Science, UCT</span><span class="cv-entry-date">2018 - 2021</span></div>
+<p class="cv-entry-title">BSc Computer Science</p>
+<p class="cv-entry-company">University of Cape Town</p>
+<p class="cv-entry-dates">2018 - 2021</p>
 {% endmacro %}
 
 {% macro letter_sample() %}

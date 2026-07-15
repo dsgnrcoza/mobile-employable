@@ -450,6 +450,19 @@
       btn.addEventListener("click", function () { sendChatMessage(label); });
       quickReplyBar.appendChild(btn);
     });
+    // None of these options might actually fit -- this just dismisses the
+    // choices and focuses the input, so typing a real answer is always
+    // one obvious tap away instead of something you have to already know
+    // you can do.
+    var otherBtn = document.createElement("button");
+    otherBtn.type = "button";
+    otherBtn.className = "chat-quick-reply-btn chat-quick-reply-other-btn";
+    otherBtn.textContent = "Something else — let me type it";
+    otherBtn.addEventListener("click", function () {
+      clearQuickReplies();
+      chatInput.focus();
+    });
+    quickReplyBar.appendChild(otherBtn);
     quickReplyBar.hidden = false;
   }
 
@@ -855,8 +868,8 @@
   // once. This is what makes a multi-part request actually feel like
   // the assistant is working through it step by step rather than either
   // dropping everything but the first part or replying in one flat wall.
-  var STEP_PAUSE_MS = 350;
-  var STEP_STATUS_MS = 550;
+  var STEP_PAUSE_MS = 700;
+  var STEP_STATUS_MS = 1400;
 
   function renderStepsSequentially(steps, i) {
     i = i || 0;
