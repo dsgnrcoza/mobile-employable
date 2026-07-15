@@ -46,6 +46,131 @@
     messagesEl.scrollTop = messagesEl.scrollHeight;
   }
 
+  // ---------- Message actions: copy / edit / reply ----------
+
+  var COPY_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>';
+  var CHECK_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 12 9 17 20 6"/></svg>';
+  var EDIT_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
+  var REPLY_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 10 4 15 9 20"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg>';
+
+  // A user message that's replying to a specific bot bubble is stored as
+  // a single plain-text field (same as every other message, so it needs
+  // no schema/db changes to round-trip) using a fixed, human-readable
+  // prefix -- the model reads it as plain English context, and the UI
+  // splits it back out into a quoted strip above the real text.
+  function parseReplyQuote(text) {
+    var m = /^Replying to: "([\s\S]*?)"\n([\s\S]*)$/.exec(text || "");
+    if (!m) return { quote: null, text: text || "" };
+    return { quote: m[1], text: m[2] };
+  }
+
+  function renderBubbleContent(bubble, text, edited) {
+    bubble.innerHTML = "";
+    var parsed = parseReplyQuote(text);
+    if (parsed.quote) {
+      var q = document.createElement("span");
+      q.className = "chat-msg-quote";
+      q.textContent = parsed.quote;
+      bubble.appendChild(q);
+    }
+    var textEl = document.createElement("span");
+    textEl.className = "chat-msg-text";
+    textEl.innerHTML = formatChatText(parsed.text) + (edited ? ' <span class="chat-msg-edited-tag">(edited)</span>' : "");
+    bubble.appendChild(textEl);
+    return textEl;
+  }
+
+  function flashActionBtn(btn, cls) {
+    var original = btn.innerHTML;
+    btn.innerHTML = CHECK_ICON;
+    btn.classList.add(cls);
+    setTimeout(function () {
+      btn.innerHTML = original;
+      btn.classList.remove(cls);
+    }, 1200);
+  }
+
+  function copyMessageText(text, btn) {
+    var done = function () { flashActionBtn(btn, "is-copied"); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, done);
+    } else {
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand("copy"); } catch (e) {}
+      ta.remove();
+      done();
+    }
+  }
+
+  // ---------- Reply-to-a-message preview bar ----------
+
+  var pendingReplyContext = null;
+  var replyPreviewEl = document.getElementById("chat-reply-preview");
+  var replyPreviewTextEl = document.getElementById("chat-reply-preview-text");
+  var replyPreviewCloseBtn = document.getElementById("chat-reply-preview-close-btn");
+
+  function setReplyContext(snippet) {
+    pendingReplyContext = snippet;
+    replyPreviewTextEl.textContent = snippet;
+    replyPreviewEl.hidden = false;
+    chatInput.focus();
+  }
+
+  function clearReplyContext() {
+    pendingReplyContext = null;
+    replyPreviewEl.hidden = true;
+  }
+
+  replyPreviewCloseBtn.addEventListener("click", clearReplyContext);
+
+  // Swiping a bot bubble right is the gesture shortcut for the same
+  // reply action the Reply icon triggers -- the bubble tracks the drag
+  // finger 1:1 and either commits (past a distance/flick threshold) or
+  // springs back, the same feel as the attach-sheet's swipe-to-dismiss.
+  function wireSwipeToReply(bubble, onReply) {
+    var startX = null, startY = null, dx = 0, startTime = 0, dragging = false;
+
+    bubble.addEventListener("touchstart", function (e) {
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      dx = 0;
+      startTime = Date.now();
+      dragging = false;
+      bubble.style.transition = "none";
+    }, { passive: true });
+
+    bubble.addEventListener("touchmove", function (e) {
+      if (startX == null) return;
+      var t = e.touches[0];
+      var moveX = t.clientX - startX;
+      var moveY = t.clientY - startY;
+      if (!dragging && Math.abs(moveX) < 10 && Math.abs(moveY) < 10) return;
+      if (Math.abs(moveY) > Math.abs(moveX)) return; // vertical scroll, not a swipe
+      dragging = true;
+      dx = Math.max(0, moveX); // only rightward
+      bubble.style.transform = "translateX(" + dx + "px)";
+    }, { passive: true });
+
+    bubble.addEventListener("touchend", function () {
+      if (startX == null) return;
+      var elapsed = Date.now() - startTime;
+      var isFastFlick = dx > 30 && elapsed < 250;
+      bubble.style.transition = "";
+      bubble.style.transform = "";
+      if (dragging && (dx > 60 || isFastFlick)) {
+        onReply();
+      }
+      startX = null;
+      dx = 0;
+      dragging = false;
+    });
+  }
+
   var emptyHeadlineEl = document.getElementById("chat-empty-headline");
   var emptySubtextEl = document.getElementById("chat-empty-subtext");
   var firstName = ((window.HOME_STATE && window.HOME_STATE.profile.full_name) || "").trim().split(/\s+/)[0] || "";
@@ -117,28 +242,151 @@
     return el;
   }
 
-  function appendChatMessage(role, text) {
-    var el = document.createElement("div");
-    el.className = "chat-msg " + (role === "user" ? "chat-msg-user" : "chat-msg-bot");
-    var textEl = document.createElement("span");
-    textEl.className = "chat-msg-text";
-    textEl.innerHTML = formatChatText(text);
-    el.appendChild(textEl);
-    if (role !== "user") {
+  // Every rendered message (text bubble or card, live-sent or reloaded)
+  // is tagged with the chatHistory index it corresponds to -- this is
+  // what lets editing a past message find and remove everything that
+  // came after it, in both the DOM and the history array, without
+  // needing a real per-message id from the server.
+  function truncateHistoryFrom(keepCount) {
+    chatHistory = chatHistory.slice(0, keepCount);
+    var nodes = messagesEl.querySelectorAll("[data-history-index]");
+    nodes.forEach(function (node) {
+      if (Number(node.dataset.historyIndex) >= keepCount) node.remove();
+    });
+    clearQuickReplies();
+  }
+
+  function enterEditMode(group, bubble, idx) {
+    var current = chatHistory[idx];
+    if (!current) return;
+    var parsed = parseReplyQuote(current.text);
+    bubble.innerHTML = "";
+    if (parsed.quote) {
+      var q = document.createElement("span");
+      q.className = "chat-msg-quote";
+      q.textContent = parsed.quote;
+      bubble.appendChild(q);
+    }
+    var textarea = document.createElement("textarea");
+    textarea.className = "chat-msg-edit-textarea";
+    textarea.value = parsed.text;
+    bubble.appendChild(textarea);
+
+    var editActions = document.createElement("div");
+    editActions.className = "chat-msg-edit-actions";
+    var cancelBtn = document.createElement("button");
+    cancelBtn.type = "button";
+    cancelBtn.className = "btn btn-ghost btn-sm";
+    cancelBtn.textContent = "Cancel";
+    var saveBtn = document.createElement("button");
+    saveBtn.type = "button";
+    saveBtn.className = "btn btn-gold btn-sm";
+    saveBtn.textContent = "Save & resend";
+    editActions.appendChild(cancelBtn);
+    editActions.appendChild(saveBtn);
+    bubble.appendChild(editActions);
+
+    function autoGrowTextarea() {
+      textarea.style.height = "auto";
+      textarea.style.height = textarea.scrollHeight + "px";
+    }
+    textarea.addEventListener("input", autoGrowTextarea);
+    textarea.focus();
+    autoGrowTextarea();
+
+    cancelBtn.addEventListener("click", function () {
+      group._textEl = renderBubbleContent(bubble, current.text, !!current.edited);
+    });
+
+    saveBtn.addEventListener("click", function () {
+      if (chatSending) return;
+      var newText = textarea.value.trim();
+      if (!newText) return;
+      var fullText = parsed.quote ? 'Replying to: "' + parsed.quote + '"\n' + newText : newText;
+      chatHistory[idx].text = fullText;
+      chatHistory[idx].edited = true;
+      truncateHistoryFrom(idx + 1);
+      group._textEl = renderBubbleContent(bubble, fullText, true);
+      saveConversation();
+      runAssistantTurn();
+    });
+  }
+
+  function appendChatMessage(role, text, idxOverride) {
+    var idx = idxOverride != null ? idxOverride : chatHistory.length;
+    var group = document.createElement("div");
+    group.className = "chat-msg-group " + (role === "user" ? "chat-msg-group-user" : "chat-msg-group-bot");
+    group.dataset.historyIndex = String(idx);
+
+    var bubble = document.createElement("div");
+    bubble.className = "chat-msg " + (role === "user" ? "chat-msg-user" : "chat-msg-bot");
+    var edited = !!(chatHistory[idx] && chatHistory[idx].edited);
+    var textEl = renderBubbleContent(bubble, text, edited);
+    group.appendChild(bubble);
+
+    // Devices without hover (i.e. touch) have no way to reveal the
+    // below-bubble action row otherwise -- tapping the bubble itself
+    // toggles it, as long as the tap isn't on an action button already
+    // or the tail end of a swipe-to-reply drag.
+    bubble.addEventListener("click", function (e) {
+      if (e.target.closest(".chat-msg-action-btn") || e.target.closest(".chat-msg-edit-textarea")) return;
+      group.classList.toggle("is-actions-visible");
+    });
+
+    var actions = document.createElement("div");
+    actions.className = "chat-msg-actions";
+
+    var copyBtn = document.createElement("button");
+    copyBtn.type = "button";
+    copyBtn.className = "chat-msg-action-btn chat-msg-copy-btn";
+    copyBtn.setAttribute("aria-label", "Copy message");
+    copyBtn.innerHTML = COPY_ICON;
+    copyBtn.addEventListener("click", function () {
+      var raw = chatHistory[group.dataset.historyIndex] ? chatHistory[group.dataset.historyIndex].text : text;
+      copyMessageText(parseReplyQuote(raw).text, copyBtn);
+    });
+    actions.appendChild(copyBtn);
+
+    if (role === "user") {
+      var editBtn = document.createElement("button");
+      editBtn.type = "button";
+      editBtn.className = "chat-msg-action-btn chat-msg-edit-btn";
+      editBtn.setAttribute("aria-label", "Edit message");
+      editBtn.innerHTML = EDIT_ICON;
+      editBtn.addEventListener("click", function () {
+        if (chatSending) return;
+        enterEditMode(group, bubble, Number(group.dataset.historyIndex));
+      });
+      actions.appendChild(editBtn);
+    } else {
+      var replyBtn = document.createElement("button");
+      replyBtn.type = "button";
+      replyBtn.className = "chat-msg-action-btn chat-msg-reply-btn";
+      replyBtn.setAttribute("aria-label", "Reply to this message");
+      replyBtn.innerHTML = REPLY_ICON;
+      var triggerReply = function () { setReplyContext(bubble.querySelector(".chat-msg-text").innerText.trim().slice(0, 140)); };
+      replyBtn.addEventListener("click", triggerReply);
+      actions.appendChild(replyBtn);
+
       var saveBtn = document.createElement("button");
       saveBtn.type = "button";
-      saveBtn.className = "chat-msg-save-btn";
+      saveBtn.className = "chat-msg-action-btn chat-msg-save-btn";
       saveBtn.setAttribute("aria-label", "Save to notes");
       saveBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>';
       saveBtn.addEventListener("click", function () {
-        saveNoteFromText("From chat", textEl.innerText, saveBtn);
+        saveNoteFromText("From chat", bubble.querySelector(".chat-msg-text").innerText, saveBtn);
       });
-      el.appendChild(saveBtn);
+      actions.appendChild(saveBtn);
+
+      wireSwipeToReply(bubble, triggerReply);
     }
-    el._textEl = textEl;
-    messagesEl.appendChild(el);
+
+    group.appendChild(actions);
+    group._textEl = textEl;
+    group._bubble = bubble;
+    messagesEl.appendChild(group);
     scrollChatToBottom();
-    return el;
+    return group;
   }
 
   function appendChatMessageTyped(text, onDone) {
@@ -484,6 +732,7 @@
     clearQuickReplies();
     showEmptyState(false);
     var node = renderCardNode(card);
+    node.dataset.historyIndex = String(chatHistory.length);
     messagesEl.appendChild(node);
     scrollChatToBottom();
     var summary = cardSummaryText(card);
@@ -611,16 +860,10 @@
 
   // ---------- Send ----------
 
-  function sendChatMessage(overrideText) {
-    var text = (overrideText != null ? overrideText : chatInput.value).trim();
-    if (!text || chatSending) return;
-    chatInput.value = "";
-    autoGrowChatInput();
-    showEmptyState(false);
-    clearQuickReplies();
-    appendChatMessage("user", text);
-    chatHistory.push({ role: "user", text: text });
-
+  // The network call + response rendering, shared by a normal send and
+  // by "Save & resend" after editing a past message -- both cases just
+  // need chatHistory to already end at the right point before this runs.
+  function runAssistantTurn() {
     var typingEl = createTypingIndicator();
     messagesEl.appendChild(typingEl);
     scrollChatToBottom();
@@ -669,6 +912,20 @@
       .finally(function () {
         chatSending = false;
       });
+  }
+
+  function sendChatMessage(overrideText) {
+    var raw = (overrideText != null ? overrideText : chatInput.value).trim();
+    if (!raw || chatSending) return;
+    var text = pendingReplyContext ? 'Replying to: "' + pendingReplyContext + '"\n' + raw : raw;
+    clearReplyContext();
+    chatInput.value = "";
+    autoGrowChatInput();
+    showEmptyState(false);
+    clearQuickReplies();
+    appendChatMessage("user", text);
+    chatHistory.push({ role: "user", text: text });
+    runAssistantTurn();
   }
 
   chatSendBtn.addEventListener("click", function () { sendChatMessage(); });
@@ -890,11 +1147,13 @@
           return;
         }
         showEmptyState(false);
-        chatHistory.forEach(function (m) {
+        chatHistory.forEach(function (m, i) {
           if (m.card) {
-            messagesEl.appendChild(renderCardNode(m.card));
+            var node = renderCardNode(m.card);
+            node.dataset.historyIndex = String(i);
+            messagesEl.appendChild(node);
           } else {
-            appendChatMessage(m.role, m.text);
+            appendChatMessage(m.role, m.text, i);
           }
         });
         scrollChatToBottom();
