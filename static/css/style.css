@@ -1926,14 +1926,34 @@ button.auth-tab.active {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 14px;
+  padding: 6px 14px;
   color: var(--muted);
   font-size: 12.5px;
   font-style: italic;
 }
 
+.chat-step-status-dots {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .chat-step-status-label {
   white-space: nowrap;
+}
+
+/* Once its card has landed, the status line stops looking like a live
+   spinner and becomes a small permanent checkmark entry -- part of the
+   visible trail of everything this reply did, not a transient hint. */
+.chat-step-status.is-done {
+  font-style: normal;
+  color: var(--good);
+}
+
+.chat-step-status.is-done svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
 }
 
 .chat-typing-dot {

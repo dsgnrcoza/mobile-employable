@@ -227,19 +227,33 @@
     return el;
   }
 
-  // A brief "Checking your fit against this job…" style status line shown
-  // right before a step's card lands -- so a multi-part reply visibly
-  // works through each part in turn instead of cards just popping in.
+  // A "Checking your fit against this job…" style status line shown right
+  // before a step's card lands, mid-work (animated dots) -- then flipped
+  // to a done state (a checkmark, dots removed) and left in place
+  // permanently once the card appears, instead of disappearing. That's
+  // what actually builds a visible trail of everything a multi-part
+  // reply did, the same way Claude Code's own collapsed tool-call
+  // summaries stay in the transcript rather than vanishing once done.
+  var STEP_CHECK_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 12 9 17 20 6"/></svg>';
+
   function createStepStatus(label) {
     var el = document.createElement("div");
     el.className = "chat-step-status";
     el.innerHTML =
       '<span class="chat-step-status-label"></span>' +
+      '<span class="chat-step-status-dots">' +
       '<span class="chat-typing-dot"></span>' +
       '<span class="chat-typing-dot"></span>' +
-      '<span class="chat-typing-dot"></span>';
+      '<span class="chat-typing-dot"></span>' +
+      '</span>';
     el.querySelector(".chat-step-status-label").textContent = label;
     return el;
+  }
+
+  function markStepStatusDone(el, label) {
+    el.classList.add("is-done");
+    el.innerHTML = STEP_CHECK_ICON + '<span class="chat-step-status-label"></span>';
+    el.querySelector(".chat-step-status-label").textContent = label;
   }
 
   // Every rendered message (text bubble or card, live-sent or reloaded)
@@ -857,7 +871,7 @@
       messagesEl.appendChild(statusEl);
       scrollChatToBottom();
       setTimeout(function () {
-        statusEl.remove();
+        markStepStatusDone(statusEl, step.label || "Done");
         appendCardMessage(step.card);
         setTimeout(function () { renderStepsSequentially(steps, i + 1); }, STEP_PAUSE_MS);
       }, STEP_STATUS_MS);
