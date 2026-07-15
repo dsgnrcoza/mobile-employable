@@ -675,6 +675,18 @@ def _build_skills_chart_card(user, chart_type):
     }
 
 
+def _generate_chat_image(prompt):
+    """Image Generator plugin: generates via OpenAI's image model using
+    the same API key/client already configured for chat -- no separate
+    third-party service or credential to wire up. Returns base64 PNG
+    data; raises on failure so the caller can turn it into a plain-text
+    error reply."""
+    from openai import OpenAI
+    client = OpenAI(api_key=analyzer.get_openai_api_key(), timeout=analyzer.get_client_timeout(), max_retries=analyzer.CLIENT_MAX_RETRIES)
+    resp = client.images.generate(model="dall-e-3", prompt=prompt, size="1024x1024", n=1, response_format="b64_json")
+    return resp.data[0].b64_json
+
+
 def _run_verdict(user, job_ad):
     """Shared by /api/verdict and /api/chat's check_job_fit tool call --
     one grounded-scoring implementation, whether the user reached it by
@@ -1001,65 +1013,41 @@ def api_document_save(document_id):
     return jsonify({"ok": True})
 
 
-# ---------------- Notes ----------------
-
-@app.route("/notes")
-@auth.login_required
-def notes_page():
-    return render_template("notes.html")
-
-
 @app.route("/conversations")
 @auth.login_required
 def conversations_page():
     return render_template("conversations.html")
 
 
-@app.route("/api/notes", methods=["GET"])
+@app.route("/plugins")
 @auth.login_required
-def api_get_notes():
+def plugins_page():
     user = auth.current_user()
-    return jsonify({"ok": True, "notes": db.get_notes_for_user(user["id"])})
+    try:
+        enabled = json.loads(user.get("enabled_plugins") or "[]")
+    except Exception:
+        enabled = []
+    return render_template("plugins.html", plugins=PLUGINS, enabled=enabled)
 
 
-@app.route("/api/notes", methods=["POST"])
+@app.route("/api/plugins", methods=["POST"])
 @auth.login_required
-def api_create_note():
+def api_set_plugin_enabled():
     user = auth.current_user()
     data = request.get_json(force=True)
-    note_id = db.create_note(
-        user["id"],
-        title=(data.get("title") or "").strip()[:200],
-        body=(data.get("body") or "").strip()[:20000],
-        color=(data.get("color") or "default").strip()[:20],
-        source="chat" if data.get("source") == "chat" else "user",
-    )
-    return jsonify({"ok": True, "note": db.get_note(note_id, user["id"])})
-
-
-@app.route("/api/notes/<int:note_id>", methods=["PUT"])
-@auth.login_required
-def api_update_note(note_id):
-    user = auth.current_user()
-    if not db.get_note(note_id, user["id"]):
-        return jsonify({"ok": False, "error": "Note not found."}), 404
-    data = request.get_json(force=True)
-    db.update_note(
-        note_id,
-        user["id"],
-        title=(data.get("title") or "").strip()[:200],
-        body=(data.get("body") or "").strip()[:20000],
-        color=(data.get("color") or "default").strip()[:20],
-    )
-    return jsonify({"ok": True, "note": db.get_note(note_id, user["id"])})
-
-
-@app.route("/api/notes/<int:note_id>", methods=["DELETE"])
-@auth.login_required
-def api_delete_note(note_id):
-    user = auth.current_user()
-    db.delete_note(note_id, user["id"])
-    return jsonify({"ok": True})
+    key = (data.get("key") or "").strip()
+    if key not in PLUGINS:
+        return jsonify({"ok": False, "error": "Unknown plugin."}), 404
+    try:
+        enabled = set(json.loads(user.get("enabled_plugins") or "[]"))
+    except Exception:
+        enabled = set()
+    if data.get("enabled"):
+        enabled.add(key)
+    else:
+        enabled.discard(key)
+    db.set_enabled_plugins(user["id"], sorted(enabled))
+    return jsonify({"ok": True, "enabled": sorted(enabled)})
 
 
 @app.route("/api/upload", methods=["POST"])
@@ -1478,6 +1466,15 @@ def api_set_custom_instructions():
     data = request.get_json(force=True)
     custom_instructions = (data.get("custom_instructions") or "").strip()[:3000]
     db.set_custom_instructions(user["id"], custom_instructions)
+    return jsonify({"ok": True})
+
+
+@app.route("/api/settings/remember-chats", methods=["POST"])
+@auth.login_required
+def api_set_remember_chats():
+    user = auth.current_user()
+    data = request.get_json(force=True)
+    db.set_remember_all_chats(user["id"], bool(data.get("enabled")))
     return jsonify({"ok": True})
 
 
@@ -2159,6 +2156,14 @@ def api_cv_download_docx():
 # content. Kept in one place so the Builder's live browser preview
 # (CSS classes, see style.css's .tmpl-* rules) and the actual PDF
 # (this dict) can't drift out of sync in what each template means.
+PLUGINS = {
+    "image_generator": {
+        "label": "Image Generator",
+        "blurb": "Ask Ploy to generate a real image — a mockup, a moodboard, a social graphic — right in chat.",
+    },
+}
+
+
 CV_TEMPLATES = {
     "ledger": {
         "label": "Ledger",
@@ -2610,21 +2615,85 @@ _CHAT_TOOLS = [
             },
         },
     },
-    {
-        "type": "function",
-        "function": {
-            "name": "save_chat_to_notes",
-            "description": (
-                "Save this conversation (everything said so far) to the user's Notes, so they can find it "
-                "again later. Call this whenever the user asks, in any wording, to save/remember/keep this "
-                "chat or what's been discussed -- e.g. 'save this to notes', 'remember this conversation'. "
-                "After calling it, confirm briefly that it's saved -- don't describe the note's contents back "
-                "to them, they already know what they said."
-            ),
-            "parameters": {"type": "object", "properties": {}},
+]
+
+# Only offered to the model when the user has switched the Image
+# Generator plugin on (see PLUGINS/enabled_plugins) -- kept separate
+# from _CHAT_TOOLS instead of always-on so the model doesn't even know
+# the capability exists until the user has actually installed it.
+_IMAGE_GEN_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "generate_image",
+        "description": (
+            "Generate a real image from a text description, using AI image generation. Call this whenever "
+            "the user asks you to create, draw, generate, design, or make an image, picture, graphic, "
+            "mockup, or visual of something -- not for charts of their own scored data (use "
+            "generate_skills_chart for that instead)."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "prompt": {
+                    "type": "string",
+                    "description": "A clear, detailed description of the image to generate.",
+                },
+            },
+            "required": ["prompt"],
         },
     },
-]
+}
+
+
+def _execute_chat_tool_call(user, tool_name, args, enabled_plugins):
+    """Runs one tool call from /api/chat's agentic loop. Returns
+    (kind, payload):
+    - ("card", card_dict) -- a normal, successful action.
+    - ("text", reply_str) -- a dead end that should stop the loop right
+      there, either because required info is missing (e.g. no job ad
+      yet) or the call raised. Same shape either way since both are
+      "here's why I can't continue" replies to the user.
+    - (None, None) -- unrecognized tool name (or a plugin tool called
+      without the plugin enabled), silently skipped.
+    """
+    try:
+        if tool_name == "check_job_fit":
+            job_ad = (args.get("job_ad") or "").strip()[:8000]
+            if not job_ad:
+                return "text", "Paste the job ad and I'll check your fit against it."
+            return "card", _run_verdict(user, job_ad)
+        if tool_name == "build_tailored_cv":
+            return "card", _generate_tailored_document(
+                user, "cv",
+                job_title=(args.get("job_title") or "").strip()[:200],
+                company=(args.get("company") or "").strip()[:200],
+                job_ad=(args.get("job_ad") or "").strip()[:8000],
+            )
+        if tool_name == "build_cover_letter":
+            return "card", _generate_tailored_document(
+                user, "letter",
+                job_title=(args.get("job_title") or "").strip()[:200],
+                company=(args.get("company") or "").strip()[:200],
+                job_ad=(args.get("job_ad") or "").strip()[:8000],
+            )
+        if tool_name == "analyze_skill_gaps":
+            target_role = (args.get("target_role") or "").strip()[:200]
+            if not target_role:
+                return "text", "Which role or field do you want me to check you against?"
+            return "card", _run_gap_analysis(user, target_role)
+        if tool_name == "generate_skills_chart":
+            card = _build_skills_chart_card(user, (args.get("chart_type") or "bar").strip())
+            if not card:
+                return "text", "I don't have a scored breakdown for you yet -- upload your CV in Profile first and I'll be able to chart it."
+            return "card", card
+        if tool_name == "generate_image" and "image_generator" in enabled_plugins:
+            prompt = (args.get("prompt") or "").strip()[:2000]
+            if not prompt:
+                return "text", "What should the image show?"
+            return "card", {"type": "image", "prompt": prompt, "image_b64": _generate_chat_image(prompt)}
+    except Exception as e:
+        return "text", f"Something went wrong there -- {e}"
+    return None, None
 
 
 @app.route("/api/chat", methods=["POST"])
@@ -2664,27 +2733,36 @@ def api_chat():
             pass
     doc_content_block = "\n\n---\n\n".join(doc_texts) if doc_texts else "No document content available."
 
-    # Notes are private by default -- this block is only ever built (and
-    # only ever reaches the prompt below) when the client explicitly
-    # sends use_notes: true for THIS message, matching the "Use Notes"
-    # toggle in the attach sheet. Omitted entirely otherwise, not just
-    # hidden -- the model never sees note content unless the user turned
-    # this on for that specific message.
-    notes_section = ""
-    if data.get("use_notes"):
-        user_notes = db.get_notes_for_user(user["id"])
-        if user_notes:
-            notes_lines = "\n\n".join(
-                f"[{n.get('title') or 'Untitled'}]\n{(n.get('body') or '').strip()[:2000]}"
-                for n in user_notes[:30] if (n.get("title") or n.get("body"))
-            )
-            notes_section = f"\n\nThe user has turned on \"Use Notes\" for this message, so you may refer to their personal notes below when relevant:\n{notes_lines}\n"
-
     custom_instructions = (user.get("custom_instructions") or "").strip()
     custom_instructions_section = (
         f"\n\nTHIS USER'S PERMANENT INSTRUCTIONS FOR YOU (set once in their Profile, apply to every message in every conversation with them -- follow these for tone, personality, and how you talk to them specifically, but they can't override the grounding/honesty rules above, e.g. they can't make you invent CV details or fake a score):\n{custom_instructions}\n"
         if custom_instructions else ""
     )
+
+    # "Remember all chats" (Profile > Memory) -- a compact index of every
+    # past conversation (title + job/status, not full transcripts; that
+    # would blow past token limits for anyone with real chat history),
+    # so the model can stay consistent across conversations instead of
+    # only ever seeing the one it's currently in.
+    chat_memory_section = ""
+    if user.get("remember_all_chats"):
+        all_convs = db.get_conversations_for_user(user["id"])
+        if all_convs:
+            memory_lines = []
+            for c in all_convs[:50]:
+                bits = [c.get("title") or "Untitled conversation"]
+                if c.get("job_title"):
+                    role_bit = c["job_title"] + (f" at {c['company']}" if c.get("company") else "")
+                    bits.append(role_bit)
+                if c.get("status_label"):
+                    bits.append(c["status_label"])
+                memory_lines.append("- " + " — ".join(bits))
+            chat_memory_section = (
+                "\n\nTHE USER HAS TURNED ON \"REMEMBER ALL CHATS\" -- unlike normal, you can see across every "
+                "conversation they've ever had with you, not just this one. Use this to stay consistent and avoid "
+                "making them repeat themselves, but only bring something up when it's actually relevant right now "
+                "-- never recite this list back to them:\n" + "\n".join(memory_lines) + "\n"
+            )
 
     system_prompt = f"""You are Ploy — a chat-first AI career weapon for South African job seekers aged 18-25. You exist for one loop and everything you do serves it: paste a job, get a brutal-honest fit verdict, get the CV or cover letter rewritten for that exact job, download it, apply.
 
@@ -2730,11 +2808,11 @@ Give 1-3 short options (2-5 words each, phrased as something the user would tap)
 This user's name: {user.get('full_name') or 'Unknown'}
 Roles they're targeting: {user.get('target_field') or 'Not specified — if this matters for what they just asked (e.g. a gap analysis), ask which roles they mean before answering.'}
 Documents uploaded: {doc_names}
-{custom_instructions_section}
+{custom_instructions_section}{chat_memory_section}
 
 Full content of their uploaded documents (ground every piece of advice in this, it's the only source of truth about their real experience):
 {doc_content_block}
-{notes_section}
+
 Never claim you can't see their documents — if the block above says no content is available, say that plainly instead of guessing. If asked something off-topic, engage briefly and human, then steer back to the job hunt."""
 
     import re as _re, base64 as _b64
@@ -2784,96 +2862,91 @@ Never claim you can't see their documents — if the block above says no content
 
     model_name = "gpt-4o" if has_images else "gpt-4o-mini"
 
-    # Tool-calling gives the model itself the judgment to reach for a
-    # Verdict/Document card, whether the user got there via chip 01/02 or
-    # just typed the equivalent request in plain chat -- a card is a card
-    # either way, never a wall of text pretending to be one. This means
-    # giving up raw token-by-token streaming (a tool call has to be seen
-    # in full before it's actionable), so the client instead gets one
-    # JSON response and fake-types plain-text replies client-side.
     try:
-        client = OpenAI(api_key=analyzer.get_openai_api_key(), timeout=analyzer.get_client_timeout(), max_retries=analyzer.CLIENT_MAX_RETRIES)
-        resp = client.chat.completions.create(
-            model=model_name,
-            messages=openai_messages,
-            max_tokens=2000,
-            temperature=0.8,
-            tools=_CHAT_TOOLS,
-            tool_choice="auto",
-        )
-    except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
+        enabled_plugins = set(json.loads(user.get("enabled_plugins") or "[]"))
+    except Exception:
+        enabled_plugins = set()
+    active_tools = list(_CHAT_TOOLS)
+    if "image_generator" in enabled_plugins:
+        active_tools.append(_IMAGE_GEN_TOOL)
 
-    message = resp.choices[0].message
-    tool_calls = message.tool_calls or []
-
-    if tool_calls:
-        call = tool_calls[0]
+    # Agentic loop: a genuinely multi-part request ("check my fit for
+    # this job AND build me a CV for it") needs more than one tool call
+    # to actually get done, not just the first one with the rest of the
+    # ask silently dropped. Each round lets the model see the result of
+    # whatever it just did and decide whether to keep going (another
+    # tool call) or wrap up (plain text) -- exactly how a real assistant
+    # handles a multi-step task, just without raw token streaming (a
+    # tool call has to be seen in full before it's actionable, so the
+    # client gets one JSON response with an ordered list of steps and
+    # renders/fake-types them in sequence instead of one flat reply).
+    client = OpenAI(api_key=analyzer.get_openai_api_key(), timeout=analyzer.get_client_timeout(), max_retries=analyzer.CLIENT_MAX_RETRIES)
+    steps = []
+    MAX_TOOL_ROUNDS = 4
+    for _ in range(MAX_TOOL_ROUNDS):
         try:
-            args = json.loads(call.function.arguments or "{}")
-        except Exception:
-            args = {}
-        try:
-            if call.function.name == "check_job_fit":
-                job_ad = (args.get("job_ad") or "").strip()[:8000]
-                if not job_ad:
-                    return jsonify({"ok": True, "kind": "text", "reply": "Paste the job ad and I'll check your fit against it."})
-                card = _run_verdict(user, job_ad)
-            elif call.function.name == "build_tailored_cv":
-                card = _generate_tailored_document(
-                    user, "cv",
-                    job_title=(args.get("job_title") or "").strip()[:200],
-                    company=(args.get("company") or "").strip()[:200],
-                    job_ad=(args.get("job_ad") or "").strip()[:8000],
-                )
-            elif call.function.name == "build_cover_letter":
-                card = _generate_tailored_document(
-                    user, "letter",
-                    job_title=(args.get("job_title") or "").strip()[:200],
-                    company=(args.get("company") or "").strip()[:200],
-                    job_ad=(args.get("job_ad") or "").strip()[:8000],
-                )
-            elif call.function.name == "analyze_skill_gaps":
-                target_role = (args.get("target_role") or "").strip()[:200]
-                if not target_role:
-                    return jsonify({"ok": True, "kind": "text", "reply": "Which role or field do you want me to check you against?"})
-                card = _run_gap_analysis(user, target_role)
-            elif call.function.name == "generate_skills_chart":
-                card = _build_skills_chart_card(user, (args.get("chart_type") or "bar").strip())
-                if not card:
-                    return jsonify({"ok": True, "kind": "text", "reply": "I don't have a scored breakdown for you yet -- upload your CV in Profile first and I'll be able to chart it."})
-            elif call.function.name == "save_chat_to_notes":
-                card = None
-                transcript_lines = [
-                    ("You: " if m.get("role") == "user" else "Ploy: ") + (m.get("text") or "").strip()
-                    for m in messages_in if (m.get("text") or "").strip()
-                ]
-                first_user_msg = next((m.get("text") for m in messages_in if m.get("role") == "user" and m.get("text")), "")
-                db.create_note(
-                    user["id"],
-                    title=(first_user_msg or "Saved chat").strip()[:60],
-                    body="\n\n".join(transcript_lines)[:20000],
-                    color="default",
-                    source="chat",
-                )
-                return jsonify({"ok": True, "kind": "text", "reply": "Saved — you'll find this conversation in your notes."})
-            else:
-                card = None
-            if card:
-                # The model can produce a short lead-in line alongside the
-                # tool call itself (e.g. "Here's how you stack up:") --
-                # when it does, the client shows that as a text bubble
-                # right before the card, instead of the card always
-                # arriving with no commentary of its own.
-                pre_text = (message.content or "").strip()
-                response = {"ok": True, "kind": "card", "card": card}
-                if pre_text:
-                    response["pre_text"] = pre_text
-                return jsonify(response)
+            resp = client.chat.completions.create(
+                model=model_name,
+                messages=openai_messages,
+                max_tokens=2000,
+                temperature=0.8,
+                tools=active_tools,
+                tool_choice="auto",
+            )
         except Exception as e:
-            return jsonify({"ok": True, "kind": "text", "reply": f"Something went wrong there -- {e}"})
+            if steps:
+                break  # show what we already have rather than losing it to a later-round failure
+            return jsonify({"ok": False, "error": str(e)}), 500
 
-    return jsonify({"ok": True, "kind": "text", "reply": (message.content or "").strip()})
+        message = resp.choices[0].message
+        tool_calls = message.tool_calls or []
+
+        if not tool_calls:
+            final_text = (message.content or "").strip()
+            if final_text:
+                steps.append({"type": "text", "text": final_text})
+            break
+
+        pre_text = (message.content or "").strip()
+        if pre_text:
+            steps.append({"type": "text", "text": pre_text})
+
+        # Keeps the conversation valid for the next round: the API
+        # requires the assistant's own tool-calling message, followed by
+        # exactly one "tool" role response per tool_call_id in it.
+        openai_messages.append({
+            "role": "assistant",
+            "content": message.content,
+            "tool_calls": [
+                {"id": c.id, "type": "function", "function": {"name": c.function.name, "arguments": c.function.arguments}}
+                for c in tool_calls
+            ],
+        })
+
+        stop_here = False
+        for call in tool_calls:
+            try:
+                args = json.loads(call.function.arguments or "{}")
+            except Exception:
+                args = {}
+            kind, payload = _execute_chat_tool_call(user, call.function.name, args, enabled_plugins)
+            if kind == "card":
+                steps.append({"type": "card", "card": payload})
+                openai_messages.append({"role": "tool", "tool_call_id": call.id, "content": json.dumps(payload)[:2000]})
+            elif kind == "text":
+                steps.append({"type": "text", "text": payload})
+                openai_messages.append({"role": "tool", "tool_call_id": call.id, "content": payload})
+                stop_here = True  # a dead end (missing info / error) ends the turn right there
+            else:
+                openai_messages.append({"role": "tool", "tool_call_id": call.id, "content": "Unavailable."})
+
+        if stop_here:
+            break
+
+    if not steps:
+        steps.append({"type": "text", "text": "Something went wrong there. Try again?"})
+
+    return jsonify({"ok": True, "kind": "steps", "steps": steps})
 
 
 if __name__ == "__main__":

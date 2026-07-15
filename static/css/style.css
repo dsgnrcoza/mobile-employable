@@ -1858,31 +1858,6 @@ button.auth-tab.active {
   font-size: 12px;
 }
 
-/* Swipe-to-reply: the bubble translates with the drag; a reply icon
-   fades in underneath to telegraph what letting go will do. */
-.chat-msg-group-bot {
-  position: relative;
-}
-
-.chat-msg-swipe-hint {
-  position: absolute;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--accent);
-  opacity: 0;
-  transition: opacity 120ms ease;
-}
-
-.chat-msg-swipe-hint svg {
-  width: 18px;
-  height: 18px;
-}
-
-.chat-msg-swipe-hint.is-visible {
-  opacity: 1;
-}
-
 /* ---------- Reply-preview bar above the input ---------- */
 
 .chat-reply-preview {
@@ -1896,6 +1871,10 @@ button.auth-tab.active {
   border-left: 3px solid var(--accent);
   border-radius: 10px;
   font-size: 12px;
+}
+
+.chat-reply-preview[hidden] {
+  display: none;
 }
 
 .chat-reply-preview-body {
@@ -2005,13 +1984,22 @@ button.auth-tab.active {
 
 .verdict-card,
 .document-card,
-.chart-card {
+.chart-card,
+.image-card {
   align-self: stretch;
   background: var(--panel-2);
   border: 1px solid var(--line);
   border-radius: 14px;
   padding: 16px;
   max-width: 100%;
+}
+
+.image-card-img {
+  display: block;
+  width: 100%;
+  max-width: 320px;
+  margin: 10px 0;
+  border-radius: 10px;
 }
 
 .chart-body {
@@ -4088,7 +4076,10 @@ button.auth-tab.active {
 
 .sidebar-chats {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -4209,110 +4200,14 @@ button.auth-tab.active {
 }
 
 /* ==========================================================================
-   Notes
+   Conversation history (shares .notes-shell's page-shell layout with the
+   removed Notes feature, which is why this section keeps that name)
    ========================================================================== */
 
 .notes-shell {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-}
-
-.notes-new-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  color: var(--fg);
-  background: none;
-  border: none;
-  cursor: pointer;
-  transition: transform 0.1s ease;
-}
-
-.notes-new-btn:active {
-  transform: scale(0.9);
-}
-
-.notes-new-btn svg {
-  width: 22px;
-  height: 22px;
-}
-
-.notes-search-wrap {
-  position: relative;
-  flex-shrink: 0;
-  margin: 4px 16px 8px;
-}
-
-.notes-search-icon {
-  position: absolute;
-  left: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 16px;
-  height: 16px;
-  color: var(--muted);
-  pointer-events: none;
-}
-
-.notes-search-input {
-  width: 100%;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 10px 14px 10px 36px;
-  font-size: 14px;
-  color: var(--fg);
-  font-family: inherit;
-}
-
-.notes-search-input:focus {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-}
-
-.notes-empty,
-.notes-no-results {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--muted);
-  font-size: 14px;
-  padding: 24px;
-  text-align: center;
-}
-
-.notes-empty[hidden],
-.notes-no-results[hidden] {
-  display: none;
-}
-
-.note-card-source {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-}
-
-.note-card-source svg {
-  width: 12px;
-  height: 12px;
-}
-
-.notes-grid {
-  flex: 1;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  padding: 8px 16px 24px;
-  align-content: start;
 }
 
 .convs-empty {
@@ -4336,6 +4231,59 @@ button.auth-tab.active {
   flex-direction: column;
   gap: 8px;
   padding: 8px 16px 24px;
+}
+
+/* ==========================================================================
+   Plug-Ins
+   ========================================================================== */
+
+.plugins-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 24px;
+}
+
+.plugins-intro {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.45;
+  padding: 4px 16px 16px;
+  margin: 0;
+}
+
+.plugins-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 16px;
+}
+
+.plugin-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 4px;
+  border-bottom: 1px solid var(--line);
+}
+
+.plugin-row-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.plugin-row-label {
+  font-size: 14.5px;
+  font-weight: 700;
+}
+
+.plugin-row-desc {
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.4;
 }
 
 .convs-item {
@@ -5155,6 +5103,34 @@ button.auth-tab.active {
   padding-top: 12px;
 }
 
+.profile-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 14px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.profile-toggle-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.profile-toggle-label {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.profile-toggle-desc {
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
 .profile-memory-viewall-btn {
   margin-right: 8px;
 }
@@ -5553,13 +5529,6 @@ button.auth-tab.active {
   width: 28px;
 }
 
-.attach-notes-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 4px 4px 8px;
-}
-
 .attach-upload-row {
   display: flex;
   align-items: center;
@@ -5606,26 +5575,6 @@ button.auth-tab.active {
 .attach-notes-desc {
   font-size: 12px;
   color: var(--muted);
-}
-
-.use-notes-tooltip {
-  background: var(--surface);
-  border: 1px solid var(--line-strong);
-  border-radius: 14px;
-  padding: 14px;
-  margin-top: 4px;
-  margin-bottom: 8px;
-}
-
-.use-notes-tooltip[hidden] {
-  display: none;
-}
-
-.use-notes-tooltip p {
-  font-size: 13px;
-  color: var(--fg);
-  line-height: 1.45;
-  margin: 0 0 10px;
 }
 
 /* ==========================================================================

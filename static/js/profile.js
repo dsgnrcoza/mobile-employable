@@ -391,6 +391,30 @@
     memoryCollapse.hidden = expanded;
   });
 
+  var rememberChatsToggle = document.getElementById("profile-remember-chats-toggle");
+  rememberChatsToggle.addEventListener("click", function (e) {
+    e.stopPropagation();
+    var goingOn = !rememberChatsToggle.classList.contains("is-on");
+    rememberChatsToggle.classList.toggle("is-on", goingOn);
+    rememberChatsToggle.setAttribute("aria-checked", String(goingOn));
+    fetch("/api/settings/remember-chats", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled: goingOn }),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data.ok) {
+          rememberChatsToggle.classList.toggle("is-on", !goingOn);
+          rememberChatsToggle.setAttribute("aria-checked", String(!goingOn));
+        }
+      })
+      .catch(function () {
+        rememberChatsToggle.classList.toggle("is-on", !goingOn);
+        rememberChatsToggle.setAttribute("aria-checked", String(!goingOn));
+      });
+  });
+
   var MEMORY_PREVIEW_COUNT = 3;
 
   function loadMemory() {

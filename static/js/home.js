@@ -217,21 +217,6 @@
     if (show) rollEmptyStateCopy();
   }
 
-  function saveNoteFromText(title, body, btn) {
-    fetch("/api/notes", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: title, body: body, source: "chat" }),
-    })
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        if (data.ok && btn) {
-          btn.classList.add("is-saved");
-          setTimeout(function () { btn.classList.remove("is-saved"); }, 1500);
-        }
-      });
-  }
-
   function createTypingIndicator() {
     var el = document.createElement("div");
     el.className = "chat-msg-typing";
@@ -358,28 +343,20 @@
         enterEditMode(group, bubble, Number(group.dataset.historyIndex));
       });
       actions.appendChild(editBtn);
-    } else {
-      var replyBtn = document.createElement("button");
-      replyBtn.type = "button";
-      replyBtn.className = "chat-msg-action-btn chat-msg-reply-btn";
-      replyBtn.setAttribute("aria-label", "Reply to this message");
-      replyBtn.innerHTML = REPLY_ICON;
-      var triggerReply = function () { setReplyContext(bubble.querySelector(".chat-msg-text").innerText.trim().slice(0, 140)); };
-      replyBtn.addEventListener("click", triggerReply);
-      actions.appendChild(replyBtn);
-
-      var saveBtn = document.createElement("button");
-      saveBtn.type = "button";
-      saveBtn.className = "chat-msg-action-btn chat-msg-save-btn";
-      saveBtn.setAttribute("aria-label", "Save to notes");
-      saveBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>';
-      saveBtn.addEventListener("click", function () {
-        saveNoteFromText("From chat", bubble.querySelector(".chat-msg-text").innerText, saveBtn);
-      });
-      actions.appendChild(saveBtn);
-
-      wireSwipeToReply(bubble, triggerReply);
     }
+
+    // Reply applies to either role -- replying to your own earlier
+    // message is just as valid a way to give the model context as
+    // replying to something it said.
+    var replyBtn = document.createElement("button");
+    replyBtn.type = "button";
+    replyBtn.className = "chat-msg-action-btn chat-msg-reply-btn";
+    replyBtn.setAttribute("aria-label", "Reply to this message");
+    replyBtn.innerHTML = REPLY_ICON;
+    var triggerReply = function () { setReplyContext(bubble.querySelector(".chat-msg-text").innerText.trim().slice(0, 140)); };
+    replyBtn.addEventListener("click", triggerReply);
+    actions.appendChild(replyBtn);
+    wireSwipeToReply(bubble, triggerReply);
 
     group.appendChild(actions);
     group._textEl = textEl;
@@ -485,7 +462,6 @@
       '<div class="card-actions">' +
       '<button type="button" class="btn btn-gold btn-sm card-fix-btn">Fix my CV for this job</button>' +
       '<button type="button" class="btn btn-ghost btn-sm card-breakdown-btn">Show full breakdown</button>' +
-      '<button type="button" class="btn btn-ghost btn-sm card-save-note-btn">Save to notes</button>' +
       "</div>";
 
     wrap.querySelector(".card-fix-btn").addEventListener("click", function () {
@@ -499,17 +475,6 @@
       breakdownEl.textContent = card.breakdown || "";
       breakdownBtn.textContent = show ? "Hide breakdown" : "Show full breakdown";
       scrollChatToBottom();
-    });
-    wrap.querySelector(".card-save-note-btn").addEventListener("click", function () {
-      var noteBtn = wrap.querySelector(".card-save-note-btn");
-      var title = "Verdict — " + (card.job_title || "This role") + (card.company ? " at " + card.company : "");
-      var body = "Fit score: " + card.fit_score + "/100\n\n" +
-        (card.strengths && card.strengths.length ? "Strengths:\n" + card.strengths.map(function (s) { return "- " + s; }).join("\n") + "\n\n" : "") +
-        (card.gaps && card.gaps.length ? "Gaps:\n" + card.gaps.map(function (s) { return "- " + s; }).join("\n") + "\n\n" : "") +
-        (card.breakdown || "");
-      saveNoteFromText(title, body, noteBtn);
-      noteBtn.textContent = "Saved ✓";
-      setTimeout(function () { noteBtn.textContent = "Save to notes"; }, 1500);
     });
     return wrap;
   }
@@ -528,7 +493,6 @@
       '<div class="card-actions">' +
       '<button type="button" class="btn btn-gold btn-sm card-fix-btn">Build my CV</button>' +
       '<button type="button" class="btn btn-ghost btn-sm card-breakdown-btn">Show full breakdown</button>' +
-      '<button type="button" class="btn btn-ghost btn-sm card-save-note-btn">Save to notes</button>' +
       "</div>";
 
     wrap.querySelector(".card-fix-btn").addEventListener("click", function () {
@@ -542,17 +506,6 @@
       breakdownEl.textContent = card.breakdown || "";
       breakdownBtn.textContent = show ? "Hide breakdown" : "Show full breakdown";
       scrollChatToBottom();
-    });
-    wrap.querySelector(".card-save-note-btn").addEventListener("click", function () {
-      var noteBtn = wrap.querySelector(".card-save-note-btn");
-      var title = "Gap analysis — " + (card.target_role || "This role");
-      var body = "Readiness: " + card.readiness_score + "/100\n\n" +
-        (card.strengths && card.strengths.length ? "Strengths:\n" + card.strengths.map(function (s) { return "- " + s; }).join("\n") + "\n\n" : "") +
-        (card.gaps && card.gaps.length ? "Gaps:\n" + card.gaps.map(function (s) { return "- " + s; }).join("\n") + "\n\n" : "") +
-        (card.breakdown || "");
-      saveNoteFromText(title, body, noteBtn);
-      noteBtn.textContent = "Saved ✓";
-      setTimeout(function () { noteBtn.textContent = "Save to notes"; }, 1500);
     });
     return wrap;
   }
@@ -607,18 +560,10 @@
       '<div class="chart-body">' + bodyHtml + "</div>" +
       '<div class="card-actions">' +
       '<button type="button" class="btn btn-ghost btn-sm chart-improve-btn">What should I improve first?</button>' +
-      '<button type="button" class="btn btn-ghost btn-sm chart-save-note-btn">Save to notes</button>' +
       "</div>";
 
     wrap.querySelector(".chart-improve-btn").addEventListener("click", function () {
       sendChatMessage("Looking at that chart, what should I improve first?");
-    });
-    wrap.querySelector(".chart-save-note-btn").addEventListener("click", function () {
-      var noteBtn = wrap.querySelector(".chart-save-note-btn");
-      var body = card.labels.map(function (label, i) { return label + ": " + card.values[i] + "/10"; }).join("\n");
-      saveNoteFromText("Skills chart", body, noteBtn);
-      noteBtn.textContent = "Saved ✓";
-      setTimeout(function () { noteBtn.textContent = "Save to notes"; }, 1500);
     });
     return wrap;
   }
@@ -645,7 +590,6 @@
       '<button type="button" class="btn btn-ghost btn-sm document-edit-btn">Edit</button>' +
       (card.kind === "cv" ? '<button type="button" class="btn btn-ghost btn-sm document-letter-btn">Cover letter</button>' : "") +
       (card.kind === "cv" ? '<button type="button" class="btn btn-ghost btn-sm document-applied-btn">Mark as applied</button>' : "") +
-      '<button type="button" class="btn btn-ghost btn-sm document-save-note-btn">Save to notes</button>' +
       "</div>";
 
     wrap.querySelector(".document-download-btn").addEventListener("click", function () {
@@ -653,16 +597,6 @@
     });
     wrap.querySelector(".document-edit-btn").addEventListener("click", function () {
       window.location.href = "/builder?doc=" + card.document_id;
-    });
-    wrap.querySelector(".document-save-note-btn").addEventListener("click", function () {
-      var noteBtn = wrap.querySelector(".document-save-note-btn");
-      var label = card.kind === "cv" ? "CV" : "Cover letter";
-      var context = [card.job_title, card.company].filter(Boolean).join(" at ");
-      var body = label + " (" + card.filename + ")" + (context ? " — tailored for " + context : "") +
-        ". Open it any time from Builder or download it from this chat.";
-      saveNoteFromText(label + (context ? " — " + context : ""), body, noteBtn);
-      noteBtn.textContent = "Saved ✓";
-      setTimeout(function () { noteBtn.textContent = "Save to notes"; }, 1500);
     });
     if (card.kind === "cv") {
       wrap.querySelector(".document-letter-btn").addEventListener("click", function () {
@@ -678,10 +612,23 @@
     return wrap;
   }
 
+  function renderImageCard(card) {
+    var wrap = document.createElement("div");
+    wrap.className = "image-card";
+    wrap.innerHTML =
+      '<div class="card-header mono">IMAGE</div>' +
+      '<img class="image-card-img" src="data:image/png;base64,' + card.image_b64 + '" alt="' + escapeHtml(card.prompt) + '">' +
+      '<div class="card-actions">' +
+      '<a class="btn btn-gold btn-sm image-card-download-btn" href="data:image/png;base64,' + card.image_b64 + '" download="ploy-image.png">Download</a>' +
+      "</div>";
+    return wrap;
+  }
+
   function renderCardNode(card) {
     return card.type === "verdict" ? renderVerdictCard(card)
       : card.type === "gap" ? renderGapCard(card)
       : card.type === "chart" ? renderChartCard(card)
+      : card.type === "image" ? renderImageCard(card)
       : renderDocumentCard(card);
   }
 
@@ -720,6 +667,13 @@
         "Your " + labels + " breakdown, as a " + card.chart_type + " chart.",
       ]);
     }
+    if (card.type === "image") {
+      return pick([
+        "Generated: " + card.prompt,
+        "Here's that image — " + card.prompt,
+        "Image ready: " + card.prompt,
+      ]);
+    }
     var docLabel = card.kind === "cv" ? "CV" : "cover letter";
     return pick([
       "Document ready: " + card.filename,
@@ -738,7 +692,7 @@
     var summary = cardSummaryText(card);
     chatHistory.push({ role: "assistant", text: summary, card: card });
     saveConversation().then(function () {
-      if (card.type !== "chart" && card.type !== "gap") promoteThreadForCard(card);
+      if (card.type !== "chart" && card.type !== "gap" && card.type !== "image") promoteThreadForCard(card);
     });
   }
 
@@ -860,6 +814,36 @@
 
   // ---------- Send ----------
 
+  // /api/chat can now do more than one thing per turn (e.g. "check my
+  // fit AND build my CV" chains a verdict card, then a document card) --
+  // this renders that ordered list of steps one at a time, each waiting
+  // for the previous to finish, instead of dumping everything in at
+  // once. This is what makes a multi-part request actually feel like
+  // the assistant is working through it step by step rather than either
+  // dropping everything but the first part or replying in one flat wall.
+  var STEP_PAUSE_MS = 350;
+
+  function renderStepsSequentially(steps, i) {
+    i = i || 0;
+    if (i >= steps.length) {
+      saveConversation();
+      return;
+    }
+    var step = steps[i];
+    var isLast = i === steps.length - 1;
+    if (step.type === "card") {
+      appendCardMessage(step.card);
+      setTimeout(function () { renderStepsSequentially(steps, i + 1); }, STEP_PAUSE_MS);
+    } else {
+      var parsed = parseQuickReplies(step.text || "");
+      appendChatMessageTyped(parsed.text, function () {
+        chatHistory.push({ role: "assistant", text: parsed.text });
+        if (isLast) appendQuickReplies(parsed.replies);
+        renderStepsSequentially(steps, i + 1);
+      });
+    }
+  }
+
   // The network call + response rendering, shared by a normal send and
   // by "Save & resend" after editing a past message -- both cases just
   // need chatHistory to already end at the right point before this runs.
@@ -872,7 +856,7 @@
     fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages: chatHistory, use_notes: isUseNotesEnabled() }),
+      body: JSON.stringify({ messages: chatHistory }),
     })
       .then(function (r) { return r.json(); })
       .then(function (data) {
@@ -881,29 +865,7 @@
           appendChatMessageTyped("Something went wrong there. Try again?");
           return;
         }
-        if (data.kind === "card") {
-          // Card-producing tool calls (fit check / CV build / chart)
-          // render as their own card component, whether the user reached
-          // this via a chip or just typed the equivalent request --
-          // never as a wall of text pretending to be one. When the model
-          // also sent a short lead-in line, that shows as its own text
-          // bubble first, then the card follows -- "text, then visual"
-          // in one reply instead of the card always arriving mute.
-          if (data.pre_text) {
-            appendChatMessageTyped(data.pre_text, function () {
-              appendCardMessage(data.card);
-            });
-          } else {
-            appendCardMessage(data.card);
-          }
-          return;
-        }
-        var parsed = parseQuickReplies(data.reply || "");
-        appendChatMessageTyped(parsed.text, function () {
-          appendQuickReplies(parsed.replies);
-        });
-        chatHistory.push({ role: "assistant", text: parsed.text });
-        saveConversation();
+        renderStepsSequentially(data.steps || []);
       })
       .catch(function () {
         typingEl.remove();
@@ -1090,48 +1052,6 @@
       .finally(function () {
         setTimeout(function () { attachUploadStatus.textContent = attachUploadStatusDefault; }, 3000);
       });
-  });
-
-  // ---------- "Use my documents" toggle ----------
-  // Off by default and never sent to the server at all unless it's
-  // explicitly on for that message -- documents stay private between
-  // the app and the user unless this is switched on.
-
-  var useNotesToggle = document.getElementById("use-notes-toggle");
-  var useNotesTooltip = document.getElementById("use-notes-tooltip");
-  var useNotesTooltipGotIt = document.getElementById("use-notes-tooltip-got-it");
-  var USE_NOTES_TOOLTIP_MAX_SHOWS = 3;
-
-  function isUseNotesEnabled() {
-    return localStorage.getItem("useNotesEnabled") === "true";
-  }
-
-  function tooltipShowCount() {
-    return parseInt(localStorage.getItem("useNotesTooltipCount") || "0", 10);
-  }
-
-  function applyUseNotesToggleUI() {
-    var on = isUseNotesEnabled();
-    useNotesToggle.classList.toggle("is-on", on);
-    useNotesToggle.setAttribute("aria-checked", String(on));
-  }
-  applyUseNotesToggleUI();
-
-  useNotesToggle.addEventListener("click", function () {
-    var goingOn = !isUseNotesEnabled();
-    localStorage.setItem("useNotesEnabled", goingOn ? "true" : "false");
-    applyUseNotesToggleUI();
-
-    if (goingOn && tooltipShowCount() < USE_NOTES_TOOLTIP_MAX_SHOWS) {
-      useNotesTooltip.hidden = false;
-    } else {
-      useNotesTooltip.hidden = true;
-    }
-  });
-
-  useNotesTooltipGotIt.addEventListener("click", function () {
-    localStorage.setItem("useNotesTooltipCount", String(tooltipShowCount() + 1));
-    useNotesTooltip.hidden = true;
   });
 
   function loadConversation(convId) {

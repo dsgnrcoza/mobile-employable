@@ -322,6 +322,8 @@ def init_db():
         "ALTER TABLE users ADD COLUMN security_key_hash TEXT DEFAULT ''",
         "ALTER TABLE users ADD COLUMN custom_instructions TEXT DEFAULT ''",
         "ALTER TABLE notes ADD COLUMN source TEXT NOT NULL DEFAULT 'user'",
+        "ALTER TABLE users ADD COLUMN enabled_plugins TEXT NOT NULL DEFAULT '[]'",
+        "ALTER TABLE users ADD COLUMN remember_all_chats INTEGER NOT NULL DEFAULT 0",
         # Deliberately last and best-effort, not part of the CREATE TABLE
         # block above: if any pre-existing rows already share a non-blank
         # email (e.g. two accounts that both had their email set to the
@@ -794,6 +796,24 @@ def set_custom_instructions(user_id, custom_instructions: str):
         conn.close()
 
 
+def set_enabled_plugins(user_id, plugin_keys):
+    conn = get_db()
+    try:
+        conn.execute("UPDATE users SET enabled_plugins = ? WHERE id = ?", (json.dumps(list(plugin_keys)), user_id))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def set_remember_all_chats(user_id, enabled: bool):
+    conn = get_db()
+    try:
+        conn.execute("UPDATE users SET remember_all_chats = ? WHERE id = ?", (1 if enabled else 0, user_id))
+        conn.commit()
+    finally:
+        conn.close()
+
+
 # ---------------- CHAT ATTACHMENT QUERIES ----------------
 
 def add_chat_attachment(user_id, filename, stored_path, mime_type, text_content=""):
@@ -1082,124 +1102,6 @@ def count_pending_incoming_requests(user_id):
             (user_id,),
         ).fetchone()
         return row["c"] if row else 0
-    finally:
-        conn.close()
-
-
-def create_note(user_id, title="", body="", color="default", source="user"):
-    conn = get_db()
-    try:
-        now = now_iso()
-        cur = conn.execute(
-            "INSERT INTO notes (user_id, title, body, color, source, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (user_id, title, body, color, source, now, now),
-        )
-        conn.commit()
-        return cur.lastrowid
-    finally:
-        conn.close()
-
-
-def get_notes_for_user(user_id):
-    conn = get_db()
-    try:
-        rows = conn.execute(
-            "SELECT * FROM notes WHERE user_id = ? ORDER BY updated_at DESC",
-            (user_id,),
-        ).fetchall()
-        return [dict(r) for r in rows]
-    finally:
-        conn.close()
-
-
-def get_note(note_id, user_id):
-    conn = get_db()
-    try:
-        row = conn.execute(
-            "SELECT * FROM notes WHERE id = ? AND user_id = ?", (note_id, user_id)
-        ).fetchone()
-        return dict(row) if row else None
-    finally:
-        conn.close()
-
-
-def update_note(note_id, user_id, title, body, color):
-    conn = get_db()
-    try:
-        conn.execute(
-            "UPDATE notes SET title = ?, body = ?, color = ?, updated_at = ? WHERE id = ? AND user_id = ?",
-            (title, body, color, now_iso(), note_id, user_id),
-        )
-        conn.commit()
-    finally:
-        conn.close()
-
-
-def delete_note(note_id, user_id):
-    conn = get_db()
-    try:
-        conn.execute("DELETE FROM notes WHERE id = ? AND user_id = ?", (note_id, user_id))
-        conn.commit()
-    finally:
-        conn.close()
-
-
-def create_tracker(user_id, job_title="", company="", date_applied="", status="applied", notes=""):
-    conn = get_db()
-    try:
-        now = now_iso()
-        cur = conn.execute(
-            "INSERT INTO trackers (user_id, job_title, company, date_applied, status, notes, created_at, updated_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (user_id, job_title, company, date_applied, status, notes, now, now),
-        )
-        conn.commit()
-        return cur.lastrowid
-    finally:
-        conn.close()
-
-
-def get_trackers_for_user(user_id):
-    conn = get_db()
-    try:
-        rows = conn.execute(
-            "SELECT * FROM trackers WHERE user_id = ? ORDER BY date_applied DESC, id DESC",
-            (user_id,),
-        ).fetchall()
-        return [dict(r) for r in rows]
-    finally:
-        conn.close()
-
-
-def get_tracker(tracker_id, user_id):
-    conn = get_db()
-    try:
-        row = conn.execute(
-            "SELECT * FROM trackers WHERE id = ? AND user_id = ?", (tracker_id, user_id)
-        ).fetchone()
-        return dict(row) if row else None
-    finally:
-        conn.close()
-
-
-def update_tracker(tracker_id, user_id, job_title, company, date_applied, status, notes):
-    conn = get_db()
-    try:
-        conn.execute(
-            "UPDATE trackers SET job_title = ?, company = ?, date_applied = ?, status = ?, notes = ?, "
-            "updated_at = ? WHERE id = ? AND user_id = ?",
-            (job_title, company, date_applied, status, notes, now_iso(), tracker_id, user_id),
-        )
-        conn.commit()
-    finally:
-        conn.close()
-
-
-def delete_tracker(tracker_id, user_id):
-    conn = get_db()
-    try:
-        conn.execute("DELETE FROM trackers WHERE id = ? AND user_id = ?", (tracker_id, user_id))
-        conn.commit()
     finally:
         conn.close()
 

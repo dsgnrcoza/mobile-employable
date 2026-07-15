@@ -113,6 +113,15 @@
       <svg class="profile-section-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
     </button>
     <div class="profile-section-collapse" id="profile-memory-collapse" hidden>
+      <div class="profile-toggle-row">
+        <span class="profile-toggle-text">
+          <span class="profile-toggle-label">Remember all chats</span>
+          <span class="profile-toggle-desc">Let Ploy refer back to every past conversation, not just the one you're in.</span>
+        </span>
+        <button type="button" class="toggle-switch{{ ' is-on' if user.remember_all_chats else '' }}" id="profile-remember-chats-toggle" role="switch" aria-checked="{{ 'true' if user.remember_all_chats else 'false' }}" aria-label="Remember all chats">
+          <span class="toggle-switch-knob"></span>
+        </button>
+      </div>
       <p class="profile-section-desc" id="profile-memory-desc">Every conversation Ploy remembers.</p>
       <div class="profile-memory-preview" id="profile-memory-preview"></div>
       <a href="{{ url_for('conversations_page') }}" class="btn btn-ghost btn-sm profile-memory-viewall-btn">View all conversations</a>
