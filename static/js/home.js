@@ -235,6 +235,7 @@
   // reply did, the same way Claude Code's own collapsed tool-call
   // summaries stay in the transcript rather than vanishing once done.
   var STEP_CHECK_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 12 9 17 20 6"/></svg>';
+  var STEP_CHEVRON_ICON = '<svg class="chat-step-status-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
 
   function createStepStatus(label) {
     var el = document.createElement("div");
@@ -250,10 +251,70 @@
     return el;
   }
 
-  function markStepStatusDone(el, label) {
+  // Once a step lands, its status line stays behind as a permanent,
+  // clickable entry in the trail (see the module doc comment above) --
+  // tapping it expands a small detail line underneath showing exactly
+  // what that step actually did, the same way Claude Code's own
+  // collapsed "Ran a command, used 2 tools" summaries expand on click.
+  function markStepStatusDone(el, label, detail, toolName) {
     el.classList.add("is-done");
     el.innerHTML = STEP_CHECK_ICON + '<span class="chat-step-status-label"></span>';
     el.querySelector(".chat-step-status-label").textContent = label;
+    if (!detail) return;
+
+    el.insertAdjacentHTML("beforeend", STEP_CHEVRON_ICON);
+    el.classList.add("is-expandable");
+
+    var detailEl = document.createElement("div");
+    detailEl.className = "chat-step-detail";
+    detailEl.hidden = true;
+    detailEl.innerHTML =
+      (toolName ? '<span class="chat-step-detail-tool"></span>' : "") +
+      '<span class="chat-step-detail-text"></span>';
+    if (toolName) detailEl.querySelector(".chat-step-detail-tool").textContent = toolName;
+    detailEl.querySelector(".chat-step-detail-text").textContent = detail;
+    el.insertAdjacentElement("afterend", detailEl);
+
+    el.addEventListener("click", function () {
+      var expanded = el.classList.toggle("is-expanded");
+      detailEl.hidden = !expanded;
+    });
+  }
+
+  // ---------- "Working…" elapsed-time indicator ----------
+  // A small ticking clock pinned above the input for the full duration
+  // of a turn (from send through the last step actually landing), so
+  // the user can see real time passing on a slow multi-step reply
+  // instead of wondering whether anything is happening at all.
+
+  var workingBarEl = document.getElementById("chat-working-bar");
+  var workingTimeEl = document.getElementById("chat-working-time");
+  var workingTimerHandle = null;
+  var workingStartedAt = 0;
+
+  function formatElapsed(ms) {
+    var totalSec = Math.max(0, Math.floor(ms / 1000));
+    var m = Math.floor(totalSec / 60);
+    var s = totalSec % 60;
+    return m > 0 ? (m + "m " + s + "s") : (s + "s");
+  }
+
+  function startWorkingTimer() {
+    workingStartedAt = Date.now();
+    workingTimeEl.textContent = "0s";
+    workingBarEl.hidden = false;
+    if (workingTimerHandle) clearInterval(workingTimerHandle);
+    workingTimerHandle = setInterval(function () {
+      workingTimeEl.textContent = formatElapsed(Date.now() - workingStartedAt);
+    }, 1000);
+  }
+
+  function stopWorkingTimer() {
+    if (workingTimerHandle) {
+      clearInterval(workingTimerHandle);
+      workingTimerHandle = null;
+    }
+    workingBarEl.hidden = true;
   }
 
   // Every rendered message (text bubble or card, live-sent or reloaded)
@@ -874,6 +935,7 @@
   function renderStepsSequentially(steps, i) {
     i = i || 0;
     if (i >= steps.length) {
+      stopWorkingTimer();
       saveConversation();
       return;
     }
@@ -884,7 +946,7 @@
       messagesEl.appendChild(statusEl);
       scrollChatToBottom();
       setTimeout(function () {
-        markStepStatusDone(statusEl, step.label || "Done");
+        markStepStatusDone(statusEl, step.label || "Done", step.detail, step.tool);
         appendCardMessage(step.card);
         setTimeout(function () { renderStepsSequentially(steps, i + 1); }, STEP_PAUSE_MS);
       }, STEP_STATUS_MS);
@@ -905,6 +967,7 @@
     var typingEl = createTypingIndicator();
     messagesEl.appendChild(typingEl);
     scrollChatToBottom();
+    startWorkingTimer();
 
     chatSending = true;
     fetch("/api/chat", {
@@ -916,6 +979,7 @@
       .then(function (data) {
         typingEl.remove();
         if (!data.ok) {
+          stopWorkingTimer();
           appendChatMessageTyped("Something went wrong there. Try again?");
           return;
         }
@@ -923,6 +987,7 @@
       })
       .catch(function () {
         typingEl.remove();
+        stopWorkingTimer();
         appendChatMessageTyped("Couldn't send that — check your connection and try again.");
       })
       .finally(function () {
