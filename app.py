@@ -2856,6 +2856,33 @@ _TOOL_STATUS_LABELS = {
 }
 
 
+def _tool_call_detail(tool_name, args):
+    """One short, honest sentence describing what a tool call actually
+    did with the arguments the model passed it -- shown in the chat step
+    trail when the user taps a completed step to see what happened
+    under the hood, the same way Claude Code's own transcript lets you
+    expand a collapsed tool call."""
+    if tool_name == "check_job_fit":
+        job_ad = (args.get("job_ad") or "").strip()
+        return f"Scored your fit against a {len(job_ad):,}-character job ad." if job_ad else "Scored your fit."
+    if tool_name in ("build_tailored_cv", "build_cover_letter"):
+        job_title = (args.get("job_title") or "").strip()
+        company = (args.get("company") or "").strip()
+        if job_title:
+            return f"Tailored for {job_title}" + (f" at {company}." if company else ".")
+        return "Built a general-purpose version from your uploaded documents."
+    if tool_name == "analyze_skill_gaps":
+        target_role = (args.get("target_role") or "").strip()
+        return f"Analyzed your readiness for {target_role}." if target_role else "Analyzed your readiness."
+    if tool_name == "generate_skills_chart":
+        chart_type = (args.get("chart_type") or "bar").strip()
+        return f"Charted your scored breakdown as a {chart_type} chart."
+    if tool_name == "generate_image":
+        prompt = (args.get("prompt") or "").strip()
+        return f'Generated an image from: "{prompt[:100]}"' if prompt else "Generated an image."
+    return ""
+
+
 def _execute_chat_tool_call(user, tool_name, args, enabled_plugins):
     """Runs one tool call from /api/chat's agentic loop. Returns
     (kind, payload):
@@ -3163,6 +3190,8 @@ Never claim you can't see their documents — if the block above says no content
                     "type": "card",
                     "card": payload,
                     "label": _TOOL_STATUS_LABELS.get(call.function.name, "Working on that"),
+                    "tool": call.function.name,
+                    "detail": _tool_call_detail(call.function.name, args),
                 })
                 openai_messages.append({"role": "tool", "tool_call_id": call.id, "content": json.dumps(payload)[:2000]})
             elif kind == "text":
