@@ -227,6 +227,21 @@
     return el;
   }
 
+  // A brief "Checking your fit against this job…" style status line shown
+  // right before a step's card lands -- so a multi-part reply visibly
+  // works through each part in turn instead of cards just popping in.
+  function createStepStatus(label) {
+    var el = document.createElement("div");
+    el.className = "chat-step-status";
+    el.innerHTML =
+      '<span class="chat-step-status-label"></span>' +
+      '<span class="chat-typing-dot"></span>' +
+      '<span class="chat-typing-dot"></span>' +
+      '<span class="chat-typing-dot"></span>';
+    el.querySelector(".chat-step-status-label").textContent = label;
+    return el;
+  }
+
   // Every rendered message (text bubble or card, live-sent or reloaded)
   // is tagged with the chatHistory index it corresponds to -- this is
   // what lets editing a past message find and remove everything that
@@ -398,25 +413,30 @@
     return { text: text, replies: replies };
   }
 
+  // Quick-reply choices live in a fixed bar right above the input --
+  // anchored where you're about to type, not scrolling away inline with
+  // the message history -- so a clarifying question stays reachable
+  // exactly where Claude/ChatGPT put theirs, and typing your own answer
+  // instead of tapping one is always right there too.
+  var quickReplyBar = document.getElementById("chat-quickreply-bar");
+
   function clearQuickReplies() {
-    var existing = messagesEl.querySelectorAll(".chat-quick-replies");
-    existing.forEach(function (el) { el.remove(); });
+    quickReplyBar.innerHTML = "";
+    quickReplyBar.hidden = true;
   }
 
   function appendQuickReplies(replies) {
     if (!replies.length) return;
-    var wrap = document.createElement("div");
-    wrap.className = "chat-quick-replies";
+    quickReplyBar.innerHTML = "";
     replies.forEach(function (label) {
       var btn = document.createElement("button");
       btn.type = "button";
       btn.className = "chat-quick-reply-btn";
       btn.textContent = label;
       btn.addEventListener("click", function () { sendChatMessage(label); });
-      wrap.appendChild(btn);
+      quickReplyBar.appendChild(btn);
     });
-    messagesEl.appendChild(wrap);
-    scrollChatToBottom();
+    quickReplyBar.hidden = false;
   }
 
   // ---------- Signature cards (Verdict / Document) ----------
@@ -822,6 +842,7 @@
   // the assistant is working through it step by step rather than either
   // dropping everything but the first part or replying in one flat wall.
   var STEP_PAUSE_MS = 350;
+  var STEP_STATUS_MS = 550;
 
   function renderStepsSequentially(steps, i) {
     i = i || 0;
@@ -832,8 +853,14 @@
     var step = steps[i];
     var isLast = i === steps.length - 1;
     if (step.type === "card") {
-      appendCardMessage(step.card);
-      setTimeout(function () { renderStepsSequentially(steps, i + 1); }, STEP_PAUSE_MS);
+      var statusEl = createStepStatus(step.label || "Working on that");
+      messagesEl.appendChild(statusEl);
+      scrollChatToBottom();
+      setTimeout(function () {
+        statusEl.remove();
+        appendCardMessage(step.card);
+        setTimeout(function () { renderStepsSequentially(steps, i + 1); }, STEP_PAUSE_MS);
+      }, STEP_STATUS_MS);
     } else {
       var parsed = parseQuickReplies(step.text || "");
       appendChatMessageTyped(parsed.text, function () {
@@ -1054,29 +1081,33 @@
       });
   });
 
+  function renderLoadedConversation(convId, messages) {
+    chatConversationId = convId;
+    chatHistory = messages.map(function (m) { return { role: m.role, text: m.text, card: m.card }; });
+    messagesEl.innerHTML = "";
+    if (chatHistory.length === 0) {
+      showEmptyState(true);
+      return;
+    }
+    showEmptyState(false);
+    chatHistory.forEach(function (m, i) {
+      if (m.card) {
+        var node = renderCardNode(m.card);
+        node.dataset.historyIndex = String(i);
+        messagesEl.appendChild(node);
+      } else {
+        appendChatMessage(m.role, m.text, i);
+      }
+    });
+    scrollChatToBottom();
+  }
+
   function loadConversation(convId) {
     fetch("/api/chat/conversations/" + convId)
       .then(function (r) { return r.json(); })
       .then(function (data) {
         if (!data.ok) return;
-        chatConversationId = convId;
-        chatHistory = data.messages.map(function (m) { return { role: m.role, text: m.text, card: m.card }; });
-        messagesEl.innerHTML = "";
-        if (chatHistory.length === 0) {
-          showEmptyState(true);
-          return;
-        }
-        showEmptyState(false);
-        chatHistory.forEach(function (m, i) {
-          if (m.card) {
-            var node = renderCardNode(m.card);
-            node.dataset.historyIndex = String(i);
-            messagesEl.appendChild(node);
-          } else {
-            appendChatMessage(m.role, m.text, i);
-          }
-        });
-        scrollChatToBottom();
+        renderLoadedConversation(convId, data.messages);
       });
   }
 
@@ -1405,24 +1436,25 @@
   sessionStorage.setItem("ploy_session_active", "1");
   var requestedConvId = new URLSearchParams(window.location.search).get("conv");
 
-  fetch("/api/chat/conversations")
-    .then(function (r) { return r.json(); })
-    .then(function (data) {
-      if (!data.ok) {
-        showEmptyState(true);
-        return;
-      }
-      var mostRecentJob = data.conversations.find(function (c) { return c.kind === "job"; });
-      personalizeChips(mostRecentJob);
+  // The dashboard route already looked up this user's conversation list
+  // (and, for the common case, the most recent one's full messages) to
+  // render this page -- reusing that instead of firing a fresh fetch on
+  // load means the resumed chat can paint immediately, with no visible
+  // "loading" gap between the page appearing and the conversation
+  // actually showing up.
+  var initialState = window.HOME_STATE || {};
+  var conversations = initialState.conversations || [];
+  var mostRecentJob = conversations.find(function (c) { return c.kind === "job"; });
+  personalizeChips(mostRecentJob);
 
-      if (requestedConvId) {
-        loadConversation(Number(requestedConvId));
-        window.history.replaceState({}, "", window.location.pathname);
-      } else if (isFreshAppOpen || !data.conversations.length) {
-        showEmptyState(true);
-      } else {
-        loadConversation(data.conversations[0].id);
-      }
-    })
-    .catch(function () { showEmptyState(true); });
+  if (requestedConvId) {
+    loadConversation(Number(requestedConvId));
+    window.history.replaceState({}, "", window.location.pathname);
+  } else if (isFreshAppOpen || !conversations.length) {
+    showEmptyState(true);
+  } else if (initialState.initial_conversation_id === conversations[0].id && initialState.initial_messages) {
+    renderLoadedConversation(conversations[0].id, initialState.initial_messages);
+  } else {
+    loadConversation(conversations[0].id);
+  }
 })();

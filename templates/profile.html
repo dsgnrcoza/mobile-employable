@@ -3,144 +3,177 @@
 {% block content %}
 <div class="profile-shell">
   <header class="stub-header">
-    <a href="{{ url_for('dashboard') }}" class="stub-back-btn" aria-label="Back">
+    <button type="button" class="stub-back-btn" id="profile-back-btn" data-dashboard-url="{{ url_for('dashboard') }}" aria-label="Back">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
-    </a>
-    <span class="stub-header-title">Profile</span>
+    </button>
+    <span class="stub-header-title" id="profile-header-title">Profile</span>
     <span class="stub-header-spacer"></span>
   </header>
 
-  <h3 class="profile-group-title">Account</h3>
-  <section class="profile-section">
-    <div class="profile-photo-row">
-      {% if avatar_url %}
-      <img src="{{ avatar_url }}" class="profile-photo-preview" id="profile-photo-preview" alt="">
-      {% else %}
-      <span class="profile-photo-preview profile-photo-placeholder" id="profile-photo-preview">{{ initials }}</span>
-      {% endif %}
-      <div>
-        <button type="button" class="btn btn-ghost btn-sm" id="profile-photo-btn">Change photo</button>
-        <input type="file" id="profile-photo-input" accept="image/*" hidden>
-      </div>
-    </div>
-    <p class="profile-status" id="profile-photo-status" hidden></p>
-
-    <div class="photo-crop-overlay" id="photo-crop-overlay" hidden>
-      <div class="photo-crop-sheet">
-        <div class="photo-crop-viewport" id="photo-crop-viewport">
-          <img id="photo-crop-img" alt="" draggable="false">
-        </div>
-        <input type="range" id="photo-crop-zoom" class="photo-crop-zoom" min="1" max="3" step="0.01" value="1">
-        <div class="photo-crop-actions">
-          <button type="button" class="btn btn-ghost btn-sm" id="photo-crop-cancel-btn">Cancel</button>
-          <button type="button" class="btn btn-gold btn-sm" id="photo-crop-use-btn">Use photo</button>
-        </div>
-      </div>
-    </div>
-
-    <label class="profile-field">
-      <span class="profile-field-label">Name</span>
-      <input type="text" id="profile-full-name" value="{{ user.full_name or '' }}" maxlength="80">
-    </label>
-    <label class="profile-field">
-      <span class="profile-field-label">Email</span>
-      <input type="email" id="profile-email" value="{{ user.email or '' }}">
-    </label>
-    <button type="button" class="btn btn-gold btn-sm" id="profile-account-save-btn">Save</button>
-    <p class="profile-status" id="profile-account-status" hidden></p>
-  </section>
-
-  <section class="profile-section">
-    <h2 class="profile-section-title">Personality</h2>
-    <p class="profile-section-desc">Tell Ploy how you want it to talk to you — tone, things to always do or avoid. It follows this permanently, in every conversation.</p>
-    <div class="profile-instructions-chips" id="profile-instructions-chips">
-      <button type="button" class="profile-instructions-chip" data-text="Keep replies short and to the point — 2-3 sentences unless I ask for more.">Keep it short</button>
-      <button type="button" class="profile-instructions-chip" data-text="Don't sugar-coat feedback. Tell me straight if something's weak.">Be blunt</button>
-      <button type="button" class="profile-instructions-chip" data-text="Talk to me casually, like a friend, not formally.">Casual tone</button>
-      <button type="button" class="profile-instructions-chip" data-text="Call me by my first name, not my full name.">Use my first name</button>
-    </div>
-    <textarea class="profile-instructions-input" id="profile-instructions-input" placeholder="e.g. Keep replies short. Don't sugar-coat feedback on my CV. Call me by my first name." maxlength="3000">{{ user.custom_instructions or '' }}</textarea>
-    <button type="button" class="btn btn-gold btn-sm" id="profile-instructions-save-btn">Save</button>
-    <p class="profile-status" id="profile-instructions-status" hidden></p>
-  </section>
-
-  <h3 class="profile-group-title">Security</h3>
-  <section class="profile-section">
-    <h2 class="profile-section-title">Password</h2>
-    <label class="profile-field">
-      <span class="profile-field-label">Current password or security key</span>
-      <input type="password" id="profile-current-password" autocomplete="current-password">
-    </label>
-    <label class="profile-field">
-      <span class="profile-field-label">New password</span>
-      <input type="password" id="profile-new-password" autocomplete="new-password">
-    </label>
-    <label class="profile-field">
-      <span class="profile-field-label">Confirm new password</span>
-      <input type="password" id="profile-confirm-password" autocomplete="new-password">
-    </label>
-    <button type="button" class="btn btn-gold btn-sm" id="profile-password-save-btn">Change password</button>
-    <p class="profile-status" id="profile-password-status" hidden></p>
-  </section>
-
-  <section class="profile-section">
-    <h2 class="profile-section-title">Security key</h2>
-    <p class="profile-section-desc">Your key for recovering the account if you ever forget your password. Only shown to you once, right when it's generated — regenerating replaces it and invalidates the old one.</p>
-    <button type="button" class="btn btn-ghost btn-sm" id="profile-regenerate-key-btn">Regenerate security key</button>
-    <p class="profile-status" id="profile-key-status" hidden></p>
-
-    <div class="security-key-box" id="profile-key-reveal" hidden>
-      <span class="security-key-value mono" id="profile-key-reveal-value"></span>
-      <button type="button" class="security-key-copy-btn" id="profile-key-reveal-copy-btn" aria-label="Copy security key">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
-      </button>
-    </div>
-    <p class="security-key-warning" id="profile-key-reveal-warning" hidden>Save this now — it won't be shown again. Losing it and your password means losing the account for good.</p>
-  </section>
-
-  <h3 class="profile-group-title">Your data</h3>
-  <section class="profile-section">
-    <h2 class="profile-section-title">Documents</h2>
-    <div class="profile-doc-list" id="profile-doc-list"></div>
-    <input type="file" id="profile-upload-input" hidden accept=".pdf,.doc,.docx,.txt">
-    <button type="button" class="btn btn-ghost btn-sm" id="profile-upload-btn">Add document</button>
-    <p class="profile-status" id="profile-doc-status" hidden></p>
-  </section>
-
-  <section class="profile-section">
-    <button type="button" class="profile-section-toggle" id="profile-memory-toggle" aria-expanded="false">
-      <h2 class="profile-section-title">Memory</h2>
-      <svg class="profile-section-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+  <div class="profile-menu" id="profile-menu">
+    <button type="button" class="profile-menu-row" data-section="account">
+      <span class="profile-menu-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4.5 5-6 8-6s6.5 1.5 8 6"/></svg></span>
+      <span class="profile-menu-label">Account</span>
+      <svg class="profile-menu-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
     </button>
-    <div class="profile-section-collapse" id="profile-memory-collapse" hidden>
-      <div class="profile-toggle-row">
-        <span class="profile-toggle-text">
-          <span class="profile-toggle-label">Remember all chats</span>
-          <span class="profile-toggle-desc">Let Ploy refer back to every past conversation, not just the one you're in.</span>
-        </span>
-        <button type="button" class="toggle-switch{{ ' is-on' if user.remember_all_chats else '' }}" id="profile-remember-chats-toggle" role="switch" aria-checked="{{ 'true' if user.remember_all_chats else 'false' }}" aria-label="Remember all chats">
-          <span class="toggle-switch-knob"></span>
+    <button type="button" class="profile-menu-row" data-section="personality">
+      <span class="profile-menu-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+      <span class="profile-menu-label">Personality</span>
+      <svg class="profile-menu-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+    </button>
+    <button type="button" class="profile-menu-row" data-section="security">
+      <span class="profile-menu-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></span>
+      <span class="profile-menu-label">Security</span>
+      <svg class="profile-menu-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+    </button>
+    <button type="button" class="profile-menu-row" data-section="data">
+      <span class="profile-menu-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h13l3 3v13H4Z"/><path d="M17 4v6h6"/></svg></span>
+      <span class="profile-menu-label">Your data</span>
+      <svg class="profile-menu-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+    </button>
+    <button type="button" class="profile-menu-row" data-section="app">
+      <span class="profile-menu-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg></span>
+      <span class="profile-menu-label">App</span>
+      <svg class="profile-menu-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+    </button>
+  </div>
+
+  <div class="profile-section-view" data-section-view="account" hidden>
+    <section class="profile-section">
+      <div class="profile-photo-row">
+        {% if avatar_url %}
+        <img src="{{ avatar_url }}" class="profile-photo-preview" id="profile-photo-preview" alt="">
+        {% else %}
+        <span class="profile-photo-preview profile-photo-placeholder" id="profile-photo-preview">{{ initials }}</span>
+        {% endif %}
+        <div>
+          <button type="button" class="btn btn-ghost btn-sm" id="profile-photo-btn">Change photo</button>
+          <input type="file" id="profile-photo-input" accept="image/*" hidden>
+        </div>
+      </div>
+      <p class="profile-status" id="profile-photo-status" hidden></p>
+
+      <div class="photo-crop-overlay" id="photo-crop-overlay" hidden>
+        <div class="photo-crop-sheet">
+          <div class="photo-crop-viewport" id="photo-crop-viewport">
+            <img id="photo-crop-img" alt="" draggable="false">
+          </div>
+          <input type="range" id="photo-crop-zoom" class="photo-crop-zoom" min="1" max="3" step="0.01" value="1">
+          <div class="photo-crop-actions">
+            <button type="button" class="btn btn-ghost btn-sm" id="photo-crop-cancel-btn">Cancel</button>
+            <button type="button" class="btn btn-gold btn-sm" id="photo-crop-use-btn">Use photo</button>
+          </div>
+        </div>
+      </div>
+
+      <label class="profile-field">
+        <span class="profile-field-label">Name</span>
+        <input type="text" id="profile-full-name" value="{{ user.full_name or '' }}" maxlength="80">
+      </label>
+      <label class="profile-field">
+        <span class="profile-field-label">Email</span>
+        <input type="email" id="profile-email" value="{{ user.email or '' }}">
+      </label>
+      <button type="button" class="btn btn-gold btn-sm" id="profile-account-save-btn">Save</button>
+      <p class="profile-status" id="profile-account-status" hidden></p>
+    </section>
+  </div>
+
+  <div class="profile-section-view" data-section-view="personality" hidden>
+    <section class="profile-section">
+      <p class="profile-section-desc">Tell Ploy how you want it to talk to you — tone, things to always do or avoid. It follows this permanently, in every conversation.</p>
+      <div class="profile-instructions-chips" id="profile-instructions-chips">
+        <button type="button" class="profile-instructions-chip" data-text="Keep replies short and to the point — 2-3 sentences unless I ask for more.">Keep it short</button>
+        <button type="button" class="profile-instructions-chip" data-text="Don't sugar-coat feedback. Tell me straight if something's weak.">Be blunt</button>
+        <button type="button" class="profile-instructions-chip" data-text="Talk to me casually, like a friend, not formally.">Casual tone</button>
+        <button type="button" class="profile-instructions-chip" data-text="Call me by my first name, not my full name.">Use my first name</button>
+      </div>
+      <textarea class="profile-instructions-input" id="profile-instructions-input" placeholder="e.g. Keep replies short. Don't sugar-coat feedback on my CV. Call me by my first name." maxlength="3000">{{ user.custom_instructions or '' }}</textarea>
+      <button type="button" class="btn btn-gold btn-sm" id="profile-instructions-save-btn">Save</button>
+      <p class="profile-status" id="profile-instructions-status" hidden></p>
+    </section>
+  </div>
+
+  <div class="profile-section-view" data-section-view="security" hidden>
+    <section class="profile-section">
+      <h2 class="profile-section-title">Password</h2>
+      <label class="profile-field">
+        <span class="profile-field-label">Current password or security key</span>
+        <input type="password" id="profile-current-password" autocomplete="current-password">
+      </label>
+      <label class="profile-field">
+        <span class="profile-field-label">New password</span>
+        <input type="password" id="profile-new-password" autocomplete="new-password">
+      </label>
+      <label class="profile-field">
+        <span class="profile-field-label">Confirm new password</span>
+        <input type="password" id="profile-confirm-password" autocomplete="new-password">
+      </label>
+      <button type="button" class="btn btn-gold btn-sm" id="profile-password-save-btn">Change password</button>
+      <p class="profile-status" id="profile-password-status" hidden></p>
+    </section>
+
+    <section class="profile-section">
+      <h2 class="profile-section-title">Security key</h2>
+      <p class="profile-section-desc">Your key for recovering the account if you ever forget your password. Only shown to you once, right when it's generated — regenerating replaces it and invalidates the old one.</p>
+      <button type="button" class="btn btn-ghost btn-sm" id="profile-regenerate-key-btn">Regenerate security key</button>
+      <p class="profile-status" id="profile-key-status" hidden></p>
+
+      <div class="security-key-box" id="profile-key-reveal" hidden>
+        <span class="security-key-value mono" id="profile-key-reveal-value"></span>
+        <button type="button" class="security-key-copy-btn" id="profile-key-reveal-copy-btn" aria-label="Copy security key">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
         </button>
       </div>
-      <p class="profile-section-desc" id="profile-memory-desc">Every conversation Ploy remembers.</p>
-      <div class="profile-memory-preview" id="profile-memory-preview"></div>
-      <a href="{{ url_for('conversations_page') }}" class="btn btn-ghost btn-sm profile-memory-viewall-btn">View all conversations</a>
-      <button type="button" class="btn btn-ghost btn-sm profile-memory-clear-btn" id="profile-memory-clear-btn">Clear all conversations</button>
-      <p class="profile-status" id="profile-memory-status" hidden></p>
-    </div>
-  </section>
+      <p class="security-key-warning" id="profile-key-reveal-warning" hidden>Save this now — it won't be shown again. Losing it and your password means losing the account for good.</p>
+    </section>
+  </div>
 
-  <h3 class="profile-group-title">App</h3>
-  <section class="profile-section">
-    <h2 class="profile-section-title">Get the app</h2>
-    <p class="profile-section-desc">Install Ploy on your phone or desktop for the full app experience.</p>
-    {% include "_download_app_button.html" %}
-  </section>
+  <div class="profile-section-view" data-section-view="data" hidden>
+    <section class="profile-section">
+      <h2 class="profile-section-title">Documents</h2>
+      <div class="profile-doc-list" id="profile-doc-list"></div>
+      <input type="file" id="profile-upload-input" hidden accept=".pdf,.doc,.docx,.txt">
+      <button type="button" class="btn btn-ghost btn-sm" id="profile-upload-btn">Add document</button>
+      <p class="profile-status" id="profile-doc-status" hidden></p>
+    </section>
 
-  <section class="profile-section profile-section-danger">
-    <a href="{{ url_for('logout_page') }}" class="btn btn-ghost btn-sm profile-logout-btn">Log out</a>
-    <button type="button" class="btn btn-ghost btn-sm profile-delete-account-btn" id="profile-delete-account-btn">Delete account</button>
-  </section>
+    <section class="profile-section">
+      <button type="button" class="profile-section-toggle" id="profile-memory-toggle" aria-expanded="false">
+        <h2 class="profile-section-title">Memory</h2>
+        <svg class="profile-section-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="profile-section-collapse" id="profile-memory-collapse" hidden>
+        <div class="profile-toggle-row">
+          <span class="profile-toggle-text">
+            <span class="profile-toggle-label">Remember all chats</span>
+            <span class="profile-toggle-desc">Let Ploy refer back to every past conversation, not just the one you're in.</span>
+          </span>
+          <button type="button" class="toggle-switch{{ ' is-on' if user.remember_all_chats else '' }}" id="profile-remember-chats-toggle" role="switch" aria-checked="{{ 'true' if user.remember_all_chats else 'false' }}" aria-label="Remember all chats">
+            <span class="toggle-switch-knob"></span>
+          </button>
+        </div>
+        <p class="profile-section-desc" id="profile-memory-desc">Every conversation Ploy remembers.</p>
+        <div class="profile-memory-preview" id="profile-memory-preview"></div>
+        <a href="{{ url_for('conversations_page') }}" class="btn btn-ghost btn-sm profile-memory-viewall-btn">View all conversations</a>
+        <button type="button" class="btn btn-ghost btn-sm profile-memory-clear-btn" id="profile-memory-clear-btn">Clear all conversations</button>
+        <p class="profile-status" id="profile-memory-status" hidden></p>
+      </div>
+    </section>
+  </div>
+
+  <div class="profile-section-view" data-section-view="app" hidden>
+    <section class="profile-section">
+      <h2 class="profile-section-title">Get the app</h2>
+      <p class="profile-section-desc">Install Ploy on your phone or desktop for the full app experience.</p>
+      {% include "_download_app_button.html" %}
+    </section>
+
+    <section class="profile-section profile-section-danger">
+      <a href="{{ url_for('logout_page') }}" class="btn btn-ghost btn-sm profile-logout-btn">Log out</a>
+      <button type="button" class="btn btn-ghost btn-sm profile-delete-account-btn" id="profile-delete-account-btn">Delete account</button>
+    </section>
+  </div>
 </div>
 {% endblock %}
 
