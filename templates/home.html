@@ -1,5 +1,15 @@
 {% extends "base.html" %}
 {% block title %}Ploy{% endblock %}
+
+{% block extra_head %}
+<!-- Warms the browser cache for the pages one tap away from here (sidebar
+     links), so clicking them lands on an already-fetched response instead
+     of a visible blank-page wait. Just a hint -- worst case it's ignored. -->
+<link rel="prefetch" href="{{ url_for('builder_page') }}">
+<link rel="prefetch" href="{{ url_for('profile_page') }}">
+<link rel="prefetch" href="{{ url_for('plugins_page') }}">
+{% endblock %}
+
 {% block content %}
 <div class="chat-shell">
   <header class="chat-topbar">
@@ -105,24 +115,6 @@
       </span>
     </button>
     <input type="file" id="attach-upload-input" hidden accept=".pdf,.doc,.docx,.txt">
-
-    <div class="attach-notes-row">
-      <span class="attach-notes-icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h13l3 3v13H4Z"/><path d="M17 4v6h6"/></svg>
-      </span>
-      <span class="attach-notes-text">
-        <span class="attach-notes-label">Use my notes</span>
-        <span class="attach-notes-desc">Let the chat refer to everything in your notes</span>
-      </span>
-      <button type="button" class="toggle-switch" id="use-notes-toggle" role="switch" aria-checked="false" aria-label="Use my notes">
-        <span class="toggle-switch-knob"></span>
-      </button>
-    </div>
-
-    <div class="use-notes-tooltip" id="use-notes-tooltip" hidden>
-      <p>Ploy can now dig into everything in your notes when it answers you. Only while this is switched on.</p>
-      <button type="button" class="btn btn-gold btn-sm" id="use-notes-tooltip-got-it">Got it</button>
-    </div>
   </div>
 </div>
 
@@ -133,9 +125,9 @@
   </div>
   <div class="sidebar-chats" id="sidebar-chats"></div>
   <div class="sidebar-footer">
-    <a href="{{ url_for('notes_page') }}" class="sidebar-builder-btn">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6l5 5v13H4V3z"/><path d="M14 3v6h6"/></svg>
-      Notes
+    <a href="{{ url_for('plugins_page') }}" class="sidebar-builder-btn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3v4M15 3v4M9 21v-4M15 21v-4M4 9h4M4 15h4M16 9h4M16 15h4"/><rect x="8" y="8" width="8" height="8" rx="1.5"/></svg>
+      Plug-Ins
     </a>
     <a href="{{ url_for('builder_page') }}" class="sidebar-builder-btn">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h13l3 3v13H4Z"/><path d="M17 4v6h6"/><line x1="7.5" y1="12" x2="16" y2="12"/><line x1="7.5" y1="15.5" x2="16" y2="15.5"/></svg>
