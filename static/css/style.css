@@ -1921,11 +1921,16 @@ button.auth-tab.active {
   padding: 10px 14px;
 }
 
+/* While a step is still running, the task label sits above its dots
+   (not beside them) -- once it lands (.is-done, further down) this
+   flips back to a single row: checkmark + label + chevron, matching
+   the flat "Searched code, edited a file ›" trail-entry look. */
 .chat-step-status {
   align-self: flex-start;
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
   padding: 6px 14px;
   color: var(--muted);
   font-size: 12.5px;
@@ -1946,6 +1951,9 @@ button.auth-tab.active {
    spinner and becomes a small permanent checkmark entry -- part of the
    visible trail of everything this reply did, not a transient hint. */
 .chat-step-status.is-done {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
   font-style: normal;
   color: var(--good);
 }
