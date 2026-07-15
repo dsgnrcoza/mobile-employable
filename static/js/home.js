@@ -582,7 +582,11 @@
       breakdownEl.hidden = !show;
       breakdownEl.textContent = card.breakdown || "";
       breakdownBtn.textContent = show ? "Hide breakdown" : "Show full breakdown";
-      scrollChatToBottom();
+      // Only nudge this card's own newly-revealed text into view (and
+      // only when opening it) -- this used to force the whole chat to
+      // jump to its very bottom on every toggle, which was jarring for
+      // any card that wasn't already the last message on screen.
+      if (show) breakdownEl.scrollIntoView({ block: "nearest", behavior: "smooth" });
     });
     return wrap;
   }
@@ -613,7 +617,11 @@
       breakdownEl.hidden = !show;
       breakdownEl.textContent = card.breakdown || "";
       breakdownBtn.textContent = show ? "Hide breakdown" : "Show full breakdown";
-      scrollChatToBottom();
+      // Only nudge this card's own newly-revealed text into view (and
+      // only when opening it) -- this used to force the whole chat to
+      // jump to its very bottom on every toggle, which was jarring for
+      // any card that wasn't already the last message on screen.
+      if (show) breakdownEl.scrollIntoView({ block: "nearest", behavior: "smooth" });
     });
     return wrap;
   }
