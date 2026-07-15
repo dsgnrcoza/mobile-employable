@@ -1921,6 +1921,21 @@ button.auth-tab.active {
   padding: 10px 14px;
 }
 
+.chat-step-status {
+  align-self: flex-start;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-style: italic;
+}
+
+.chat-step-status-label {
+  white-space: nowrap;
+}
+
 .chat-typing-dot {
   width: 6px;
   height: 6px;
@@ -1955,15 +1970,20 @@ button.auth-tab.active {
   }
 }
 
-.chat-quick-replies {
-  align-self: flex-start;
+.chat-quickreply-bar {
   display: flex;
-  flex-wrap: wrap;
   gap: 8px;
-  max-width: 92%;
+  padding: 0 20px 8px;
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+
+.chat-quickreply-bar[hidden] {
+  display: none;
 }
 
 .chat-quick-reply-btn {
+  flex-shrink: 0;
   border: 1px solid var(--accent);
   background: transparent;
   color: var(--accent);
@@ -1972,6 +1992,7 @@ button.auth-tab.active {
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
+  white-space: nowrap;
   transition: background 150ms ease, color 150ms ease;
 }
 
@@ -5301,18 +5322,61 @@ button.auth-tab.active {
   color: var(--bad);
 }
 
-.profile-group-title {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--muted);
-  padding: 22px 20px 4px;
-  margin: 0;
+.profile-menu {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 16px;
 }
 
-.profile-group-title:first-of-type {
-  padding-top: 16px;
+.profile-menu[hidden] {
+  display: none;
+}
+
+.profile-menu-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 4px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  color: inherit;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.profile-menu-row:active {
+  background: var(--surface);
+}
+
+.profile-menu-icon {
+  flex-shrink: 0;
+  display: flex;
+  color: var(--muted);
+}
+
+.profile-menu-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.profile-menu-label {
+  flex: 1;
+  min-width: 0;
+}
+
+.profile-menu-chevron {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  color: var(--muted);
+}
+
+.profile-section-view[hidden] {
+  display: none;
 }
 
 .profile-instructions-chips {

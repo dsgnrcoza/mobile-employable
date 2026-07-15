@@ -7,6 +7,46 @@
     el.classList.toggle("profile-status-error", !!isError);
   }
 
+  // ---------- Section navigation (menu list -> one section at a time) ----------
+  // A single long scrolling page felt like a wall of unrelated settings --
+  // this makes Profile behave like Claude/ChatGPT's settings: a menu of
+  // named sections, one open at a time, with Back returning to the menu
+  // (and only exiting to the dashboard once you're already at the menu).
+
+  var profileMenu = document.getElementById("profile-menu");
+  var sectionViews = document.querySelectorAll(".profile-section-view");
+  var headerTitleEl = document.getElementById("profile-header-title");
+  var backBtn = document.getElementById("profile-back-btn");
+  var SECTION_LABELS = { account: "Account", personality: "Personality", security: "Security", data: "Your data", app: "App" };
+
+  function showProfileMenu() {
+    profileMenu.hidden = false;
+    sectionViews.forEach(function (el) { el.hidden = true; });
+    headerTitleEl.textContent = "Profile";
+    backBtn.dataset.mode = "exit";
+  }
+
+  function showProfileSection(key) {
+    profileMenu.hidden = true;
+    sectionViews.forEach(function (el) { el.hidden = el.dataset.sectionView !== key; });
+    headerTitleEl.textContent = SECTION_LABELS[key] || "Profile";
+    backBtn.dataset.mode = "menu";
+  }
+
+  document.querySelectorAll(".profile-menu-row").forEach(function (row) {
+    row.addEventListener("click", function () { showProfileSection(row.dataset.section); });
+  });
+
+  backBtn.addEventListener("click", function () {
+    if (backBtn.dataset.mode === "menu") {
+      showProfileMenu();
+    } else {
+      window.location.href = backBtn.dataset.dashboardUrl;
+    }
+  });
+
+  showProfileMenu();
+
   // ---------- Profile photo (with a basic crop/zoom step before upload) ----------
 
   var photoBtn = document.getElementById("profile-photo-btn");

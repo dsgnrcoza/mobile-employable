@@ -60,7 +60,17 @@ def _cache_static_assets(response):
     # within an hour -- ETag-based revalidation (unchanged, still present)
     # keeps correctness beyond that window.
     if request.path.startswith("/static/"):
-        response.headers["Cache-Control"] = "public, max-age=3600"
+        if "v" in request.args:
+            # Every template that links to this file appends ?v=<the
+            # current deploy's asset_version> -- a deploy that changes the
+            # file's content always changes that string too, so a URL
+            # carrying one specific version can never start pointing at
+            # different content later. That's exactly what max-age can be
+            # unbounded (browser-capped at a year) for: no revalidation
+            # request is ever needed, not even a 304 round-trip.
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        else:
+            response.headers["Cache-Control"] = "public, max-age=3600"
     return response
 
 
@@ -584,7 +594,19 @@ def dashboard():
         "avatar_url": _avatar_url_for(user),
         "initials": _initials(user.get("full_name") or ""),
     }
-    return render_template("home.html", profile=profile)
+    # Looked up here instead of left to the client's first fetch -- the
+    # chat screen's initial paint (resuming the most recent conversation)
+    # no longer waits on a round-trip after the page has already loaded.
+    conversations = db.get_conversations_for_user(user["id"])
+    initial_conversation_id = conversations[0]["id"] if conversations else None
+    initial_messages = (
+        _serialize_conversation_messages(initial_conversation_id, user["id"])
+        if initial_conversation_id else None
+    )
+    return render_template(
+        "home.html", profile=profile, conversations=conversations,
+        initial_conversation_id=initial_conversation_id, initial_messages=initial_messages,
+    )
 
 
 def _avatar_url_for(user):
@@ -1533,7 +1555,13 @@ def _generate_conversation_title(messages):
     if not convo_snippet.strip():
         return None
     try:
-        client = OpenAI(api_key=analyzer.get_openai_api_key(), timeout=analyzer.get_client_timeout(), max_retries=analyzer.CLIENT_MAX_RETRIES)
+        # A short, no-retry timeout on purpose: this is a best-effort
+        # cosmetic nicety with an already-good fallback (the caller's own
+        # truncated-text title), not a core feature worth making the user
+        # wait on. The generous 90s/3-retry budget used for real scoring
+        # work would otherwise leave a slow or unreachable API holding up
+        # the very first save of a brand new conversation for minutes.
+        client = OpenAI(api_key=analyzer.get_openai_api_key(), timeout=8.0, max_retries=0)
         resp = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
@@ -1585,18 +1613,21 @@ def api_save_conversation():
     return jsonify({"ok": True, "conversation_id": conv_id})
 
 
+def _serialize_conversation_messages(conv_id, user_id):
+    msgs = db.get_messages_for_conversation(conv_id, user_id)
+    result = []
+    for m in msgs:
+        att_ids = json.loads(m.get("attachment_ids_json") or "[]")
+        card = json.loads(m["card_json"]) if m.get("card_json") else None
+        result.append({"role": m["role"], "text": m["text"], "attachment_ids": att_ids, "card": card})
+    return result
+
+
 @app.route("/api/chat/conversations/<int:conv_id>", methods=["GET"])
 @auth.login_required
 def api_get_conversation(conv_id):
     user = auth.current_user()
-    msgs = db.get_messages_for_conversation(conv_id, user["id"])
-    result = []
-    for m in msgs:
-        import json as _json
-        att_ids = _json.loads(m.get("attachment_ids_json") or "[]")
-        card = _json.loads(m["card_json"]) if m.get("card_json") else None
-        result.append({"role": m["role"], "text": m["text"], "attachment_ids": att_ids, "card": card})
-    return jsonify({"ok": True, "messages": result})
+    return jsonify({"ok": True, "messages": _serialize_conversation_messages(conv_id, user["id"])})
 
 
 @app.route("/api/chat/conversations/<int:conv_id>", methods=["DELETE"])
@@ -2645,6 +2676,20 @@ _IMAGE_GEN_TOOL = {
 }
 
 
+# A short "here's what I'm doing right now" label per tool, shown as a
+# brief transient status before its card lands -- gives a multi-step
+# reply a visible sense of working through each part in turn, not just
+# cards silently popping in.
+_TOOL_STATUS_LABELS = {
+    "check_job_fit": "Checking your fit against this job",
+    "build_tailored_cv": "Building your tailored CV",
+    "build_cover_letter": "Drafting your cover letter",
+    "analyze_skill_gaps": "Analyzing your skill gaps",
+    "generate_skills_chart": "Charting your scores",
+    "generate_image": "Generating your image",
+}
+
+
 def _execute_chat_tool_call(user, tool_name, args, enabled_plugins):
     """Runs one tool call from /api/chat's agentic loop. Returns
     (kind, payload):
@@ -2743,26 +2788,40 @@ def api_chat():
     # past conversation (title + job/status, not full transcripts; that
     # would blow past token limits for anyone with real chat history),
     # so the model can stay consistent across conversations instead of
-    # only ever seeing the one it's currently in.
-    chat_memory_section = ""
+    # only ever seeing the one it's currently in. Read fresh on every
+    # request (not cached per-conversation), so flipping the toggle takes
+    # effect on the very next message regardless of which chat you're in
+    # -- both states are spelled out explicitly below so the model can
+    # answer "do you have access to my other chats?" honestly either way,
+    # instead of being vague about a capability it isn't sure it has.
     if user.get("remember_all_chats"):
         all_convs = db.get_conversations_for_user(user["id"])
-        if all_convs:
-            memory_lines = []
-            for c in all_convs[:50]:
-                bits = [c.get("title") or "Untitled conversation"]
-                if c.get("job_title"):
-                    role_bit = c["job_title"] + (f" at {c['company']}" if c.get("company") else "")
-                    bits.append(role_bit)
-                if c.get("status_label"):
-                    bits.append(c["status_label"])
-                memory_lines.append("- " + " — ".join(bits))
-            chat_memory_section = (
-                "\n\nTHE USER HAS TURNED ON \"REMEMBER ALL CHATS\" -- unlike normal, you can see across every "
-                "conversation they've ever had with you, not just this one. Use this to stay consistent and avoid "
-                "making them repeat themselves, but only bring something up when it's actually relevant right now "
-                "-- never recite this list back to them:\n" + "\n".join(memory_lines) + "\n"
-            )
+        memory_lines = []
+        for c in all_convs[:50]:
+            bits = [c.get("title") or "Untitled conversation"]
+            if c.get("job_title"):
+                role_bit = c["job_title"] + (f" at {c['company']}" if c.get("company") else "")
+                bits.append(role_bit)
+            if c.get("status_label"):
+                bits.append(c["status_label"])
+            memory_lines.append("- " + " — ".join(bits))
+        chat_memory_section = (
+            "\n\nMEMORY: The user has turned on \"Remember all chats\" in Profile > Memory. Unlike a normal "
+            "conversation, you genuinely have visibility into every conversation they've ever had with you, not "
+            "just this one -- if they ask whether you have access to their memory or other chats, the honest "
+            "answer is yes, say so plainly and confidently. Use this to stay consistent, avoid making them repeat "
+            "themselves, and point them back to a specific earlier conversation when it's actually relevant -- but "
+            "don't recite this whole list back to them unprompted"
+            + (":\n" + "\n".join(memory_lines) if memory_lines else " (though they don't have any other conversations yet).") + "\n"
+        )
+    else:
+        chat_memory_section = (
+            "\n\nMEMORY: \"Remember all chats\" is currently OFF in this user's Profile > Memory settings -- you "
+            "only have this one conversation's context, nothing from their other chats, regardless of how far "
+            "into this conversation you are. If they ask whether you can see their other conversations or have "
+            "memory access, the honest answer is no; you can mention they can switch that on in Profile if they "
+            "want you to.\n"
+        )
 
     system_prompt = f"""You are Ploy — a chat-first AI career weapon for South African job seekers aged 18-25. You exist for one loop and everything you do serves it: paste a job, get a brutal-honest fit verdict, get the CV or cover letter rewritten for that exact job, download it, apply.
 
@@ -2774,10 +2833,12 @@ BE ADAPTIVE, NOT REPETITIVE. Don't reuse the same opener, sentence shape, or phr
 
 BE EMOTIONALLY PRESENT, NOT JUST TASK-COMPLETING. Job hunting is genuinely stressful — rejection, silence after applying, financial pressure, self-doubt. Notice the emotional undertone in what someone writes (frustration, relief, excitement, dread, burnout) and actually respond to that, not just the literal task attached to it. If someone mentions a rejection, a bad interview, or that they're exhausted before pasting the next job ad, acknowledge it like a person paying attention would — briefly, genuinely, without turning it into a whole therapy session — before moving on to the task. This is not about performing empathy with stock phrases like "I understand how you feel" or "that must be so hard" — those read as hollow precisely because they're generic. Actually notice the specific thing they said and react to that. Remember details from earlier in this same conversation (a company name, a specific worry, something they're excited about) and refer back to them naturally when relevant, the way someone who's actually listening does — don't treat each message as if the conversation just started.
 
-NEVER PROMISE FUTURE WORK YOU CAN'T ACTUALLY DO. You have no web/internet access, no ability to search live job listings, and no way to message the user again after this reply — every reply you send is the complete, final answer to this turn, not a placeholder for something you'll follow up on. Never say things like "hold on," "give me a second," "I'll search for some listings," "let me look into that," or "I'll get back to you" — there is nothing on the other side of that promise, and the conversation will just go silent, which is worse than not offering in the first place. If you don't have real job listings to point to, say so directly and pivot to what you can actually do right now: score their fit against a job ad they paste, tailor their CV or a cover letter to it, or break down what's missing for a role they name.
+NEVER DESCRIBE AN ACTION INSTEAD OF TAKING IT. You have no web/internet access, no ability to search live job listings, and — critically — no way to message the user again after this reply unless you call a tool right now: there is no later moment where you'll "come back" to do something. This applies at two levels, and both are the same mistake:
+1. Across turns: never say "hold on," "give me a second," "I'll search for some listings," or "I'll get back to you" — there is nothing on the other side of that promise. If you don't have real job listings to point to, say so directly and pivot to what you can actually do right now.
+2. Within THIS SAME reply: if what you're about to say is "I'll build that CV for you," "let me check your fit," "I'll generate that image," or any equivalent — stop before you write it, and call the matching tool (build_tailored_cv / check_job_fit / build_cover_letter / analyze_skill_gaps / generate_skills_chart / generate_image) in this exact reply instead of narrating it. You can call more than one tool across a multi-part request, in sequence, one after another — nothing stops you from checking a fit AND building a CV AND drafting a letter all in response to one message, if that's what was actually asked. A sentence describing an action is never an acceptable substitute for the tool call that actually performs it. If a whole request has several parts, work through all of them via tool calls before your final reply, not just the first one.
 
 ASK WHEN YOU DON'T KNOW, DON'T GUESS. Two different situations call for this, and both matter:
-1. Their INTENT is ambiguous — "help me with my CV," "should I apply" — ask ONE short, specific clarifying question rather than dumping generic advice across every possible interpretation.
+1. Their INTENT is ambiguous — "help me with my CV," "should I apply" — ask ONE short, specific clarifying question rather than dumping generic advice across every possible interpretation. When the real answer is a small, nameable set of options (a platform, a tone, which document, which role) — not an open-ended "tell me more" — phrase the question so each option is short enough to be one of the quick-reply buttons below (e.g. "Mobile app or web app?" with [[QUICK_REPLIES]] Mobile app | Web app), so they can tap instead of typing it out. Save open quick-replies-free questions for when the answer genuinely can't be reduced to a few named choices.
 2. The FACTS you'd need aren't in their documents or in anything they've told you — a specific number, a certification, whether they've done something specific this job cares about. Don't fill that gap with a plausible-sounding guess. Say what's missing and ask for it directly ("Do you have a portfolio link for this? I don't see one in what you've uploaded") — or tell them to add it in Profile if it's the kind of thing that belongs in their documents long-term. When there's more than one gap, list them concretely instead of picking just one — "Right now I've only got your CV. To do this properly I'd also need: the actual job ad, and whether you've got a portfolio link" reads as useful triage, not an interrogation. They can upload documents right from the chat (the + button next to the input) — point them there instead of sending them away to Profile.
 It's completely fine — good, even — to ask a real question mid-conversation instead of always producing a complete answer. That's what a genuinely helpful person does; it's not a failure mode.
 
@@ -2931,7 +2992,11 @@ Never claim you can't see their documents — if the block above says no content
                 args = {}
             kind, payload = _execute_chat_tool_call(user, call.function.name, args, enabled_plugins)
             if kind == "card":
-                steps.append({"type": "card", "card": payload})
+                steps.append({
+                    "type": "card",
+                    "card": payload,
+                    "label": _TOOL_STATUS_LABELS.get(call.function.name, "Working on that"),
+                })
                 openai_messages.append({"role": "tool", "tool_call_id": call.id, "content": json.dumps(payload)[:2000]})
             elif kind == "text":
                 steps.append({"type": "text", "text": payload})
