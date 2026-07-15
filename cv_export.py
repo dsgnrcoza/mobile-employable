@@ -23,15 +23,45 @@ _BOLD_ALIASES = {"strong", "b"}
 _ITALIC_ALIASES = {"em", "i"}
 _BLOCK_TAGS = {"p", "div", "h1", "h2", "h3", "li"}
 
-# A CV entry (job/education) renders as one row -- title/company on the
-# left, dates right-aligned on the same line -- which a single Paragraph
-# can't do (one alignment per block), so it's parsed into its own "row"
-# block kind and rendered as a 2-column ReportLab Table instead. The AI
-# is asked to emit this as flat siblings (never nested inside another
-# div), which keeps this single-current-block parser simple.
-_ROW_DIV_CLASS = "cv-entry-row"
-_ROW_TITLE_CLASS = "cv-entry-title"
-_ROW_DATE_CLASS = "cv-entry-date"
+# Two structural pieces of a CV can't be expressed as a single Paragraph
+# (each needs more than one alignment/size on the same line), so both are
+# parsed into "compound" blocks -- named child <span>s captured into
+# separate parts -- and rendered as small ReportLab Tables instead:
+#
+# - A name/contact header: name on the left, job title + contact lines
+#   (right-aligned, stacked via <br>) on the right.
+# - A CV entry's title-left/date-right line -- kept for any
+#   already-generated CVs still using the older side-by-side entry
+#   style; new AI generations use plain stacked title/company/dates
+#   paragraphs instead (see COMPOUND_KIND below), which needs no special
+#   parsing at all.
+#
+# The AI is asked to emit these as flat siblings (never nested inside
+# another div), which keeps this single-current-block parser simple.
+# A stacked CV entry (new AI generations) is just plain sibling <p> tags,
+# distinguished from each other only by one of these CSS classes -- no
+# compound-block parsing needed, just a class label carried through on
+# the block so the renderer knows title vs. company vs. dates vs. an
+# optional reference-number line.
+_ENTRY_LINE_CLASSES = {
+    "cv-entry-title",
+    "cv-entry-company",
+    "cv-entry-dates",
+    "cv-entry-reference",
+}
+
+_COMPOUND_BLOCKS = {
+    "cv-header": {
+        "kind": "header",
+        "parts": {"cv-header-name": "name", "cv-header-title": "title", "cv-header-contact": "contact"},
+        "default_part": "name",
+    },
+    "cv-entry-row": {
+        "kind": "row",
+        "parts": {"cv-entry-title": "title", "cv-entry-date": "date"},
+        "default_part": "title",
+    },
+}
 
 
 def _rgb_to_hex(value: str) -> str | None:
@@ -56,16 +86,21 @@ def _style_color(style: str) -> str | None:
 
 
 class _Block:
-    __slots__ = ("kind", "align", "ordered", "runs", "row")
+    __slots__ = ("kind", "align", "ordered", "runs", "parts", "css_class")
 
-    def __init__(self, kind, align=None, ordered=False):
-        self.kind = kind  # "p" | "h1" | "h2" | "h3" | "li" | "hr" | "row"
+    def __init__(self, kind, align=None, ordered=False, css_class=None):
+        self.kind = kind  # "p" | "h1" | "h2" | "h3" | "li" | "hr" | "row" | "header"
         self.align = align or "left"
         self.ordered = ordered
         self.runs = []  # list of (text, {"bold":bool,"italic":bool,"underline":bool,"color":str|None})
-        # Only populated for kind == "row": {"title": [...], "date": [...]},
-        # each a list of (text, fmt) runs same shape as .runs above.
-        self.row = {"title": [], "date": []}
+        # Only populated for compound kinds ("row"/"header"): a dict of
+        # part-name -> list of (text, fmt) runs, same shape as .runs above.
+        self.parts = {}
+        # First recognized CV entry-line class on a plain block (e.g. a
+        # <p class="cv-entry-company">), so the renderer can tell a
+        # stacked entry's title/company/dates/reference lines apart --
+        # None for ordinary paragraphs/headings/list items.
+        self.css_class = css_class
 
 
 class _CvHtmlParser(HTMLParser):
@@ -82,7 +117,8 @@ class _CvHtmlParser(HTMLParser):
         self._current: _Block | None = None
         self._fmt_stack = []  # stack of {"bold","italic","underline","color"}
         self._list_stack = []  # stack of bool (ordered?)
-        self._row_target = None  # None | "title" | "date", while inside a row's spans
+        self._compound = None  # the _COMPOUND_BLOCKS entry active for self._current, if any
+        self._part_target = None  # which named part new text/br goes into, while inside a compound block
 
     def _fmt(self):
         bold = italic = underline = False
@@ -102,7 +138,10 @@ class _CvHtmlParser(HTMLParser):
             self.blocks.append(_Block("hr"))
             return
         if tag == "br":
-            if self._current is not None:
+            if self._current is not None and self._current.kind in ("row", "header"):
+                target = self._part_target or self._compound["default_part"]
+                self._current.parts.setdefault(target, []).append(("\n", self._fmt()))
+            elif self._current is not None:
                 self._current.runs.append(("\n", self._fmt()))
             return
 
@@ -110,24 +149,29 @@ class _CvHtmlParser(HTMLParser):
             self._list_stack.append(tag == "ol")
             return
 
-        if tag == "div" and _ROW_DIV_CLASS in attrs_d.get("class", "").split():
-            self._current = _Block("row")
-            self._row_target = None
-            return
+        if tag == "div":
+            classes = attrs_d.get("class", "").split()
+            compound = next((_COMPOUND_BLOCKS[c] for c in classes if c in _COMPOUND_BLOCKS), None)
+            if compound:
+                self._current = _Block(compound["kind"])
+                self._compound = compound
+                self._part_target = None
+                return
 
         if tag in _BLOCK_TAGS:
             kind = "li" if tag == "li" else (tag if tag in ("h1", "h2", "h3") else "p")
             align = _style_align(attrs_d.get("style", ""))
             ordered = self._list_stack[-1] if (tag == "li" and self._list_stack) else False
-            self._current = _Block(kind, align=align, ordered=ordered)
+            classes = attrs_d.get("class", "").split()
+            css_class = next((c for c in classes if c in _ENTRY_LINE_CLASSES), None)
+            self._current = _Block(kind, align=align, ordered=ordered, css_class=css_class)
             return
 
-        if tag == "span" and self._current is not None and self._current.kind == "row":
+        if tag == "span" and self._current is not None and self._current.kind in ("row", "header"):
             classes = attrs_d.get("class", "").split()
-            if _ROW_TITLE_CLASS in classes:
-                self._row_target = "title"
-            elif _ROW_DATE_CLASS in classes:
-                self._row_target = "date"
+            part = next((self._compound["parts"][c] for c in classes if c in self._compound["parts"]), None)
+            if part:
+                self._part_target = part
 
         if tag in _BOLD_ALIASES:
             self._fmt_stack.append({"bold": True})
@@ -147,26 +191,28 @@ class _CvHtmlParser(HTMLParser):
             if self._list_stack:
                 self._list_stack.pop()
             return
-        if tag == "div" and self._current is not None and self._current.kind == "row":
-            if self._current.row["title"] or self._current.row["date"]:
+        if tag == "div" and self._current is not None and self._current.kind in ("row", "header"):
+            if any(self._current.parts.values()):
                 self.blocks.append(self._current)
             self._current = None
-            self._row_target = None
+            self._compound = None
+            self._part_target = None
             return
         if tag in _BLOCK_TAGS:
             if self._current is not None and self._current.runs:
                 self.blocks.append(self._current)
             self._current = None
             return
-        if tag == "span" and self._current is not None and self._current.kind == "row":
-            self._row_target = None
+        if tag == "span" and self._current is not None and self._current.kind in ("row", "header"):
+            self._part_target = None
         if tag in _BOLD_ALIASES or tag in _ITALIC_ALIASES or tag in ("u", "font", "span"):
             if self._fmt_stack:
                 self._fmt_stack.pop()
 
     def handle_data(self, data):
-        if self._current is not None and self._current.kind == "row":
-            self._current.row[self._row_target or "title"].append((data, self._fmt()))
+        if self._current is not None and self._current.kind in ("row", "header"):
+            target = self._part_target or self._compound["default_part"]
+            self._current.parts.setdefault(target, []).append((data, self._fmt()))
             return
         if self._current is None:
             # Text sitting directly inside the body/wrapper, outside any
@@ -182,8 +228,8 @@ class _CvHtmlParser(HTMLParser):
 
 
 def _runs_to_markup_and_text(runs):
-    """Shared by regular blocks and a row's title/date sides: turns a list
-    of (text, fmt) runs into (reportlab-markup string, plain text)."""
+    """Shared by regular blocks and a compound block's named parts: turns
+    a list of (text, fmt) runs into (reportlab-markup string, plain text)."""
     markup_parts = []
     text_parts = []
     for text, fmt in runs:
@@ -204,11 +250,15 @@ def _runs_to_markup_and_text(runs):
 def parse_cv_html(html: str) -> list[dict]:
     """
     Returns a list of block dicts:
-      {"kind": "p"|"h1"|"h2"|"h3"|"li"|"hr"|"row", "align": "left"|"center"|"right"|"justify",
+      {"kind": "p"|"h1"|"h2"|"h3"|"li"|"hr"|"row"|"header", "align": "left"|"center"|"right"|"justify",
        "ordered": bool, "markup": "<b>...</b> reportlab-flavoured inline HTML",
-       "text": "plain text, for DOCX and for blocks with no formatting"}
+       "text": "plain text, for DOCX and for blocks with no formatting",
+       "css_class": "cv-entry-title"|"cv-entry-company"|"cv-entry-dates"|"cv-entry-reference"|None}
     A "row" block (one CV entry's title-left/date-right line) instead
     carries "title_markup"/"title_text"/"date_markup"/"date_text".
+    A "header" block (name + title + contact) carries
+    "name_markup"/"name_text", "title_markup"/"title_text",
+    "contact_markup"/"contact_text".
     """
     parser = _CvHtmlParser()
     try:
@@ -223,8 +273,8 @@ def parse_cv_html(html: str) -> list[dict]:
             continue
 
         if block.kind == "row":
-            title_markup, title_text = _runs_to_markup_and_text(block.row["title"])
-            date_markup, date_text = _runs_to_markup_and_text(block.row["date"])
+            title_markup, title_text = _runs_to_markup_and_text(block.parts.get("title", []))
+            date_markup, date_text = _runs_to_markup_and_text(block.parts.get("date", []))
             if not title_text and not date_text:
                 continue
             results.append({
@@ -240,6 +290,27 @@ def parse_cv_html(html: str) -> list[dict]:
             })
             continue
 
+        if block.kind == "header":
+            name_markup, name_text = _runs_to_markup_and_text(block.parts.get("name", []))
+            title_markup, title_text = _runs_to_markup_and_text(block.parts.get("title", []))
+            contact_markup, contact_text = _runs_to_markup_and_text(block.parts.get("contact", []))
+            if not (name_text or title_text or contact_text):
+                continue
+            results.append({
+                "kind": "header",
+                "align": "left",
+                "ordered": False,
+                "markup": "",
+                "text": " — ".join(t for t in (name_text, title_text, contact_text.replace("\n", ", ")) if t),
+                "name_markup": name_markup,
+                "name_text": name_text,
+                "title_markup": title_markup,
+                "title_text": title_text,
+                "contact_markup": contact_markup,
+                "contact_text": contact_text,
+            })
+            continue
+
         markup, text = _runs_to_markup_and_text(block.runs)
         if not text:
             continue
@@ -250,6 +321,7 @@ def parse_cv_html(html: str) -> list[dict]:
             "ordered": block.ordered,
             "markup": markup,
             "text": text,
+            "css_class": block.css_class,
             # Raw per-run formatting, for consumers (DOCX) that need
             # bold/italic/underline/color as real run attributes rather
             # than reportlab's embedded markup string.

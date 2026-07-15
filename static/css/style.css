@@ -1992,9 +1992,11 @@ button.auth-tab.active {
 
 .chat-quickreply-bar {
   display: flex;
+  flex-direction: column;
   gap: 8px;
   padding: 0 20px 8px;
-  overflow-x: auto;
+  max-height: 45vh;
+  overflow-y: auto;
   flex-shrink: 0;
 }
 
@@ -2004,21 +2006,33 @@ button.auth-tab.active {
 
 .chat-quick-reply-btn {
   flex-shrink: 0;
+  width: 100%;
   border: 1px solid var(--accent);
-  background: transparent;
+  background: var(--surface);
   color: var(--accent);
   border-radius: 12px;
-  padding: 7px 14px;
-  font-size: 13px;
+  padding: 11px 16px;
+  font-size: 13.5px;
   font-weight: 600;
+  text-align: left;
   cursor: pointer;
-  white-space: nowrap;
   transition: background 150ms ease, color 150ms ease;
 }
 
 .chat-quick-reply-btn:active {
   background: var(--accent-gradient);
   color: var(--accent-ink);
+}
+
+.chat-quick-reply-other-btn {
+  border-style: dashed;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.chat-quick-reply-other-btn:active {
+  background: var(--surface);
+  color: var(--fg);
 }
 
 /* ---------- Signature cards: Verdict + Document ---------- */
@@ -4838,49 +4852,90 @@ button.auth-tab.active {
 /* ---- Shared CV content structure (thumbnails, full preview, and the
    live editor all use these same base rules) ---- */
 
-.template-thumb .cv-name,
-.builder-preview .cv-name {
-  font-size: 22px;
-  font-weight: 800;
-  margin: 0 0 2px;
-  line-height: 1.2;
+/* Name on the left; job title + stacked contact lines right-aligned on
+   the right -- floats (rather than flex) because the three spans are
+   flat siblings with no wrapper div around the right-hand pair, and a
+   float+clear:right stack is the one plain-CSS way to still group them
+   into a column against a left-floated element. */
+.template-thumb .cv-header,
+.builder-preview .cv-header {
+  display: block;
+  margin: 0 0 12px;
 }
 
-.template-thumb .cv-contact,
-.builder-preview .cv-contact {
-  font-size: 12px;
-  color: #555;
-  margin: 0 0 14px;
+.template-thumb .cv-header::after,
+.builder-preview .cv-header::after {
+  content: "";
+  display: table;
+  clear: both;
+}
+
+.template-thumb .cv-header-name,
+.builder-preview .cv-header-name {
+  float: left;
+  max-width: 55%;
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.template-thumb .cv-header-title,
+.builder-preview .cv-header-title {
+  display: block;
+  float: right;
+  clear: right;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: right;
+}
+
+.template-thumb .cv-header-contact,
+.builder-preview .cv-header-contact {
+  display: block;
+  float: right;
+  clear: right;
+  font-size: 11px;
+  color: #666;
+  text-align: right;
+  line-height: 1.5;
 }
 
 .template-thumb h2,
 .builder-preview h2 {
   font-size: 13px;
   font-weight: 800;
-  margin: 14px 0 6px;
-}
-
-.template-thumb .cv-entry-row,
-.builder-preview .cv-entry-row {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-  margin-top: 8px;
+  margin: 16px 0 6px;
+  padding-bottom: 4px;
+  border-bottom: 1.5px solid #999;
 }
 
 .template-thumb .cv-entry-title,
 .builder-preview .cv-entry-title {
   font-weight: 700;
   font-size: 13px;
+  margin: 10px 0 0;
 }
 
-.template-thumb .cv-entry-date,
-.builder-preview .cv-entry-date {
-  flex-shrink: 0;
-  font-size: 11.5px;
-  color: #666;
-  white-space: nowrap;
+.template-thumb .cv-entry-company,
+.builder-preview .cv-entry-company {
+  font-weight: 700;
+  font-size: 12.5px;
+  margin: 0;
+}
+
+.template-thumb .cv-entry-dates,
+.builder-preview .cv-entry-dates {
+  font-weight: 700;
+  font-size: 11px;
+  color: #555;
+  margin: 0;
+}
+
+.template-thumb .cv-entry-reference,
+.builder-preview .cv-entry-reference {
+  font-size: 10.5px;
+  color: #888;
+  margin: 2px 0 0;
 }
 
 .template-thumb ul,
@@ -4895,38 +4950,43 @@ button.auth-tab.active {
   line-height: 1.4;
 }
 
-/* Ledger -- classic, centered, underlined caps headings */
-.tmpl-ledger .cv-name,
-.tmpl-ledger .cv-contact {
+/* Ledger -- classic, centered name, left-aligned rule-under headings */
+.tmpl-ledger .cv-header-name {
+  float: none;
+  max-width: none;
+  text-align: center;
+  margin-bottom: 4px;
+}
+
+.tmpl-ledger .cv-header-title,
+.tmpl-ledger .cv-header-contact {
+  float: none;
   text-align: center;
 }
 
 .tmpl-ledger h2 {
-  text-align: center;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  text-decoration: underline;
-  text-underline-offset: 3px;
 }
 
-.tmpl-ledger .cv-entry-date {
+.tmpl-ledger .cv-entry-dates {
   font-style: italic;
 }
 
 /* Signal -- modern, left-aligned, accent-colored headings */
 .tmpl-signal h2 {
   color: var(--accent);
+  border-bottom-color: var(--accent);
 }
 
-.tmpl-signal .cv-entry-date {
+.tmpl-signal .cv-entry-dates {
   color: var(--accent);
 }
 
-/* Blueprint -- bold, structured, rule under the name, spaced caps */
-.tmpl-blueprint .cv-name {
+/* Blueprint -- bold, structured, rule under the header, spaced caps */
+.tmpl-blueprint .cv-header {
   border-bottom: 3px solid #1a1a1a;
-  padding-bottom: 6px;
-  display: inline-block;
+  padding-bottom: 8px;
 }
 
 .tmpl-blueprint h2 {
@@ -4934,9 +4994,7 @@ button.auth-tab.active {
   letter-spacing: 0.14em;
 }
 
-.tmpl-blueprint .cv-entry-date {
-  font-weight: 700;
-  font-size: 10.5px;
+.tmpl-blueprint .cv-entry-dates {
   text-transform: uppercase;
 }
 

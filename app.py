@@ -857,21 +857,7 @@ def _generate_tailored_document(user, kind, job_title="", company="", job_ad="",
             "bullet points for achievements rather than dense paragraphs, generous spacing so it's scannable "
             "in a 6-second recruiter skim. Keep it ATS-friendly: no unusual layouts, plain section headings a "
             "parser would recognize.\n\n"
-            "STRUCTURE -- follow this exact shape so the app can render your CV in different visual templates "
-            "without you having to think about styling at all (the app's own templates handle every visual "
-            "choice -- your only job is content, in this structure):\n"
-            "- '<h1>Full Name</h1>' once, at the very top.\n"
-            "- One '<p>' right after it with contact info (email, phone, location -- whatever's real and "
-            "available), separated by ' · '.\n"
-            "- Each section is an '<h2>SECTION NAME</h2>' (e.g. EXPERIENCE, EDUCATION, SKILLS).\n"
-            "- Each job or education entry starts with exactly this one-line pattern (title/company on the "
-            "left, dates on the right -- fill in the real values, keep the tags and classes exactly as shown):\n"
-            "  <div class=\"cv-entry-row\"><span class=\"cv-entry-title\">Role, Company</span>"
-            "<span class=\"cv-entry-date\">Month Year - Month Year</span></div>\n"
-            "  immediately followed by a normal '<ul><li>...</li></ul>' of 2-4 achievement bullets for that "
-            "entry. Never nest the row div inside another div -- each entry is just the row line followed by "
-            "its bullet list, as siblings.\n"
-            "- A skills section can just be a '<p>' or a plain '<ul>', no entry-row needed there."
+            f"{CV_STRUCTURE_GUIDANCE}"
         )
     else:
         doc_label = "cover letter"
@@ -898,7 +884,7 @@ def _generate_tailored_document(user, kind, job_title="", company="", job_ad="",
         "OUTPUT RULES -- return a JSON object with exactly these keys:\n"
         "- 'html': the full document as valid HTML using <p>, <strong>, <em>, <ul>, <li>, <h1>, <h2>, <h3>, "
         "<hr>, <br> tags"
-        + (", plus the exact <div class=\"cv-entry-row\">/<span> pattern described above for entries" if kind == "cv" else "")
+        + (", plus the exact cv-header/cv-entry-* classes described above" if kind == "cv" else "")
         + ". No markdown, no code fences, no <html>/<head>/<body> wrappers.\n"
         "- 'description': one short sentence (max 20 words) describing what was produced.\n"
         + ("- 'fit_score': an integer 0-100 estimating how strong a fit THIS tailored document now makes for "
@@ -2016,17 +2002,7 @@ def api_cv_edit():
         "spacing between sections so it's scannable in a 6-second recruiter skim. The app applies its own "
         "visual template on top of your HTML, so don't hand-roll layout styling yourself -- just follow this "
         "structure:\n"
-        "- '<h1>Full Name</h1>' once, at the very top, then one '<p>' with contact info separated by ' · '.\n"
-        "- Section headings as '<h2>SECTION NAME</h2>'.\n"
-        "- Each job/education entry starts with exactly this one-line pattern (fill in real values, keep the "
-        "tags and classes exactly as shown):\n"
-        "  <div class=\"cv-entry-row\"><span class=\"cv-entry-title\">Role, Company</span>"
-        "<span class=\"cv-entry-date\">Month Year - Month Year</span></div>\n"
-        "  immediately followed by a normal '<ul><li>...</li></ul>' of achievement bullets -- never nest the "
-        "row div inside another div, it's a sibling of its own bullet list.\n"
-        "If the user's instruction is a small tweak to an existing document that's not in this format yet, "
-        "still convert entries to this pattern while making the requested change -- don't leave the old "
-        "shape in place.\n\n"
+        f"{CV_STRUCTURE_GUIDANCE}\n\n"
         "GROUNDING — this is the most important rule, above all others: every fact in the document "
         "(employer names, job titles, dates, schools, achievements, contact details) must come from "
         "the user's real profile/documents below, or already be present in the current document HTML. "
@@ -2113,11 +2089,52 @@ def api_cv_download_docx():
 
     from docx.enum.text import WD_TAB_ALIGNMENT
 
+    # Stacked entry-line paragraphs (new AI generations) -- same styling
+    # intent as the PDF's ENTRY_LINE_STYLE, expressed as docx run attrs.
+    ENTRY_LINE_STYLE = {
+        "cv-entry-title": {"size": 11.5, "bold": True, "space_before": 9, "color": None},
+        "cv-entry-company": {"size": 11, "bold": True, "space_before": 0, "color": None},
+        "cv-entry-dates": {"size": 10, "bold": True, "space_before": 0, "color": "444444"},
+        "cv-entry-reference": {"size": 9.5, "bold": False, "space_before": 1, "color": "777777"},
+    }
+
     if blocks:
         for block in blocks:
             if block["kind"] == "hr":
                 p = doc.add_paragraph("─" * 40)
                 p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                continue
+
+            if block["kind"] == "header":
+                # Name on the left, job title + stacked contact lines
+                # right-aligned -- a right tab stop plus explicit line
+                # breaks (add_run can't embed "\n", Word needs a real
+                # break run) gets the same two-column shape as the PDF's
+                # header table without needing an actual docx table.
+                usable_width = doc.sections[0].page_width - doc.sections[0].left_margin - doc.sections[0].right_margin
+                p = doc.add_paragraph()
+                p.paragraph_format.tab_stops.add_tab_stop(usable_width, WD_TAB_ALIGNMENT.RIGHT)
+                name_run = p.add_run(block["name_text"])
+                name_run.font.name = "Arial"
+                name_run.font.size = Pt(20)
+                name_run.bold = True
+                right_lines = []
+                if block["title_text"]:
+                    right_lines.append((block["title_text"], True, 13, None))
+                for contact_line in block["contact_text"].split("\n"):
+                    if contact_line:
+                        right_lines.append((contact_line, False, 10.5, "666666"))
+                if right_lines:
+                    p.add_run("\t")
+                    for i, (text, bold, size, color) in enumerate(right_lines):
+                        if i:
+                            p.add_run().add_break()
+                        run = p.add_run(text)
+                        run.font.name = "Arial"
+                        run.font.size = Pt(size)
+                        run.bold = bold
+                        if color:
+                            run.font.color.rgb = RGBColor.from_string(color)
                 continue
 
             if block["kind"] == "row":
@@ -2145,21 +2162,37 @@ def api_cv_download_docx():
 
             p = doc.add_paragraph(style="List Bullet" if (block["kind"] == "li" and not block["ordered"]) else
                                          "List Number" if (block["kind"] == "li" and block["ordered"]) else None)
-            p.paragraph_format.space_after = Pt(2)
             p.alignment = ALIGN_MAP.get(block["align"], WD_ALIGN_PARAGRAPH.LEFT)
             is_heading = block["kind"] in HEADING_SIZE
+            entry = ENTRY_LINE_STYLE.get(block.get("css_class"))
+            p.paragraph_format.space_after = Pt(1 if entry else 2)
+            p.paragraph_format.space_before = Pt(entry["space_before"]) if entry else Pt(0)
             for text, fmt in block["runs"]:
                 run = p.add_run(text)
                 run.font.name = "Arial"
-                run.font.size = Pt(HEADING_SIZE.get(block["kind"], 11))
-                run.bold = is_heading or fmt.get("bold", False)
+                run.font.size = Pt(entry["size"] if entry else HEADING_SIZE.get(block["kind"], 11))
+                run.bold = entry["bold"] if entry else (is_heading or fmt.get("bold", False))
                 run.italic = fmt.get("italic", False)
                 run.underline = fmt.get("underline", False)
-                if fmt.get("color"):
+                color = (entry and entry["color"]) or fmt.get("color")
+                if color:
                     try:
-                        run.font.color.rgb = RGBColor.from_string(fmt["color"].lstrip("#"))
+                        run.font.color.rgb = RGBColor.from_string(color.lstrip("#"))
                     except Exception:
                         pass
+            if block["kind"] == "h2":
+                p.paragraph_format.space_before = Pt(8)
+                pPr = p._p.get_or_add_pPr()
+                from docx.oxml.ns import qn
+                from docx.oxml import OxmlElement
+                pBdr = OxmlElement("w:pBdr")
+                bottom = OxmlElement("w:bottom")
+                bottom.set(qn("w:val"), "single")
+                bottom.set(qn("w:sz"), "6")
+                bottom.set(qn("w:space"), "4")
+                bottom.set(qn("w:color"), "999999")
+                pBdr.append(bottom)
+                pPr.append(pBdr)
     else:
         # Fallback for any caller still sending plain text.
         for line in content.split("\n"):
@@ -2195,16 +2228,51 @@ PLUGINS = {
 }
 
 
+# Shared by _generate_tailored_document's design_guidance and api_cv_edit's
+# system prompt -- the one mandated CV structure (matching a real reference
+# CV's layout) that every AI-generated or AI-edited CV must follow, so the
+# renderer (_render_cv_pdf_bytes / api_cv_download_docx, both keyed off
+# cv_export.parse_cv_html's block kinds and css_class) always knows what
+# it's looking at regardless of which flow produced the HTML.
+CV_STRUCTURE_GUIDANCE = (
+    "STRUCTURE -- follow this exact shape so the app can render your CV in different visual templates "
+    "without you having to think about styling at all (the app's own templates handle every visual "
+    "choice -- your only job is content, in this structure):\n"
+    "- A header, once, at the very top -- keep the tags and classes exactly as shown, fill in real values:\n"
+    "  <div class=\"cv-header\"><span class=\"cv-header-name\">Full Name</span>"
+    "<span class=\"cv-header-title\">Target Job Title</span>"
+    "<span class=\"cv-header-contact\">Location<br>email@example.com<br>Phone number</span></div>\n"
+    "  (2-3 contact lines separated by <br>, whatever's real and available.)\n"
+    "- Immediately after the header, one plain '<p>' summary paragraph -- no heading label above it.\n"
+    "- Each section is an '<h2>SECTION NAME</h2>' (e.g. EXPERIENCE, EDUCATION, SKILLS, ADDITIONAL "
+    "INFORMATION) -- the app renders this bold, uppercase, with a full-width rule beneath automatically, "
+    "so just write the plain section name.\n"
+    "- Each job or education entry is a stack of plain paragraphs (never side-by-side), in this exact "
+    "order, using these exact classes:\n"
+    "  <p class=\"cv-entry-title\">Role</p>\n"
+    "  <p class=\"cv-entry-company\">Company, Location</p>\n"
+    "  <p class=\"cv-entry-dates\">Month Year - Month Year</p>\n"
+    "  optionally <p class=\"cv-entry-reference\">Reference: name or number</p> if a reference is known\n"
+    "  immediately followed by a normal '<ul><li>...</li></ul>' of 2-4 achievement bullets for that entry. "
+    "Never nest these inside another div -- each entry is just that stack of paragraphs followed by its "
+    "bullet list, as siblings.\n"
+    "- A SKILLS section is just an '<h2>SKILLS</h2>' followed by a plain '<ul><li>...</li></ul>' (the app "
+    "lays these out in two columns automatically) -- no entry classes needed there.\n"
+    "If the user's instruction is a small tweak to an existing document that's not in this format yet, "
+    "still convert it to this structure while making the requested change -- don't leave an older shape "
+    "(like a side-by-side title/date row) in place."
+)
+
 CV_TEMPLATES = {
     "ledger": {
         "label": "Ledger",
         "blurb": "Classic and centered, built for a traditional recruiter skim.",
         "name_align": "center",
-        "heading_align": "center",
+        "heading_align": "left",
         "heading_upper": True,
-        "heading_underline": True,
         "heading_spaced": False,
         "heading_color": "#1a1a1a",
+        "rule_color": "#1a1a1a",
         "date_style": "italic",
         "rule_after_name": False,
     },
@@ -2214,9 +2282,9 @@ CV_TEMPLATES = {
         "name_align": "left",
         "heading_align": "left",
         "heading_upper": False,
-        "heading_underline": False,
         "heading_spaced": False,
         "heading_color": "#3A63D8",
+        "rule_color": "#3A63D8",
         "date_style": "muted",
         "rule_after_name": False,
     },
@@ -2226,9 +2294,9 @@ CV_TEMPLATES = {
         "name_align": "left",
         "heading_align": "left",
         "heading_upper": True,
-        "heading_underline": False,
         "heading_spaced": True,
         "heading_color": "#1a1a1a",
+        "rule_color": "#1a1a1a",
         "date_style": "bold",
         "rule_after_name": True,
     },
@@ -2279,17 +2347,25 @@ def _render_cv_pdf_bytes(cv_html="", content="", margins=None, template=None):
                             leftMargin=h_cm*cm, rightMargin=h_cm*cm)
     content_width = doc.width
 
+    # Stacked entry-line paragraph styling (new AI generations use plain
+    # sibling <p class="cv-entry-*"> instead of the old side-by-side row).
+    ENTRY_LINE_STYLE = {
+        "cv-entry-title": {"fontSize": 11.5, "leading": 15, "bold": True, "spaceBefore": 9, "color": "#1a1a1a"},
+        "cv-entry-company": {"fontSize": 11, "leading": 14, "bold": True, "spaceBefore": 0, "color": "#1a1a1a"},
+        "cv-entry-dates": {"fontSize": 10, "leading": 14, "bold": True, "spaceBefore": 0, "color": "#444444"},
+        "cv-entry-reference": {"fontSize": 9.5, "leading": 13, "bold": False, "spaceBefore": 1, "color": "#777777"},
+    }
+
     def heading_markup(block):
-        markup = block["markup"]
-        if block["kind"] != "h2":
-            return markup
         text = block["text"]
         if tmpl["heading_upper"]:
             text = text.upper()
         if tmpl["heading_spaced"]:
-            text = " ".join(list(text))  # cheap letter-spacing: reportlab has no real tracking
-        if tmpl["heading_underline"]:
-            text = f"<u>{text}</u>"
+            # Cheap letter-spacing (reportlab has no real tracking): space out
+            # each word's letters, then rejoin words with a few non-breaking
+            # spaces (reportlab collapses runs of plain spaces like HTML,
+            # so a wider plain-space gap alone would still visually merge).
+            text = "   ".join(" ".join(list(word)) for word in text.split(" "))
         return text
 
     def style_for(block, align_override=None):
@@ -2301,6 +2377,18 @@ def _render_cv_pdf_bytes(cv_html="", content="", margins=None, template=None):
         elif block["kind"] == "h2":
             align = tmpl["heading_align"] if block["align"] == "left" else block["align"]
         color = tmpl["heading_color"] if block["kind"] == "h2" else "#1a1a1a"
+        entry = ENTRY_LINE_STYLE.get(block.get("css_class"))
+        if entry:
+            return ParagraphStyle(
+                f"cv_entry_{block['css_class']}",
+                fontName="Helvetica-Bold" if entry["bold"] else "Helvetica",
+                fontSize=entry["fontSize"],
+                leading=entry["leading"],
+                spaceAfter=1,
+                spaceBefore=entry["spaceBefore"],
+                alignment=ALIGN_MAP.get(align, TA_LEFT),
+                textColor=entry["color"],
+            )
         return ParagraphStyle(
             f"cv_{block['kind']}_{align}",
             fontName="Helvetica-Bold" if is_heading else "Helvetica",
@@ -2337,12 +2425,78 @@ def _render_cv_pdf_bytes(cv_html="", content="", margins=None, template=None):
         ]))
         return table
 
+    def header_flowable(block):
+        name_markup = block["name_markup"] or block["name_text"]
+        title_markup = block["title_markup"] or block["title_text"]
+        contact_markup = block["contact_markup"] or block["contact_text"]
+        name_style = ParagraphStyle("hdr_name", fontName="Helvetica-Bold", fontSize=20, leading=24, textColor="#1a1a1a")
+        right_parts = []
+        if title_markup:
+            right_parts.append(f'<font size="13"><b>{title_markup}</b></font>')
+        if contact_markup:
+            right_parts.append(f'<font size="10.5" color="#666666">{contact_markup}</font>')
+        right_style = ParagraphStyle("hdr_right", fontName="Helvetica", fontSize=10.5, leading=15, alignment=TA_RIGHT)
+        cells = [Paragraph(name_markup, name_style) if name_markup else Paragraph("", name_style)]
+        right_cell = Paragraph("<br/>".join(right_parts), right_style) if right_parts else Paragraph("", right_style)
+        table = Table(
+            [[cells[0], right_cell]],
+            colWidths=[content_width * 0.55, content_width * 0.45],
+        )
+        table.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 0),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+            ("TOPPADDING", (0, 0), (-1, -1), 0),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+        ]))
+        return table
+
+    def skills_table(items):
+        """Two-column bullet grid for the Skills section, matching the
+        reference format -- split alternately so a short trailing row
+        still reads left-to-right rather than leaving an odd gap."""
+        item_style = ParagraphStyle("skill_item", fontName="Helvetica", fontSize=11, leading=15, textColor="#1a1a1a")
+        half = (len(items) + 1) // 2
+        left_col, right_col = items[:half], items[half:]
+        rows = []
+        for i in range(half):
+            left = Paragraph("•  " + left_col[i], item_style)
+            right = Paragraph("•  " + right_col[i], item_style) if i < len(right_col) else Paragraph("", item_style)
+            rows.append([left, right])
+        table = Table(rows, colWidths=[content_width * 0.5, content_width * 0.5])
+        table.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 0),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+            ("TOPPADDING", (0, 0), (-1, -1), 1),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
+        ]))
+        return table
+
     story = []
     if blocks:
         ordered_counter = 0
+        in_skills_section = False
+        skills_buffer = []
+
+        def flush_skills():
+            if skills_buffer:
+                story.append(skills_table(list(skills_buffer)))
+                skills_buffer.clear()
+
         for block in blocks:
             if block["kind"] != "li" or not block["ordered"]:
                 ordered_counter = 0  # reset whenever an ordered-list run breaks
+
+            if block["kind"] == "li" and in_skills_section and not block["ordered"]:
+                skills_buffer.append(block["markup"])
+                continue
+            flush_skills()
+
+            if block["kind"] == "h2":
+                in_skills_section = "skill" in block["text"].strip().lower()
+            elif block["kind"] not in ("li",):
+                in_skills_section = False
 
             if block["kind"] == "hr":
                 story.append(Spacer(1, 6))
@@ -2351,6 +2505,13 @@ def _render_cv_pdf_bytes(cv_html="", content="", margins=None, template=None):
                 continue
             if block["kind"] == "row":
                 story.append(row_flowable(block))
+                continue
+            if block["kind"] == "header":
+                story.append(header_flowable(block))
+                if tmpl["rule_after_name"]:
+                    story.append(Spacer(1, 6))
+                    story.append(HRFlowable(width="100%", thickness=1.6, color=tmpl["rule_color"]))
+                    story.append(Spacer(1, 6))
                 continue
             markup = heading_markup(block) if block["kind"] == "h2" else block["markup"]
             if block["kind"] == "li":
@@ -2361,10 +2522,15 @@ def _render_cv_pdf_bytes(cv_html="", content="", margins=None, template=None):
                     prefix = "•  "
                 markup = prefix + markup
             story.append(Paragraph(markup, style_for(block)))
+            if block["kind"] == "h2":
+                story.append(Spacer(1, 2))
+                story.append(HRFlowable(width="100%", thickness=0.9, color=tmpl["rule_color"]))
+                story.append(Spacer(1, 5))
             if block["kind"] == "h1" and tmpl["rule_after_name"]:
                 story.append(Spacer(1, 4))
                 story.append(HRFlowable(width="100%", thickness=1.6, color="#1a1a1a"))
                 story.append(Spacer(1, 4))
+        flush_skills()
     else:
         # Fallback for any caller still sending plain text.
         normal = ParagraphStyle("cv_normal", fontName="Helvetica", fontSize=11, leading=16, spaceAfter=2)
