@@ -4506,6 +4506,13 @@ button.auth-tab.active {
   gap: 3px;
   width: 100%;
   transition: background 0.15s ease;
+  /* A long-press here is a gesture (opens the rename/delete menu), not
+     a text-selection request -- without this, mobile browsers treat
+     holding down on the title text as "select this" or show their own
+     native copy/callout menu instead of ours. */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .sidebar-chat-row:active {
