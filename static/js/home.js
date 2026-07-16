@@ -1700,11 +1700,17 @@
   // ---------- Initial load ----------
 
   // sessionStorage survives normal in-app navigation (e.g. Profile ->
-  // back) but is cleared when the tab/PWA is actually closed and
-  // reopened -- so a true fresh open always lands on a new chat,
-  // while clicking around within the same open session still resumes
-  // where you left off.
-  var isFreshAppOpen = !sessionStorage.getItem("ploy_session_active");
+  // back) AND a plain page reload -- so on its own it can't tell a
+  // "just reopened the tab/PWA" cold start apart from "hit refresh on
+  // an existing chat", and a refresh should also land on a new chat.
+  // The Navigation Timing API can actually tell reload apart from
+  // everything else, so it overrides sessionStorage when it fires.
+  var navEntries = window.performance && performance.getEntriesByType
+    ? performance.getEntriesByType("navigation") : [];
+  var isReload = (navEntries.length && navEntries[0].type === "reload") ||
+    // Fallback for the rare browser without the modern API.
+    (window.performance && performance.navigation && performance.navigation.type === 1);
+  var isFreshAppOpen = isReload || !sessionStorage.getItem("ploy_session_active");
   sessionStorage.setItem("ploy_session_active", "1");
   var requestedConvId = new URLSearchParams(window.location.search).get("conv");
 
