@@ -225,14 +225,55 @@
     if (show) rollEmptyStateCopy();
   }
 
+  // Named phases for the "thinking" indicator -- always opens on
+  // "Thinking", then cycles through the rest every ~2.5s for as long as
+  // the request is in flight, instead of a flat, meaningless "...".
+  // There's no real progress signal from a single blocking request, so
+  // this is a paced simulation, not literal status -- but naming each
+  // phase (rather than just varying dot count) is what makes it read as
+  // an actual line of reasoning instead of a generic spinner.
+  var THINKING_PHASES = [
+    "Thinking",
+    "Reading your documents",
+    "Weighing the details",
+    "Connecting the dots",
+    "Cross-checking the facts",
+    "Sharpening the answer",
+    "Considering what you've told me",
+    "Formulating a response",
+    "Double-checking the grounding",
+    "Almost there",
+  ];
+
   function createTypingIndicator() {
     var el = document.createElement("div");
     el.className = "chat-msg-typing";
     el.innerHTML =
+      '<span class="chat-typing-phase"></span>' +
+      '<span class="chat-typing-dots">' +
       '<span class="chat-typing-dot"></span>' +
       '<span class="chat-typing-dot"></span>' +
-      '<span class="chat-typing-dot"></span>';
+      '<span class="chat-typing-dot"></span>' +
+      '</span>';
+    var phaseEl = el.querySelector(".chat-typing-phase");
+    var i = 0;
+    phaseEl.textContent = THINKING_PHASES[0];
+    var intervalId = setInterval(function () {
+      i = (i + 1) % THINKING_PHASES.length;
+      phaseEl.classList.remove("is-in");
+      // Force a reflow so re-adding the class retriggers the fade-in
+      // keyframe instead of the browser coalescing it into a no-op.
+      void phaseEl.offsetWidth;
+      phaseEl.textContent = THINKING_PHASES[i];
+      phaseEl.classList.add("is-in");
+    }, 2500);
+    el._stopThinkingCycle = function () { clearInterval(intervalId); };
     return el;
+  }
+
+  function removeTypingIndicator(el) {
+    if (el._stopThinkingCycle) el._stopThinkingCycle();
+    el.remove();
   }
 
   // A "Checking your fit against this job…" style status line shown right
@@ -849,7 +890,7 @@
     })
       .then(function (r) { return r.json(); })
       .then(function (data) {
-        typingEl.remove();
+        removeTypingIndicator(typingEl);
         if (data.ok) {
           appendCardMessage(data);
         } else {
@@ -857,7 +898,7 @@
         }
       })
       .catch(function () {
-        typingEl.remove();
+        removeTypingIndicator(typingEl);
         appendChatMessage("assistant", "Couldn't reach Ploy just now — check your connection and try again.");
       })
       .finally(function () {
@@ -996,7 +1037,7 @@
     })
       .then(function (r) { return r.json(); })
       .then(function (data) {
-        typingEl.remove();
+        removeTypingIndicator(typingEl);
         if (!data.ok) {
           stopWorkingTimer();
           appendChatMessageTyped("Something went wrong there. Try again?");
@@ -1005,7 +1046,7 @@
         renderStepsSequentially(data.steps || []);
       })
       .catch(function () {
-        typingEl.remove();
+        removeTypingIndicator(typingEl);
         stopWorkingTimer();
         appendChatMessageTyped("Couldn't send that — check your connection and try again.");
       })
