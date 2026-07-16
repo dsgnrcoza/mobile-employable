@@ -4089,29 +4089,7 @@ button.auth-tab.active {
   border-color: transparent;
 }
 
-.chat-mic-btn.is-listening {
-  background: var(--bad);
-  color: #fff;
-  border-color: var(--bad);
-  animation: mic-pulse 1.4s ease-in-out infinite;
-}
-
-@keyframes mic-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(224, 86, 75, 0.5); }
-  50% { box-shadow: 0 0 0 8px rgba(224, 86, 75, 0); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .chat-mic-btn.is-listening {
-    animation: none;
-  }
-}
-
 .chat-mic-btn[hidden] {
-  display: none;
-}
-
-.chat-mic-stop-icon[hidden] {
   display: none;
 }
 
@@ -4240,10 +4218,10 @@ button.auth-tab.active {
   color: var(--muted);
 }
 
-.chat-voice-cancel-btn,
-.chat-voice-confirm-btn {
+.chat-voice-cancel-btn {
   flex-shrink: 0;
-  background: none;
+  background: var(--surface);
+  color: var(--muted);
   border: none;
   border-radius: 50%;
   width: 30px;
@@ -4254,18 +4232,7 @@ button.auth-tab.active {
   cursor: pointer;
 }
 
-.chat-voice-cancel-btn {
-  background: var(--surface);
-  color: var(--muted);
-}
-
-.chat-voice-confirm-btn {
-  background: var(--accent-gradient);
-  color: var(--accent-ink);
-}
-
-.chat-voice-cancel-btn svg,
-.chat-voice-confirm-btn svg {
+.chat-voice-cancel-btn svg {
   width: 16px;
   height: 16px;
 }
