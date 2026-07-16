@@ -1797,6 +1797,12 @@ button.auth-tab.active {
   display: flex;
   flex-direction: column;
   max-width: 82%;
+  /* Without this, a flex item's content-based min-width (its default)
+     can force it wider than max-width the moment it holds a long
+     unbroken token -- a URL, a filename, a run without spaces -- which
+     is exactly what was pushing bot messages off the right edge on
+     narrow screens. */
+  min-width: 0;
   gap: 4px;
   animation: chat-item-in 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
@@ -1817,6 +1823,8 @@ button.auth-tab.active {
   font-size: 12.5px;
   line-height: 1.45;
   white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: break-word;
   max-width: 100%;
 }
 
