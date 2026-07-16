@@ -1839,6 +1839,12 @@ button.auth-tab.active {
   min-width: 0;
 }
 
+.chat-msg-text a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .chat-msg-attachment-thumb {
   display: block;
   max-width: 100%;
@@ -2186,11 +2192,6 @@ button.auth-tab.active {
   background: var(--mid);
   flex-shrink: 0;
   animation: chat-working-pulse 1.2s ease-in-out infinite;
-}
-
-.chat-working-label {
-  font-weight: 600;
-  color: var(--fg);
 }
 
 .chat-working-time {
@@ -4064,18 +4065,23 @@ button.auth-tab.active {
   padding: 8px 12px max(12px, env(safe-area-inset-bottom));
 }
 
-/* Single row: the textarea grows vertically in place while the mic and
-   send buttons stay pinned to the bottom-right of the same row -- one
-   rounded shell, one line of controls, instead of a growing textarea
-   stacked over a separate button row underneath it. */
+/* Two rows: the textarea grows vertically on top, with the "/", mic,
+   and send buttons pinned to a row underneath it -- one rounded shell,
+   typing on top, controls below. */
 .chat-input-shell {
   display: flex;
-  align-items: flex-end;
-  gap: 4px;
+  flex-direction: column;
+  gap: 2px;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 20px;
-  padding: 6px;
+  padding: 10px 10px 8px;
+}
+
+.chat-input-buttons-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .chat-input-actions {
@@ -4103,7 +4109,6 @@ button.auth-tab.active {
 }
 
 .chat-slash-btn {
-  border-color: transparent;
   color: var(--muted);
 }
 
