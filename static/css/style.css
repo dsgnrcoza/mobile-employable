@@ -2318,6 +2318,15 @@ button.auth-tab.active {
   border-radius: 14px;
   padding: 16px;
   max-width: 100%;
+  min-width: 0;
+  /* overflow-wrap/word-break are inherited, so this covers every text
+     field inside a card (job title, breakdown paragraph, chart labels,
+     etc.) without needing the same fix repeated on each one -- a long
+     unbroken token in any of them was otherwise free to push the whole
+     card past the screen edge, the same underlying bug as the plain
+     chat-bubble overflow fixed earlier, just on a different element. */
+  overflow-wrap: break-word;
+  word-break: break-word;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22);
   animation: chat-item-in 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
