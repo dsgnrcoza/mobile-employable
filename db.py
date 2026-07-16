@@ -817,15 +817,6 @@ def set_custom_instructions(user_id, custom_instructions: str):
         conn.close()
 
 
-def set_enabled_plugins(user_id, plugin_keys):
-    conn = get_db()
-    try:
-        conn.execute("UPDATE users SET enabled_plugins = ? WHERE id = ?", (json.dumps(list(plugin_keys)), user_id))
-        conn.commit()
-    finally:
-        conn.close()
-
-
 def set_remember_all_chats(user_id, enabled: bool):
     conn = get_db()
     try:

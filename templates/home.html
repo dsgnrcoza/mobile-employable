@@ -7,7 +7,6 @@
      of a visible blank-page wait. Just a hint -- worst case it's ignored. -->
 <link rel="prefetch" href="{{ url_for('builder_page') }}">
 <link rel="prefetch" href="{{ url_for('profile_page') }}">
-<link rel="prefetch" href="{{ url_for('plugins_page') }}">
 {% endblock %}
 
 {% block content %}
@@ -24,30 +23,10 @@
 
   <div class="chat-empty" id="chat-empty">
     <h1 id="chat-empty-headline">Where are we getting you hired?</h1>
-    <p id="chat-empty-subtext">Paste a job ad, or pick a move below.</p>
+    <p id="chat-empty-subtext">Paste a job ad, or ask me anything.</p>
   </div>
 
   <div class="chat-messages" id="chat-messages" hidden></div>
-
-  <div class="chat-chip-paste" id="chip-paste-wrap" hidden>
-    <textarea id="chip-paste-input" class="chat-chip-paste-textarea" placeholder="Paste the job ad or description here…"></textarea>
-    <div class="chat-chip-paste-actions">
-      <button type="button" class="btn btn-ghost btn-sm" id="chip-paste-cancel-btn">Cancel</button>
-      <button type="button" class="btn btn-gold btn-sm" id="chip-paste-submit-btn">Check my fit</button>
-    </div>
-  </div>
-
-  <div class="chat-chips" id="chat-chips">
-    <button type="button" class="chat-chip" id="chip-qualify" data-chip="qualify">
-      <span class="chip-num mono">01</span><span>Paste a job ad — see your fit score</span>
-    </button>
-    <button type="button" class="chat-chip" id="chip-builder" data-chip="builder">
-      <span class="chip-num mono">02</span><span>Build a CV from what I've uploaded</span>
-    </button>
-    <button type="button" class="chat-chip" id="chip-gaps" data-chip="gaps">
-      <span class="chip-num mono">03</span><span>What's weak in my CV right now?</span>
-    </button>
-  </div>
 
   <div class="chat-quickreply-bar" id="chat-quickreply-bar" hidden></div>
 
@@ -70,26 +49,27 @@
   <div class="chat-input-wrap">
     <div class="chat-dictation-preview" id="chat-dictation-preview" hidden></div>
 
+    <!-- Discord-style "/" command picker: typing "/" (or tapping nothing
+         and just picking one) slides this up with the available slash
+         commands -- currently just /image, the one capability that used
+         to live behind the removed Plug-Ins toggle and now needs no
+         toggle at all, it's just always here. -->
+    <div class="chat-slash-menu" id="chat-slash-menu" hidden></div>
+
     <div class="chat-input-shell">
-      <div class="chat-input-top">
-        <textarea id="chat-input" class="chat-input" placeholder="Paste a job ad or ask anything…" rows="1"></textarea>
-        <div class="chat-voice-live" id="chat-voice-live" hidden>
-          <button type="button" class="chat-voice-cancel-btn" id="chat-voice-cancel-btn" aria-label="Cancel dictation">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          </button>
-          <div class="chat-voice-waveform" aria-hidden="true">
-            <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
-          </div>
-          <button type="button" class="chat-voice-confirm-btn" id="chat-voice-confirm-btn" aria-label="Use this text">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 12 9 17 20 6"/></svg>
-          </button>
-        </div>
-      </div>
-      <div class="chat-input-bottom">
-        <button type="button" class="chat-plus-btn" id="chat-attach-btn" aria-label="Add">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      <textarea id="chat-input" class="chat-input" placeholder="Paste a job ad or ask anything…" rows="1"></textarea>
+      <div class="chat-voice-live" id="chat-voice-live" hidden>
+        <button type="button" class="chat-voice-cancel-btn" id="chat-voice-cancel-btn" aria-label="Cancel dictation">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
-        <span class="chat-input-bottom-spacer"></span>
+        <div class="chat-voice-waveform" aria-hidden="true">
+          <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+        </div>
+        <button type="button" class="chat-voice-confirm-btn" id="chat-voice-confirm-btn" aria-label="Use this text">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 12 9 17 20 6"/></svg>
+        </button>
+      </div>
+      <div class="chat-input-actions">
         <button type="button" class="chat-mic-btn" id="chat-mic-btn" aria-label="Voice dictation">
           <svg class="chat-mic-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="17" x2="12" y2="21"/><line x1="8" y1="21" x2="16" y2="21"/></svg>
           <svg class="chat-mic-stop-icon" viewBox="0 0 24 24" fill="currentColor" hidden><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
@@ -102,30 +82,6 @@
   </div>
 </div>
 
-<div class="attach-sheet-overlay" id="attach-sheet-overlay" hidden>
-  <div class="attach-sheet">
-    <div class="attach-sheet-handle"></div>
-    <div class="attach-sheet-header">
-      <button type="button" class="attach-sheet-close" id="attach-sheet-close-btn" aria-label="Close">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
-      <span class="attach-sheet-title">Add context</span>
-      <span class="attach-sheet-spacer"></span>
-    </div>
-
-    <button type="button" class="attach-upload-row" id="attach-upload-btn">
-      <span class="attach-notes-icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 8 5-5 5 5"/><path d="M5 21h14"/></svg>
-      </span>
-      <span class="attach-notes-text">
-        <span class="attach-notes-label">Upload a document</span>
-        <span class="attach-notes-desc" id="attach-upload-status">Add a CV, cover letter, or anything else — no need to go to Profile</span>
-      </span>
-    </button>
-    <input type="file" id="attach-upload-input" hidden accept=".pdf,.doc,.docx,.txt">
-  </div>
-</div>
-
 <div class="sidebar-backdrop" id="sidebar-backdrop" hidden></div>
 <aside class="sidebar" id="sidebar" hidden>
   <div class="sidebar-header">
@@ -133,10 +89,6 @@
   </div>
   <div class="sidebar-chats" id="sidebar-chats"></div>
   <div class="sidebar-footer">
-    <a href="{{ url_for('plugins_page') }}" class="sidebar-builder-btn">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2v4M15 2v4"/><path d="M7 6h10v3a5 5 0 0 1-10 0V6Z"/><path d="M12 14v6"/></svg>
-      Plug-Ins
-    </a>
     <a href="{{ url_for('builder_page') }}" class="sidebar-builder-btn">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h13l3 3v13H4Z"/><path d="M17 4v6h6"/><line x1="7.5" y1="12" x2="16" y2="12"/><line x1="7.5" y1="15.5" x2="16" y2="15.5"/></svg>
       Builder

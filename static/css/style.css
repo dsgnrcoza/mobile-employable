@@ -3985,119 +3985,32 @@ button.auth-tab.active {
   display: none;
 }
 
-.chat-chips {
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 0 16px 10px;
-}
-
-.chat-chips[hidden] {
-  display: none;
-}
-
-.chat-chip {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  text-align: left;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 12px 14px;
-  color: var(--fg);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  font-family: inherit;
-  transition: transform 0.1s ease, border-color 0.15s ease;
-}
-
-.chat-chip:active {
-  transform: scale(0.98);
-}
-
-.chip-num {
-  flex-shrink: 0;
-  font-size: 12px;
-  font-weight: 600;
-  background: var(--accent-gradient);
-  background-clip: text;
-  -webkit-background-clip: text;
-  color: transparent;
-  -webkit-text-fill-color: transparent;
-}
-
-.chat-chip-paste {
-  flex-shrink: 0;
-  padding: 0 16px 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.chat-chip-paste[hidden] {
-  display: none;
-}
-
-.chat-chip-paste-textarea {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  color: var(--fg);
-  font-size: 13px;
-  font-family: inherit;
-  padding: 12px 14px;
-  min-height: 120px;
-  resize: vertical;
-  outline: none;
-}
-
-.chat-chip-paste-textarea::placeholder {
-  color: var(--muted);
-}
-
-.chat-chip-paste-actions {
-  display: flex;
-  gap: 10px;
-  justify-content: flex-end;
-}
-
 .chat-input-wrap {
   flex-shrink: 0;
   padding: 8px 12px max(12px, env(safe-area-inset-bottom));
 }
 
-/* Two-half input: a growing text area up top, the button row pinned
-   below it -- both inside one rounded shell, rather than everything
-   crammed into a single row that never had room to show more than one
-   line at a time. */
+/* Single row: the textarea grows vertically in place while the mic and
+   send buttons stay pinned to the bottom-right of the same row -- one
+   rounded shell, one line of controls, instead of a growing textarea
+   stacked over a separate button row underneath it. */
 .chat-input-shell {
   display: flex;
-  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 20px;
-  overflow: hidden;
+  padding: 6px 6px 6px 16px;
 }
 
-.chat-input-top {
-  padding: 10px 14px 2px;
-}
-
-.chat-input-bottom {
+.chat-input-actions {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 4px 8px 8px;
+  gap: 6px;
 }
 
-.chat-input-bottom-spacer {
-  flex: 1;
-}
-
-.chat-plus-btn,
 .chat-mic-btn,
 .chat-send-btn {
   flex-shrink: 0;
@@ -4146,13 +4059,11 @@ button.auth-tab.active {
   display: none;
 }
 
-.chat-plus-btn:active,
 .chat-mic-btn:active,
 .chat-send-btn:active {
   transform: scale(0.9);
 }
 
-.chat-plus-btn svg,
 .chat-mic-btn svg,
 .chat-send-btn svg {
   width: 18px;
@@ -4161,7 +4072,7 @@ button.auth-tab.active {
 
 .chat-input {
   display: block;
-  width: 100%;
+  flex: 1;
   min-width: 0;
   background: transparent;
   border: none;
@@ -4171,12 +4082,23 @@ button.auth-tab.active {
   font-size: 14px;
   font-family: inherit;
   line-height: 1.4;
-  padding: 6px 4px;
+  padding: 9px 4px;
   /* Caps at 10 lines (line-height 1.4 * 15px * 10 + padding) -- home.js
      grows this element's height on input up to that point, then lets
      it scroll internally instead of growing further. */
   max-height: calc(1.4em * 10 + 12px);
   overflow-y: auto;
+}
+
+/* The chat input is a single rounded pill, not a bordered form field --
+   the app-wide focus-visible glow (a nice affordance for a field with
+   hard edges) reads as an unwanted blue outline wrapping the whole
+   shell here instead. The shell's own border-color shift is feedback
+   enough for a control this shape. */
+.chat-input:focus,
+.chat-input:focus-visible {
+  outline: none;
+  box-shadow: none;
 }
 
 .chat-input::placeholder {
@@ -4204,6 +4126,8 @@ button.auth-tab.active {
 }
 
 .chat-voice-live {
+  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -4212,6 +4136,52 @@ button.auth-tab.active {
 
 .chat-voice-live[hidden] {
   display: none;
+}
+
+/* ---------- "/" slash command picker (Discord-style) ---------- */
+
+.chat-slash-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 16px 8px;
+  max-height: 40vh;
+  overflow-y: auto;
+}
+
+.chat-slash-menu[hidden] {
+  display: none;
+}
+
+.chat-slash-item {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  text-align: left;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 14px;
+  color: var(--fg);
+  cursor: pointer;
+  font-family: inherit;
+  transition: transform 0.1s ease, border-color 0.15s ease;
+}
+
+.chat-slash-item:active {
+  transform: scale(0.98);
+}
+
+.chat-slash-cmd {
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.chat-slash-desc {
+  font-size: 12.5px;
+  color: var(--muted);
 }
 
 .chat-voice-cancel-btn,
@@ -4882,7 +4852,15 @@ button.auth-tab.active {
   border: 1px solid var(--line);
   border-radius: 16px;
   padding: 8px;
-  transition: border-color 0.15s ease;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  animation: chat-item-in 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .template-card {
+    animation: none;
+  }
 }
 
 .template-card.is-selected {
@@ -5812,140 +5790,6 @@ button.auth-tab.active {
   .profile-section .download-app-menu:not([hidden]) {
     transform: scale(0.94);
   }
-}
-
-/* ==========================================================================
-   Attach sheet ("Add context": Use Notes)
-   ========================================================================== */
-
-.attach-sheet-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(8px) saturate(1.3);
-  -webkit-backdrop-filter: blur(8px) saturate(1.3);
-  z-index: 9997;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  opacity: 1;
-  transition: opacity 0.25s ease, display 0.25s allow-discrete;
-}
-
-.attach-sheet-overlay[hidden] {
-  display: none;
-  opacity: 0;
-  transition: opacity 0.25s ease, display 0.25s allow-discrete;
-}
-
-@starting-style {
-  .attach-sheet-overlay:not([hidden]) {
-    opacity: 0;
-  }
-}
-
-.attach-sheet {
-  background: var(--card-bg);
-  border: 1px solid var(--line-strong);
-  border-bottom: none;
-  border-radius: 24px 24px 0 0;
-  width: 100%;
-  max-width: 480px;
-  padding: 10px 20px max(20px, env(safe-area-inset-bottom));
-  transform: translateY(0);
-  transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-@starting-style {
-  .attach-sheet-overlay:not([hidden]) .attach-sheet {
-    transform: translateY(40px);
-  }
-}
-
-.attach-sheet-handle {
-  width: 36px;
-  height: 4px;
-  border-radius: 2px;
-  background: var(--line-strong);
-  margin: 0 auto 14px;
-}
-
-.attach-sheet-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 22px;
-}
-
-.attach-sheet-close {
-  background: none;
-  border: none;
-  color: var(--fg);
-  padding: 4px;
-  cursor: pointer;
-  display: flex;
-}
-
-.attach-sheet-close svg {
-  width: 20px;
-  height: 20px;
-}
-
-.attach-sheet-title {
-  font-size: 15px;
-  font-weight: 700;
-}
-
-.attach-sheet-spacer {
-  width: 28px;
-}
-
-.attach-upload-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 4px;
-  width: 100%;
-  background: none;
-  border: none;
-  border-bottom: 1px solid var(--line);
-  cursor: pointer;
-  text-align: left;
-  font-family: inherit;
-  color: inherit;
-}
-
-.attach-upload-row:active {
-  background: var(--surface);
-}
-
-.attach-notes-icon {
-  flex-shrink: 0;
-  color: var(--muted);
-  display: flex;
-}
-
-.attach-notes-icon svg {
-  width: 20px;
-  height: 20px;
-}
-
-.attach-notes-text {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.attach-notes-label {
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.attach-notes-desc {
-  font-size: 12px;
-  color: var(--muted);
 }
 
 /* ==========================================================================
