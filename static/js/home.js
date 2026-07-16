@@ -176,27 +176,32 @@
   // asking "what are we doing today" instead of a static slogan. Named
   // ones are a minority by design (repeating someone's name every
   // single chat gets old fast).
+  // Deliberately mixed tone -- some funny, some formal, some just plain
+  // direct -- so this doesn't read like one static voice repeating
+  // itself. Every subtext is its own specific, actionable line (never
+  // a copy-pasted "ask me anything") so a new chat always suggests a
+  // concrete next move instead of a generic shrug.
   var EMPTY_HEADLINES = [
-    ["What are we working on?", "Paste a job ad, or ask me anything."],
-    ["Hey" + (firstName ? " " + firstName : "") + ", what's the move?", "A job ad, a CV tweak, whatever's next."],
-    ["Did you apply anywhere new?", "Tell me about it, or paste the job ad."],
-    ["What can we sort out today?", "Paste a job ad, or ask me anything."],
-    ["Where do we start?", "Paste a job ad, or ask me anything."],
-    ["Got a job in mind?", "Paste the ad and I'll check your fit."],
-    [(firstName ? firstName + ", " : "") + "what's on your mind?", "Job hunting, CV, cover letter — just say it."],
-    ["Let's get into it.", "Paste a job ad, or ask me anything."],
-    ["What's next on the list?", "A job to check, a CV to fix, up to you."],
-    ["Any new leads?", "Paste the job ad and I'll take a look."],
-    ["What do you want to tackle?", "Paste a job ad, or ask me anything."],
-    ["Ready when you are" + (firstName ? ", " + firstName : "") + ".", "Paste a job ad, or ask me anything."],
-    ["Something new to look at?", "Paste a job ad, or ask me anything."],
-    ["What's the plan today?", "A job ad, a CV question, anything."],
-    ["Talk to me.", "Paste a job ad, or ask me anything."],
-    ["Anything to report back on?", "Applications, interviews, whatever's up."],
-    ["What are we chasing today?", "Paste a job ad, or ask me anything."],
-    ["Back at it" + (firstName ? ", " + firstName : "") + "?", "Paste a job ad, or ask me anything."],
-    ["What can I help with?", "Paste a job ad, or ask me anything."],
-    ["Found something worth checking?", "Paste the job ad and I'll score your fit."],
+    ["Let's manufacture some employment.", "Paste a job ad and I'll tell you honestly if it's worth the anxiety."],
+    ["Good to see you" + (firstName ? ", " + firstName : "") + ". Where shall we begin?", "Share a role you're considering, or a document you'd like reviewed."],
+    ["Hey" + (firstName ? " " + firstName : "") + ", what's the move?", "A job ad, a CV tweak, a cover letter — tell me what's next."],
+    ["What needs doing today?", "Paste a job ad for a fit check, or ask me to fix something."],
+    ["Ready to pretend you have this all figured out?", "Paste the job ad — I'll do the pretending, you do the applying."],
+    ["Did you apply anywhere new?", "Tell me how it went, or paste a fresh ad and I'll size it up."],
+    ["How can I assist with your search today?", "I can score a job ad against your profile, or revise a document."],
+    ["What are we working on?", "Paste a job ad, tweak a CV, or just ask a question."],
+    ["Back for another round of adulting?", "Drop a job ad and let's see what we're dealing with."],
+    ["Got a job in mind?", "Paste the ad and I'll check how well you actually match it."],
+    ["Let's continue where we left off.", "Provide a job description and I'll evaluate your fit against it."],
+    [(firstName ? firstName + ", " : "") + "what's on your mind?", "Job hunting, a CV fix, a cover letter — just say it."],
+    ["Let's go pretend-apply to things.", "Except this time I'll actually tell you if you're wasting your shot."],
+    ["What's next on the list?", "A job to check, a CV to fix, a letter to write — up to you."],
+    ["Any new leads?", "Paste the job ad and I'll break down your real chances."],
+    ["Welcome back" + (firstName ? ", " + firstName : "") + ".", "Ask me to review a document, or share a role to evaluate."],
+    ["Let's find you a paycheck.", "Paste a job ad and I'll be brutally honest about your odds."],
+    ["Something new to look at?", "Paste a job ad and I'll score it against your profile."],
+    ["What can I help with?", "Fit checks, CVs, cover letters, or just questions — I'm listening."],
+    ["Ready when you are" + (firstName ? ", " + firstName : "") + ".", "Share a job posting or a document, and I'll get to work."],
   ];
 
   // A real proactive check-in, computed server-side from idle time and
