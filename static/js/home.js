@@ -35,7 +35,21 @@
   }
 
   function formatChatText(text) {
-    return escapeHtml(text).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+    var formatted = escapeHtml(text).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+    // A defensive backstop, not the primary fix -- the model is told
+    // not to write out download links/URLs of its own (the Document
+    // card already has a real button), but if one slips through
+    // anyway, it should at least actually be clickable instead of
+    // reading as a link while doing nothing.
+    return formatted.replace(/(https?:\/\/[^\s<]+)/g, function (url) {
+      var trail = "";
+      var m = /[.,!?;:)\]]+$/.exec(url);
+      if (m) {
+        trail = m[0];
+        url = url.slice(0, -trail.length);
+      }
+      return '<a href="' + url + '" target="_blank" rel="noopener noreferrer">' + url + "</a>" + trail;
+    });
   }
 
   function scrollChatToBottom() {
