@@ -1075,7 +1075,6 @@
     runAssistantTurn();
   }
 
-  chatSendBtn.addEventListener("click", function () { sendChatMessage(); });
   chatInput.addEventListener("keydown", function (e) {
     // Shift+Enter inserts a real newline (now that this is a textarea,
     // not a single-line input) -- only a plain Enter sends.
@@ -1450,11 +1449,8 @@
   // would only ever fail.
 
   var chatMicBtn = document.getElementById("chat-mic-btn");
-  var micIcon = chatMicBtn.querySelector(".chat-mic-icon");
-  var micStopIcon = chatMicBtn.querySelector(".chat-mic-stop-icon");
   var chatVoiceLive = document.getElementById("chat-voice-live");
   var chatVoiceCancelBtn = document.getElementById("chat-voice-cancel-btn");
-  var chatVoiceConfirmBtn = document.getElementById("chat-voice-confirm-btn");
   var chatDictationPreview = document.getElementById("chat-dictation-preview");
   var SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
 
@@ -1484,9 +1480,12 @@
 
     function setListening(on) {
       listening = on;
-      chatMicBtn.classList.toggle("is-listening", on);
-      micIcon.hidden = on;
-      micStopIcon.hidden = !on;
+      // The mic button itself hides while listening rather than
+      // switching to a "stop" icon -- the X (cancel) and Send controls
+      // are the only two ways out of dictation now, so a third
+      // clickable "stop" affordance sitting there too would just be
+      // more clutter without adding a capability those don't cover.
+      chatMicBtn.hidden = on;
       chatVoiceLive.hidden = !on;
       chatInput.hidden = on;
       if (on) hideSlashMenu();
@@ -1565,11 +1564,22 @@
       try { recognition.stop(); } catch (e) {}
     }
 
+    // The Send button doubles as "I'm done talking, send it" while
+    // dictation is live -- skips the old separate confirm-then-send
+    // two-step, and reads the transcript straight out of state instead
+    // of waiting on the async "end" event to populate the (hidden)
+    // input first.
+    var sendCurrentDictation = function () {
+      var combined = ((baseText ? baseText + " " : "") + finalTranscript).trim();
+      shouldRestart = false;
+      cancelled = true;
+      clearTimeout(silenceTimer);
+      try { recognition.stop(); } catch (e) {}
+      setListening(false);
+      if (combined) sendChatMessage(combined);
+    };
+
     chatMicBtn.addEventListener("click", function () {
-      if (listening) {
-        stopListening();
-        return;
-      }
       baseText = chatInput.value.trim();
       finalTranscript = "";
       shouldRestart = true;
@@ -1584,9 +1594,16 @@
       }
     });
 
-    chatVoiceConfirmBtn.addEventListener("click", stopListening);
     chatVoiceCancelBtn.addEventListener("click", cancelListening);
   }
+
+  chatSendBtn.addEventListener("click", function () {
+    if (SpeechRecognitionCtor && listening) {
+      sendCurrentDictation();
+    } else {
+      sendChatMessage();
+    }
+  });
 
   // ---------- Initial load ----------
 
