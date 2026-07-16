@@ -2030,6 +2030,23 @@ button.auth-tab.active {
   color: var(--good);
 }
 
+/* The "thinking" step is a quiet aside, not a completed action -- same
+   layout as a done step, but muted and italic instead of the checkmark
+   green, and its icon carries no completion meaning. Matches
+   .chat-step-status.is-done's specificity (two classes) so this
+   actually overrides that rule's color instead of losing to it. */
+.chat-step-status.chat-thinking-step {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.chat-thinking-step svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  opacity: 0.75;
+}
+
 .chat-step-status.is-done svg {
   width: 14px;
   height: 14px;
@@ -2466,6 +2483,17 @@ button.auth-tab.active {
   font-size: 12.5px;
   color: var(--good);
   margin-top: 2px;
+}
+
+.document-grounding-note {
+  font-size: 11.5px;
+  color: var(--mid);
+  background: rgba(228, 179, 60, 0.1);
+  border: 1px solid rgba(228, 179, 60, 0.3);
+  border-radius: 8px;
+  padding: 7px 10px;
+  margin-top: 10px;
+  line-height: 1.4;
 }
 
 .document-card .card-actions {

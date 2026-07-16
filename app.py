@@ -606,7 +606,35 @@ def dashboard():
     return render_template(
         "home.html", profile=profile, conversations=conversations,
         initial_conversation_id=initial_conversation_id, initial_messages=initial_messages,
+        personalized_checkin=_personalized_checkin(user, conversations),
     )
+
+
+def _personalized_checkin(user, conversations):
+    """A proactive check-in computed lazily at page-load time from idle
+    duration + the stored brain profile -- not a scheduled background
+    job (there's no persistent process to run one on this serverless
+    deployment), but it delivers the same "Ploy noticed you've been
+    away and remembers what you were doing" feeling without needing
+    any external scheduler. Returns None when there's nothing to say."""
+    if not user.get("remember_all_chats") or not conversations:
+        return None
+    brain = db.get_user_brain(user["id"])
+    if not brain:
+        return None
+    from datetime import datetime, timezone, timedelta
+    try:
+        last_active = datetime.fromisoformat(conversations[0]["updated_at"])
+    except Exception:
+        return None
+    idle = datetime.now(timezone.utc) - last_active
+    if idle < timedelta(days=3):
+        return None
+    days = idle.days
+    target_roles = brain.get("target_roles") or []
+    if target_roles:
+        return f"Welcome back — still chasing {target_roles[0]}? It's been {days} days, want me to check anything again?"
+    return f"Welcome back — it's been {days} days. Want to pick up where we left off?"
 
 
 def _avatar_url_for(user):
@@ -873,6 +901,8 @@ def _generate_tailored_document(user, kind, job_title="", company="", job_ad="",
             "  <p class=\"letter-signoff\">Warm regards,<br>Full Name</p>"
         )
 
+    brain_section = _brain_and_memory_section(user)
+
     system = (
         f"You are Ploy's document writer, generating a {doc_label} for this user.\n\n"
         f"{job_context}"
@@ -889,7 +919,8 @@ def _generate_tailored_document(user, kind, job_title="", company="", job_ad="",
         "- 'description': one short sentence (max 20 words) describing what was produced.\n"
         + ("- 'fit_score': an integer 0-100 estimating how strong a fit THIS tailored document now makes for "
            "the job above, judged the same way a recruiter would score the original documents.\n" if job_ad else "") +
-        f"\nThis user's name: {user.get('full_name') or 'Unknown'}\n\n"
+        f"\nThis user's name: {user.get('full_name') or 'Unknown'}\n"
+        f"{brain_section}\n"
         f"Full content of the user's actual uploaded documents (the ONLY source of truth):\n{doc_content_block}"
     )
 
@@ -904,6 +935,17 @@ def _generate_tailored_document(user, kind, job_title="", company="", job_ad="",
     html = parsed.get("html") or ""
     if not html.strip():
         raise ValueError(parsed.get("description") or "Not enough real document content to generate this.")
+
+    # Self-critique pass: a just-generated CV/letter is exactly the kind
+    # of confident-sounding output where a single generation pass can
+    # slip in a plausible but ungrounded detail -- catch that here
+    # rather than trusting the first draft blindly. Fails open (treats
+    # a checker error as "grounded") so an outage never blocks delivery.
+    grounding = _grounding_self_check(html, doc_content_block)
+    grounding_note = (
+        "Double-check: " + "; ".join(grounding["issues"][:2])
+        if not grounding.get("grounded", True) and grounding.get("issues") else ""
+    )
 
     pdf_bytes = _render_cv_pdf_bytes(cv_html=html, template=template if kind == "cv" else None)
     if pdf_bytes is None:
@@ -937,6 +979,7 @@ def _generate_tailored_document(user, kind, job_title="", company="", job_ad="",
         "job_title": job_title,
         "company": company,
         "fit_score": fit_score,
+        "grounding_note": grounding_note,
     }
 
 
@@ -1646,13 +1689,24 @@ def api_promote_conversation(conv_id):
         fit_score = int(fit_score) if fit_score is not None else None
     except (TypeError, ValueError):
         fit_score = None
+    job_title = (data.get("job_title") or "").strip()[:200]
+    company = (data.get("company") or "").strip()[:200]
+    status_label = (data.get("status_label") or "").strip()[:100]
     db.promote_conversation(
         conv_id, user["id"],
-        job_title=(data.get("job_title") or "").strip()[:200],
-        company=(data.get("company") or "").strip()[:200],
-        fit_score=fit_score,
-        status_label=(data.get("status_label") or "").strip()[:100],
+        job_title=job_title, company=company, fit_score=fit_score, status_label=status_label,
     )
+    # Outcome learning: a promoted thread is a real, meaningful event
+    # worth remembering (as opposed to every single chat message) --
+    # written as episodic memory and folded into the structured brain
+    # profile next time it's due for a refresh (see _consolidate_user_brain).
+    if user.get("remember_all_chats"):
+        role_desc = job_title + (f" at {company}" if company else "") if job_title else "a role"
+        if fit_score is not None:
+            db.add_memory_log(user["id"], f"Checked fit for {role_desc} -- scored {fit_score}/100.")
+        else:
+            db.add_memory_log(user["id"], f"Started tracking {role_desc}.")
+        _consolidate_user_brain(user)
     return jsonify({"ok": True})
 
 
@@ -1664,7 +1718,20 @@ def api_update_conversation_status(conv_id):
     "Sent"."""
     user = auth.current_user()
     data = request.get_json(force=True)
-    db.update_conversation_status(conv_id, user["id"], (data.get("status_label") or "").strip()[:100])
+    status_label = (data.get("status_label") or "").strip()[:100]
+    db.update_conversation_status(conv_id, user["id"], status_label)
+    # Same outcome-learning hook as promotion above -- a status change
+    # ("Sent", "Interview", "Rejected") is exactly the kind of real event
+    # a career coach who actually remembered you would factor in later.
+    if user.get("remember_all_chats") and status_label:
+        conv = db.get_conversation(conv_id, user["id"])
+        if conv:
+            role_desc = conv.get("job_title") or ""
+            if role_desc and conv.get("company"):
+                role_desc += f" at {conv['company']}"
+            role_desc = role_desc or conv.get("title") or "a role"
+            db.add_memory_log(user["id"], f"{role_desc}: status updated to \"{status_label}\".")
+            _consolidate_user_brain(user)
     return jsonify({"ok": True})
 
 
@@ -2014,7 +2081,8 @@ def api_cv_edit():
         f"This user's real profile:\n"
         f"- Name: {profile.get('full_name') or 'Unknown'}\n"
         f"- Location: {profile.get('location') or 'Not specified'}\n"
-        f"- Skills: {', '.join(skill_names) if skill_names else 'None listed.'}\n\n"
+        f"- Skills: {', '.join(skill_names) if skill_names else 'None listed.'}\n"
+        f"{_brain_and_memory_section(user)}\n"
         f"Full content of this user's actual uploaded documents (the ONLY source of truth for any CV "
         f"content you write):\n{doc_content_block}"
     )
@@ -2842,6 +2910,183 @@ _IMAGE_GEN_TOOL = {
 }
 
 
+# ---------------- THE BRAIN: persistent profile + episodic memory ----------------
+# Everything below turns Ploy from a stateless ask/respond loop into
+# something that actually remembers who a person is and what's already
+# happened with them, across conversations. All of it is only ever
+# read/written when the user has "Remember all chats" switched on in
+# Profile > Memory -- the same consent boundary that already gates
+# cross-conversation visibility (see chat_memory_section in api_chat),
+# just applied one layer deeper.
+
+def _brain_and_memory_section(user):
+    """Compact prompt block combining the structured brain profile and
+    the most recent episodic memory entries -- injected into every
+    generation prompt (chat, CV, cover letter, edits) so the model
+    sounds like it actually knows this person instead of re-deriving
+    who they are from scratch every single time."""
+    if not user.get("remember_all_chats"):
+        return ""
+    brain = db.get_user_brain(user["id"])
+    memory = db.get_recent_memory(user["id"], limit=5)
+    if not brain and not memory:
+        return ""
+    lines = []
+    if brain.get("summary"):
+        lines.append(f"Who they are: {brain['summary']}")
+    if brain.get("target_roles"):
+        lines.append("Target roles: " + ", ".join(brain["target_roles"][:4]))
+    if brain.get("seniority"):
+        lines.append(f"Seniority: {brain['seniority']}")
+    if brain.get("tone_preference"):
+        lines.append(f"They respond well to this tone: {brain['tone_preference']}")
+    if brain.get("recurring_blockers"):
+        lines.append("Recurring blockers seen before: " + ", ".join(brain["recurring_blockers"][:4]))
+    if brain.get("strengths"):
+        lines.append("Known strengths: " + ", ".join(brain["strengths"][:4]))
+    if memory:
+        lines.append("Recent activity, most recent first:")
+        lines.extend(f"- {m['summary']}" for m in memory)
+    if not lines:
+        return ""
+    return (
+        "\n\nWHAT YOU REMEMBER ABOUT THIS PERSON (built up automatically over past conversations -- use it "
+        "to sound like you actually know them and to avoid making them repeat themselves, but their real "
+        "documents always win if the two ever conflict):\n" + "\n".join(lines) + "\n"
+    )
+
+
+def _consolidate_user_brain(user):
+    """Occasionally rebuilds the structured brain profile from recent
+    episodic memory -- throttled to roughly once per 6 hours per user
+    so this never runs on every single turn, only around the real,
+    infrequent events (a job thread promoted, a status change) that
+    actually add something worth folding in."""
+    if not user.get("remember_all_chats"):
+        return
+    from datetime import datetime, timezone, timedelta
+    last_updated = db.get_user_brain_updated_at(user["id"])
+    if last_updated:
+        try:
+            last_dt = datetime.fromisoformat(last_updated)
+            if datetime.now(timezone.utc) - last_dt < timedelta(hours=6):
+                return
+        except Exception:
+            pass
+    memory = db.get_recent_memory(user["id"], limit=12)
+    if not memory:
+        return
+    from openai import OpenAI
+    current = db.get_user_brain(user["id"])
+    memory_lines = "\n".join(f"- {m['summary']}" for m in reversed(memory))
+    try:
+        client = OpenAI(api_key=analyzer.get_openai_api_key(), timeout=8.0, max_retries=0)
+        resp = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": (
+                    "Build a compact JSON profile of this job seeker from their recent activity log and "
+                    "current profile. Reply with JSON only, this exact shape:\n"
+                    '{"target_roles": [max 4 strings], "seniority": "string or empty", '
+                    '"tone_preference": "string or empty, e.g. direct/encouraging/terse", '
+                    '"recurring_blockers": [max 4 strings], "strengths": [max 4 strings], '
+                    '"summary": "one plain sentence, max 30 words, describing who this person is and where '
+                    'they\'re at right now"}\n'
+                    "Keep existing values unless the new activity clearly updates them. Never invent a "
+                    "specific not implied by the log below."
+                )},
+                {"role": "user", "content": f"CURRENT PROFILE:\n{json.dumps(current)}\n\nRECENT ACTIVITY:\n{memory_lines}"},
+            ],
+            max_tokens=300,
+            temperature=0.3,
+            response_format={"type": "json_object"},
+        )
+        updated = json.loads(resp.choices[0].message.content)
+        if isinstance(updated, dict):
+            db.save_user_brain(user["id"], updated)
+    except Exception:
+        pass  # best-effort -- a failed consolidation just leaves the old profile in place
+
+
+def _generate_thinking_note(client, latest_user_text, brain_summary=""):
+    """A real, separate reasoning pass before the main agentic loop --
+    not decorative. One short first-person sentence stating the actual
+    plan, which is both shown to the user as a distinct 'thinking' step
+    in the trail AND fed back into the main loop as context, so the
+    model commits to a plan before diving into tool calls instead of
+    deciding turn-by-turn with no forethought."""
+    try:
+        resp = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": (
+                    "You are Ploy's internal planner, thinking silently before it replies. In ONE short "
+                    "sentence (max 25 words), state in first person what you're actually about to do about "
+                    "this message -- concrete and specific ('I'll check their fit against this job, then "
+                    "flag the SQL gap'), never vague filler ('I'll help them out'). This is shown to the "
+                    "user as a quiet thinking aside before your real reply, not the reply itself."
+                    + (f"\n\nWhat you already know about this person: {brain_summary}" if brain_summary else "")
+                )},
+                {"role": "user", "content": latest_user_text[:2000]},
+            ],
+            max_tokens=60,
+            temperature=0.4,
+        )
+        note = (resp.choices[0].message.content or "").strip().strip('"')
+        return note[:220] if note else None
+    except Exception:
+        return None
+
+
+def _looks_complex(messages_in):
+    """Cheap heuristic for routing a genuinely multi-part or heavy
+    request to the stronger model instead of the default fast/cheap
+    one -- both models are already used elsewhere in this app, so this
+    is just deciding which of the two the request actually needs, not
+    introducing a new cost tier."""
+    if not messages_in:
+        return False
+    latest = (messages_in[-1].get("text") or "")
+    if len(latest) > 600:
+        return True
+    lowered = latest.lower()
+    markers = (" and ", " also ", "compare", " vs ", "versus", "as well as", "both ")
+    return sum(1 for m in markers if m in lowered) >= 2
+
+
+def _grounding_self_check(generated_text, doc_content_block):
+    """A cheap second pass over a just-generated CV/cover letter,
+    checking every concrete fact against the user's real source
+    documents before it's handed back -- catches confident-sounding
+    fabrication the main generation call might slip in, rather than
+    trusting one pass blindly. Fails open (assumes grounded) if the
+    check itself errors, so a checker outage never blocks delivery."""
+    from openai import OpenAI
+    try:
+        client = OpenAI(api_key=analyzer.get_openai_api_key(), timeout=8.0, max_retries=0)
+        resp = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": (
+                    "You are a strict fact-checker. Given a generated CV/cover letter and the user's real "
+                    "source documents, check whether every concrete fact in the generated text (employer "
+                    "names, job titles, dates, schools, certifications, specific achievements or numbers) "
+                    "actually appears in the source documents. Reply with JSON only: "
+                    '{"grounded": true/false, "issues": ["short description of any fact not backed by the '
+                    'source, empty if none"]}.'
+                )},
+                {"role": "user", "content": f"SOURCE DOCUMENTS:\n{doc_content_block[:8000]}\n\nGENERATED TEXT:\n{generated_text[:4000]}"},
+            ],
+            max_tokens=300,
+            temperature=0,
+            response_format={"type": "json_object"},
+        )
+        result = json.loads(resp.choices[0].message.content)
+        return result if isinstance(result, dict) else {"grounded": True, "issues": []}
+    except Exception:
+        return {"grounded": True, "issues": []}
+
+
 # A short "here's what I'm doing right now" label per tool, shown as a
 # brief transient status before its card lands -- gives a multi-step
 # reply a visible sense of working through each part in turn, not just
@@ -3016,6 +3261,8 @@ def api_chat():
             "want you to.\n"
         )
 
+    brain_section = _brain_and_memory_section(user)
+
     system_prompt = f"""You are Ploy — a chat-first AI career weapon for South African job seekers aged 18-25. You exist for one loop and everything you do serves it: paste a job, get a brutal-honest fit verdict, get the CV or cover letter rewritten for that exact job, download it, apply.
 
 You are not a scripted bot running a decision tree. You are genuinely intelligent, and you should reason about each message the way a sharp, switched-on person would — not by matching it to a template. Think before you answer: what is this person actually asking, what do you actually know about them that's relevant, and what's the single most useful thing to say back. Two users asking "is this a good fit" should get two different-shaped answers if their situations are different — never flatten a real, specific person into a generic response.
@@ -3035,6 +3282,7 @@ ASK WHEN YOU DON'T KNOW, DON'T GUESS. Two different situations call for this, an
 1. Their INTENT is ambiguous — "help me with my CV," "should I apply" — ask ONE short, specific clarifying question rather than dumping generic advice across every possible interpretation. When the real answer is a small, nameable set of options (a platform, a tone, which document, which role) — not an open-ended "tell me more" — phrase the question so each option is short enough to be one of the quick-reply buttons below (e.g. "Mobile app or web app?" with [[QUICK_REPLIES]] Mobile app | Web app), so they can tap instead of typing it out. Save open quick-replies-free questions for when the answer genuinely can't be reduced to a few named choices.
 2. The FACTS you'd need aren't in their documents or in anything they've told you — a specific number, a certification, whether they've done something specific this job cares about. Don't fill that gap with a plausible-sounding guess. Say what's missing and ask for it directly ("Do you have a portfolio link for this? I don't see one in what you've uploaded") — or tell them to add it in Profile if it's the kind of thing that belongs in their documents long-term. When there's more than one gap, list them concretely instead of picking just one — "Right now I've only got your CV. To do this properly I'd also need: the actual job ad, and whether you've got a portfolio link" reads as useful triage, not an interrogation. They can upload documents right from the chat (the + button next to the input) — point them there instead of sending them away to Profile.
 It's completely fine — good, even — to ask a real question mid-conversation instead of always producing a complete answer. That's what a genuinely helpful person does; it's not a failure mode.
+3. Rate your own confidence before you answer. If what you're about to say rests on thin grounding (a document that's mostly blank, a job ad with barely any real detail, a question about something genuinely outside what you know about them), say so plainly instead of producing a confident-sounding answer anyway — "I don't have much to go on here — want to upload more first, or should I give you my best guess anyway?" beats a fluent answer built on nothing. Confidently-worded guesses are worse than an honest "I'm not sure."
 
 Voice: sharp, confident, on the user's side, zero corporate filler. Talk like a smart friend who won't waste their time, not a customer-service bot.
 - Never say "I'd be happy to help!", "Great question!", "As an AI...". Never lay out a menu of paths and ask them to pick — pick the most likely direction yourself and go there.
@@ -3063,7 +3311,7 @@ Give 1-3 short options (2-5 words each, phrased as something the user would tap)
 This user's name: {user.get('full_name') or 'Unknown'}
 Roles they're targeting: {user.get('target_field') or 'Not specified — if this matters for what they just asked (e.g. a gap analysis), ask which roles they mean before answering.'}
 Documents uploaded: {doc_names}
-{custom_instructions_section}{chat_memory_section}
+{custom_instructions_section}{chat_memory_section}{brain_section}
 
 Full content of their uploaded documents (ground every piece of advice in this, it's the only source of truth about their real experience):
 {doc_content_block}
@@ -3115,7 +3363,7 @@ Never claim you can't see their documents — if the block above says no content
         else:
             openai_messages.append({"role": role, "content": text or " "})
 
-    model_name = "gpt-4o" if has_images else "gpt-4o-mini"
+    model_name = "gpt-4o" if (has_images or _looks_complex(messages_in)) else "gpt-4o-mini"
 
     try:
         enabled_plugins = set(json.loads(user.get("enabled_plugins") or "[]"))
@@ -3137,8 +3385,36 @@ Never claim you can't see their documents — if the block above says no content
     # renders/fake-types them in sequence instead of one flat reply).
     client = OpenAI(api_key=analyzer.get_openai_api_key(), timeout=analyzer.get_client_timeout(), max_retries=analyzer.CLIENT_MAX_RETRIES)
     steps = []
+
+    # A real thinking pass before any tool call: a short, separate,
+    # cheap completion states the actual plan for this turn, both shown
+    # to the user as a distinct "thinking" step in the trail and fed
+    # back into the main loop below so the model commits to that plan
+    # rather than deciding turn-by-turn with no forethought. Skipped for
+    # very short messages ("thanks", "ok") where there's nothing to plan.
+    latest_user_text = next((m.get("text", "") for m in reversed(messages_in) if m.get("role") == "user"), "")
+    if len(latest_user_text.strip()) >= 12:
+        brain = db.get_user_brain(user["id"]) if user.get("remember_all_chats") else {}
+        thinking_note = _generate_thinking_note(client, latest_user_text, brain.get("summary", ""))
+        if thinking_note:
+            steps.append({"type": "thinking", "text": thinking_note})
+            openai_messages.append({"role": "system", "content": f"Your own plan for this turn, decided a moment ago -- stay consistent with it: {thinking_note}"})
+
+    # A running scratchpad of what's actually been done so far this turn
+    # -- reinjected before every later round so a longer multi-part
+    # request doesn't lose track of what's already handled mid-turn
+    # (the full tool-call/response messages are in context too, but a
+    # short plain-English recap is cheaper for the model to act on than
+    # re-parsing raw JSON tool output each round).
+    scratchpad = []
+
     MAX_TOOL_ROUNDS = 4
     for _ in range(MAX_TOOL_ROUNDS):
+        if scratchpad:
+            openai_messages.append({
+                "role": "system",
+                "content": "SCRATCHPAD -- already done earlier this turn, don't repeat any of these:\n" + "\n".join(scratchpad),
+            })
         try:
             resp = client.chat.completions.create(
                 model=model_name,
@@ -3194,9 +3470,11 @@ Never claim you can't see their documents — if the block above says no content
                     "detail": _tool_call_detail(call.function.name, args),
                 })
                 openai_messages.append({"role": "tool", "tool_call_id": call.id, "content": json.dumps(payload)[:2000]})
+                scratchpad.append(f"- {call.function.name}({args}) -> done, produced a {payload.get('type', 'result')} card.")
             elif kind == "text":
                 steps.append({"type": "text", "text": payload})
                 openai_messages.append({"role": "tool", "tool_call_id": call.id, "content": payload})
+                scratchpad.append(f"- {call.function.name}({args}) -> dead end: {payload[:120]}")
                 stop_here = True  # a dead end (missing info / error) ends the turn right there
             else:
                 openai_messages.append({"role": "tool", "tool_call_id": call.id, "content": "Unavailable."})

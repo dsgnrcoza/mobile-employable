@@ -160,7 +160,7 @@
 
 {% block extra_scripts %}
 <script>
-  window.HOME_STATE = {{ {"profile": profile, "conversations": conversations, "initial_conversation_id": initial_conversation_id, "initial_messages": initial_messages}|tojson }};
+  window.HOME_STATE = {{ {"profile": profile, "conversations": conversations, "initial_conversation_id": initial_conversation_id, "initial_messages": initial_messages, "personalized_checkin": personalized_checkin}|tojson }};
 </script>
 <script src="{{ url_for('static', filename='js/home.js') }}?v={{ asset_version }}"></script>
 {% endblock %}
