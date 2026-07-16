@@ -236,21 +236,35 @@
   // There's no real progress signal from a single blocking request, so
   // this is a paced simulation, not literal status -- but naming each
   // phase (rather than just varying dot count) is what makes it read as
-  // an actual line of reasoning instead of a generic spinner.
-  var THINKING_PHASES = [
-    "Thinking",
-    "Reading your documents",
-    "Weighing the details",
-    "Connecting the dots",
-    "Cross-checking the facts",
-    "Sharpening the answer",
-    "Considering what you've told me",
-    "Formulating a response",
-    "Double-checking the grounding",
-    "Almost there",
-  ];
+  // an actual line of reasoning instead of a generic spinner. Which pool
+  // of phases plays is picked from what the user actually just asked,
+  // so a plain conversational question never cycles through something
+  // document- or job-specific like "Reading your documents".
+  var THINKING_PHASE_POOLS = {
+    general: ["Thinking", "Considering what you've told me", "Weighing the details", "Connecting the dots", "Sharpening the answer", "Formulating a response", "Almost there"],
+    documents: ["Thinking", "Reading your documents", "Cross-checking the facts", "Weighing the details", "Double-checking the grounding", "Formulating a response", "Almost there"],
+    fit: ["Thinking", "Reading the job ad", "Scoring your fit", "Cross-checking the facts", "Weighing the details", "Formulating a response", "Almost there"],
+    build: ["Thinking", "Reading your documents", "Drafting the content", "Tailoring the wording", "Polishing the format", "Almost there"],
+    image: ["Thinking", "Sketching the concept", "Rendering the image", "Adding the finishing touches", "Almost there"],
+    gaps: ["Thinking", "Considering what you've told me", "Analyzing your skill gaps", "Weighing the details", "Formulating a response", "Almost there"],
+    qualify: ["Scanning upload", "Reading the job ad", "Formulating evidence", "Scoring your fit", "Almost there"],
+  };
 
-  function createTypingIndicator() {
+  function classifyThinkingContext(text) {
+    var t = (text || "").toLowerCase().trim();
+    if (t.indexOf("/qualify") === 0) return "qualify";
+    if (t.indexOf("/builder") === 0) return "build";
+    if (t.indexOf("/gaps") === 0) return "gaps";
+    if (/\bimage\b|\bpicture\b|\bphoto\b|\bgraphic\b|\blogo\b|\bdraw\b/.test(t)) return "image";
+    if (/\bcv\b|\bresum[ée]\b|cover letter|\btailor\b|\bdraft\b/.test(t)) return "build";
+    if (/\bfit\b|qualified|should i apply|job ad/.test(t)) return "fit";
+    if (/holding me back|readiness|\bgap\b|\bmissing\b/.test(t)) return "gaps";
+    if (/document|uploaded|my cv|my resume/.test(t)) return "documents";
+    return "general";
+  }
+
+  function createTypingIndicator(contextText) {
+    var phases = THINKING_PHASE_POOLS[classifyThinkingContext(contextText)] || THINKING_PHASE_POOLS.general;
     var el = document.createElement("div");
     el.className = "chat-msg-typing";
     el.innerHTML =
@@ -262,14 +276,14 @@
       '</span>';
     var phaseEl = el.querySelector(".chat-typing-phase");
     var i = 0;
-    phaseEl.textContent = THINKING_PHASES[0];
+    phaseEl.textContent = phases[0];
     var intervalId = setInterval(function () {
-      i = (i + 1) % THINKING_PHASES.length;
+      i = (i + 1) % phases.length;
       phaseEl.classList.remove("is-in");
       // Force a reflow so re-adding the class retriggers the fade-in
       // keyframe instead of the browser coalescing it into a no-op.
       void phaseEl.offsetWidth;
-      phaseEl.textContent = THINKING_PHASES[i];
+      phaseEl.textContent = phases[i];
       phaseEl.classList.add("is-in");
     }, 2500);
     el._stopThinkingCycle = function () { clearInterval(intervalId); };
@@ -457,7 +471,7 @@
     });
   }
 
-  function appendChatMessage(role, text, idxOverride) {
+  function appendChatMessage(role, text, idxOverride, attachmentThumbUrl) {
     var idx = idxOverride != null ? idxOverride : chatHistory.length;
     var group = document.createElement("div");
     group.className = "chat-msg-group " + (role === "user" ? "chat-msg-group-user" : "chat-msg-group-bot");
@@ -467,6 +481,16 @@
     bubble.className = "chat-msg " + (role === "user" ? "chat-msg-user" : "chat-msg-bot");
     var edited = !!(chatHistory[idx] && chatHistory[idx].edited);
     var textEl = renderBubbleContent(bubble, text, edited);
+    if (attachmentThumbUrl) {
+      // renderBubbleContent clears the bubble before filling it, so the
+      // thumbnail has to go in after -- prepended, so the image sits
+      // above the "/qualify" text rather than after it.
+      var thumb = document.createElement("img");
+      thumb.className = "chat-msg-attachment-thumb";
+      thumb.src = attachmentThumbUrl;
+      thumb.alt = "";
+      bubble.insertBefore(thumb, bubble.firstChild);
+    }
     group.appendChild(bubble);
 
     // Devices without hover (i.e. touch) have no way to reveal the
@@ -1029,7 +1053,8 @@
   // by "Save & resend" after editing a past message -- both cases just
   // need chatHistory to already end at the right point before this runs.
   function runAssistantTurn() {
-    var typingEl = createTypingIndicator();
+    var lastMsg = chatHistory[chatHistory.length - 1];
+    var typingEl = createTypingIndicator(lastMsg && lastMsg.role === "user" ? lastMsg.text : "");
     messagesEl.appendChild(typingEl);
     scrollChatToBottom();
     startWorkingTimer();
@@ -1063,6 +1088,17 @@
   function sendChatMessage(overrideText) {
     var raw = (overrideText != null ? overrideText : chatInput.value).trim();
     if (!raw || chatSending) return;
+    // /qualify has nothing useful to send as plain text -- it's purely
+    // an upload trigger -- so typing it out by hand and hitting send
+    // opens the same sheet the slash-menu item does, instead of
+    // sending the literal command as a message.
+    if (raw.toLowerCase() === "/qualify") {
+      chatInput.value = "";
+      autoGrowChatInput();
+      hideSlashMenu();
+      openQualifySheet();
+      return;
+    }
     var text = pendingReplyContext ? 'Replying to: "' + pendingReplyContext + '"\n' + raw : raw;
     clearReplyContext();
     chatInput.value = "";
@@ -1094,18 +1130,23 @@
   chatInput.addEventListener("input", autoGrowChatInput);
 
   // ---------- "/" slash commands (Discord-style) ----------
-  // Typing "/" opens a small picker above the input -- right now just
-  // /image, the one capability that used to live behind the removed
-  // Plug-Ins toggle. Picking it (or just typing it out by hand) inserts
-  // the command; the backend's generate_image tool description tells
-  // the model to treat a leading "/image" as an explicit, unambiguous
-  // command rather than plain text (see app.py's _CHAT_TOOLS).
+  // Typing "/" -- or tapping the dedicated "/" button on the input --
+  // opens a small picker with the app's three explicit commands.
+  // Picking one (or typing it out by hand) inserts the command; the
+  // system prompt tells the model to treat a leading "/builder" or
+  // "/gaps" as an explicit, unambiguous command rather than plain text
+  // (see app.py). "/qualify" is different -- it has nothing useful to
+  // send as text, so it opens an upload sheet directly instead of
+  // inserting anything into the input.
 
   var SLASH_COMMANDS = [
-    { cmd: "/image", label: "Image", desc: "Generate an image from a description" },
+    { cmd: "/builder", label: "Builder", desc: "Turn your next message into a CV or cover letter request" },
+    { cmd: "/qualify", label: "Qualify", desc: "Upload a photo of a job ad to check your fit" },
+    { cmd: "/gaps", label: "Gaps", desc: "See what's holding you back from a role you name" },
   ];
 
   var slashMenuEl = document.getElementById("chat-slash-menu");
+  var chatSlashBtn = document.getElementById("chat-slash-btn");
 
   function renderSlashMenu(matches) {
     slashMenuEl.innerHTML = "";
@@ -1118,9 +1159,15 @@
       btn.querySelector(".chat-slash-cmd").textContent = c.cmd;
       btn.querySelector(".chat-slash-desc").textContent = c.desc;
       btn.addEventListener("click", function () {
+        hideSlashMenu();
+        if (c.cmd === "/qualify") {
+          chatInput.value = "";
+          autoGrowChatInput();
+          openQualifySheet();
+          return;
+        }
         chatInput.value = c.cmd + " ";
         autoGrowChatInput();
-        hideSlashMenu();
         chatInput.focus();
       });
       slashMenuEl.appendChild(btn);
@@ -1144,6 +1191,58 @@
   }
 
   chatInput.addEventListener("input", updateSlashMenu);
+
+  // The "/" button always shows the full list regardless of what's
+  // typed -- typing "/" is the filtered/incremental path, this is the
+  // "just show me what's available" path Discord itself also offers.
+  chatSlashBtn.addEventListener("click", function () {
+    if (!slashMenuEl.hidden) { hideSlashMenu(); return; }
+    renderSlashMenu(SLASH_COMMANDS);
+    chatInput.focus();
+  });
+
+  // ---------- /qualify: upload a job-ad photo ----------
+
+  var chatQualifyOverlay = document.getElementById("chat-qualify-overlay");
+  var chatQualifyFileInput = document.getElementById("chat-qualify-file-input");
+  var chatQualifyCancelBtn = document.getElementById("chat-qualify-cancel-btn");
+
+  function openQualifySheet() {
+    chatQualifyFileInput.value = "";
+    chatQualifyOverlay.hidden = false;
+  }
+
+  function closeQualifySheet() {
+    chatQualifyOverlay.hidden = true;
+  }
+
+  chatQualifyCancelBtn.addEventListener("click", closeQualifySheet);
+  chatQualifyOverlay.addEventListener("click", function (e) {
+    if (e.target === chatQualifyOverlay) closeQualifySheet();
+  });
+
+  function sendQualifyImage(attachmentId, thumbUrl) {
+    if (chatSending) return;
+    showEmptyState(false);
+    clearQuickReplies();
+    appendChatMessage("user", "/qualify", undefined, thumbUrl);
+    chatHistory.push({ role: "user", text: "/qualify", attachment_ids: [attachmentId] });
+    runAssistantTurn();
+  }
+
+  chatQualifyFileInput.addEventListener("change", function () {
+    var file = chatQualifyFileInput.files[0];
+    if (!file) return;
+    closeQualifySheet();
+    var formData = new FormData();
+    formData.append("file", file);
+    fetch("/api/chat/upload", { method: "POST", body: formData })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data.ok) return;
+        sendQualifyImage(data.id, "/api/chat/attachment-thumb/" + data.id);
+      });
+  });
 
   function renderLoadedConversation(convId, messages) {
     chatConversationId = convId;
@@ -1550,11 +1649,15 @@
       }
     });
 
-    function stopListening() {
+    // A `var`-assigned function expression, not a declaration -- this
+    // file is strict mode, where a `function stopListening() {}`
+    // declaration would be scoped to this block and invisible to the
+    // shared Send-button listener below, which needs to call it.
+    var stopListening = function () {
       shouldRestart = false;
       clearTimeout(silenceTimer);
       try { recognition.stop(); } catch (e) {}
-    }
+    };
 
     function cancelListening() {
       shouldRestart = false;
@@ -1563,21 +1666,6 @@
       clearTimeout(silenceTimer);
       try { recognition.stop(); } catch (e) {}
     }
-
-    // The Send button doubles as "I'm done talking, send it" while
-    // dictation is live -- skips the old separate confirm-then-send
-    // two-step, and reads the transcript straight out of state instead
-    // of waiting on the async "end" event to populate the (hidden)
-    // input first.
-    var sendCurrentDictation = function () {
-      var combined = ((baseText ? baseText + " " : "") + finalTranscript).trim();
-      shouldRestart = false;
-      cancelled = true;
-      clearTimeout(silenceTimer);
-      try { recognition.stop(); } catch (e) {}
-      setListening(false);
-      if (combined) sendChatMessage(combined);
-    };
 
     chatMicBtn.addEventListener("click", function () {
       baseText = chatInput.value.trim();
@@ -1598,8 +1686,12 @@
   }
 
   chatSendBtn.addEventListener("click", function () {
+    // While dictating, Send just stops listening and drops the
+    // transcript into the (now visible) input for the user to check
+    // or edit -- it does not send on their behalf. A second, separate
+    // tap of Send is what actually sends it, same as typing normally.
     if (SpeechRecognitionCtor && listening) {
-      sendCurrentDictation();
+      stopListening();
     } else {
       sendChatMessage();
     }
