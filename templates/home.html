@@ -49,14 +49,15 @@
   <div class="chat-input-wrap">
     <div class="chat-dictation-preview" id="chat-dictation-preview" hidden></div>
 
-    <!-- Discord-style "/" command picker: typing "/" (or tapping nothing
-         and just picking one) slides this up with the available slash
-         commands -- currently just /image, the one capability that used
-         to live behind the removed Plug-Ins toggle and now needs no
-         toggle at all, it's just always here. -->
+    <!-- Discord-style "/" command picker: typing "/" -- or tapping the
+         "/" button on the input itself -- slides this up with the
+         app's three explicit commands (builder, qualify, gaps). -->
     <div class="chat-slash-menu" id="chat-slash-menu" hidden></div>
 
     <div class="chat-input-shell">
+      <button type="button" class="chat-slash-btn" id="chat-slash-btn" aria-label="Slash commands">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="17" y1="3" x2="7" y2="21"/></svg>
+      </button>
       <textarea id="chat-input" class="chat-input" placeholder="Paste a job ad or ask anything…" rows="1"></textarea>
       <div class="chat-voice-live" id="chat-voice-live" hidden>
         <button type="button" class="chat-voice-cancel-btn" id="chat-voice-cancel-btn" aria-label="Cancel dictation">
@@ -75,6 +76,19 @@
         </button>
       </div>
     </div>
+  </div>
+</div>
+
+<div class="chat-qualify-overlay" id="chat-qualify-overlay" hidden>
+  <div class="chat-qualify-sheet">
+    <div class="chat-qualify-handle" aria-hidden="true"></div>
+    <h2 class="chat-qualify-title">Upload the job ad</h2>
+    <p class="chat-qualify-sub">Snap a photo or upload a screenshot of the job ad — I'll read it and check your fit.</p>
+    <label class="chat-qualify-upload-btn">
+      <input type="file" id="chat-qualify-file-input" accept="image/*" hidden>
+      Choose a photo
+    </label>
+    <button type="button" class="chat-qualify-cancel-btn" id="chat-qualify-cancel-btn">Cancel</button>
   </div>
 </div>
 

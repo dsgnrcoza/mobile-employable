@@ -726,12 +726,11 @@ def _build_skills_chart_card(user, chart_type):
 
 
 def _generate_chat_image(prompt):
-    """Backs the generate_image tool (and its '/image' slash-command
-    shortcut in chat) -- generates via OpenAI's image model using the
-    same API key/client already configured for chat, no separate
-    third-party service or credential to wire up. Returns base64 PNG
-    data; raises on failure so the caller can turn it into a plain-text
-    error reply."""
+    """Backs the generate_image tool -- generates via OpenAI's image
+    model using the same API key/client already configured for chat, no
+    separate third-party service or credential to wire up. Returns
+    base64 PNG data; raises on failure so the caller can turn it into a
+    plain-text error reply."""
     from openai import OpenAI
     client = OpenAI(api_key=analyzer.get_openai_api_key(), timeout=analyzer.get_client_timeout(), max_retries=analyzer.CLIENT_MAX_RETRIES)
     resp = client.images.generate(model="dall-e-3", prompt=prompt, size="1024x1024", n=1, response_format="b64_json")
@@ -2755,7 +2754,10 @@ _CHAT_TOOLS = [
                 "ad/description earlier in this conversation and is asking, in any wording, whether they're "
                 "a fit, qualified, or should apply. Only call this once you actually have the real job ad "
                 "text -- if they're asking about fit but have never given you a job ad, don't call this; "
-                "ask them to paste it instead."
+                "ask them to paste it instead. If their message is (or starts with) '/qualify', that's this "
+                "app's explicit command for attaching a photo of a job ad -- read the job details directly "
+                "off the attached image and pass what you read as job_ad; don't ask them to also paste it "
+                "as text."
             ),
             "parameters": {
                 "type": "object",
@@ -2863,9 +2865,7 @@ _CHAT_TOOLS = [
                 "Generate a real image from a text description, using AI image generation. Call this whenever "
                 "the user asks you to create, draw, generate, design, or make an image, picture, graphic, "
                 "mockup, or visual of something -- not for charts of their own scored data (use "
-                "generate_skills_chart for that instead). If the user's message starts with '/image', that's "
-                "an explicit slash command (the app's own Discord-style command picker) -- always call this "
-                "tool immediately with everything after '/image' as the prompt, never treat it as plain text."
+                "generate_skills_chart for that instead)."
             ),
             "parameters": {
                 "type": "object",
@@ -3249,9 +3249,11 @@ NEVER DESCRIBE AN ACTION INSTEAD OF TAKING IT. You have no web/internet access, 
 2. Within THIS SAME reply: if what you're about to say is "I'll build that CV for you," "let me check your fit," "I'll generate that image," or any equivalent — stop before you write it, and call the matching tool (build_tailored_cv / check_job_fit / build_cover_letter / analyze_skill_gaps / generate_skills_chart / generate_image) in this exact reply instead of narrating it. You can call more than one tool across a multi-part request, in sequence, one after another — nothing stops you from checking a fit AND building a CV AND drafting a letter all in response to one message, if that's what was actually asked. A sentence describing an action is never an acceptable substitute for the tool call that actually performs it. If a whole request has several parts, work through all of them via tool calls before your final reply, not just the first one.
 Worked example — user pastes a job ad and says "check my fit for this and build me a CV for it": your first move is calling check_job_fit with that job ad — not text, a real tool call. Once you see the score come back, that's part one done; part two ("build me a CV") is still outstanding, so your very next move in this same turn is calling build_tailored_cv — again, an actual call, not "now let me build your CV." Only after both calls have actually happened do you write a short closing line (e.g. "Done — want a cover letter too?"). Getting this wrong looks like: writing "I'll check your fit and then build your CV" as plain text and stopping — that's the exact failure mode this section exists to prevent.
 
+SLASH COMMANDS — this app's chat input has three explicit commands the user can trigger, each an unambiguous instruction, not something to interpret loosely: '/builder' at the start of a message means everything after it is an explicit build request — read it to tell whether they want a CV, a cover letter, or both, and call the matching tool(s) immediately rather than asking which they meant unless it's genuinely unclear. '/qualify' means they've attached a photo of a job ad (see check_job_fit's own description for exactly how to handle it). '/gaps' at the start of a message is an explicit alias for a gap analysis — call analyze_skill_gaps with whatever role/field follows it.
+
 ASK WHEN YOU DON'T KNOW, DON'T GUESS. Two different situations call for this, and both matter:
 1. Their INTENT is ambiguous — "help me with my CV," "should I apply" — ask ONE short, specific clarifying question rather than dumping generic advice across every possible interpretation. When the real answer is a small, nameable set of options (a platform, a tone, which document, which role) — not an open-ended "tell me more" — phrase the question so each option is short enough to be one of the quick-reply buttons below (e.g. "Mobile app or web app?" with [[QUICK_REPLIES]] Mobile app | Web app), so they can tap instead of typing it out. Save open quick-replies-free questions for when the answer genuinely can't be reduced to a few named choices.
-2. The FACTS you'd need aren't in their documents or in anything they've told you — a specific number, a certification, whether they've done something specific this job cares about. Don't fill that gap with a plausible-sounding guess. Say what's missing and ask for it directly ("Do you have a portfolio link for this? I don't see one in what you've uploaded") — or tell them to add it in Profile if it's the kind of thing that belongs in their documents long-term. When there's more than one gap, list them concretely instead of picking just one — "Right now I've only got your CV. To do this properly I'd also need: the actual job ad, and whether you've got a portfolio link" reads as useful triage, not an interrogation. They can upload documents right from the chat (the + button next to the input) — point them there instead of sending them away to Profile.
+2. The FACTS you'd need aren't in their documents or in anything they've told you — a specific number, a certification, whether they've done something specific this job cares about. Don't fill that gap with a plausible-sounding guess. Say what's missing and ask for it directly ("Do you have a portfolio link for this? I don't see one in what you've uploaded") — or tell them to add it in Profile if it's the kind of thing that belongs in their documents long-term. When there's more than one gap, list them concretely instead of picking just one — "Right now I've only got your CV. To do this properly I'd also need: the actual job ad, and whether you've got a portfolio link" reads as useful triage, not an interrogation. They can snap a photo of a job ad right in this chat with '/qualify', or add documents permanently in Profile.
 It's completely fine — good, even — to ask a real question mid-conversation instead of always producing a complete answer. That's what a genuinely helpful person does; it's not a failure mode.
 3. Rate your own confidence before you answer. If what you're about to say rests on thin grounding (a document that's mostly blank, a job ad with barely any real detail, a question about something genuinely outside what you know about them), say so plainly instead of producing a confident-sounding answer anyway — "I don't have much to go on here — want to upload more first, or should I give you my best guess anyway?" beats a fluent answer built on nothing. Confidently-worded guesses are worse than an honest "I'm not sure."
 
