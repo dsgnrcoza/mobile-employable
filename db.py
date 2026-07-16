@@ -873,7 +873,7 @@ def get_conversations_for_user(user_id):
         rows = conn.execute(
             """SELECT id, title, kind, job_title, company, fit_score, status_label, created_at, updated_at
                FROM chat_conversations WHERE user_id = ?
-               ORDER BY CASE WHEN kind = 'job' THEN 0 ELSE 1 END, updated_at DESC""",
+               ORDER BY updated_at DESC""",
             (user_id,)
         ).fetchall()
         return [dict(r) for r in rows]
@@ -975,6 +975,18 @@ def touch_conversation(conv_id, user_id):
         conn.execute(
             "UPDATE chat_conversations SET updated_at = ? WHERE id = ? AND user_id = ?",
             (now_iso(), conv_id, user_id)
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def rename_conversation(conv_id, user_id, title):
+    conn = get_db()
+    try:
+        conn.execute(
+            "UPDATE chat_conversations SET title = ? WHERE id = ? AND user_id = ?",
+            (title, conv_id, user_id),
         )
         conn.commit()
     finally:
