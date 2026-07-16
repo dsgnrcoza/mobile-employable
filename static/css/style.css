@@ -4423,20 +4423,55 @@ button.auth-tab.active {
   width: 100%;
 }
 
-.sidebar-chat-row-job .sidebar-chat-title {
-  font-weight: 700;
+.sidebar-chat-menu {
+  position: fixed;
+  background: var(--card-bg);
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  min-width: 160px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  z-index: 9999;
+  opacity: 1;
+  transform: scale(1);
+  transform-origin: top left;
+  transition: opacity 0.15s ease, transform 0.15s ease, display 0.15s allow-discrete;
 }
 
-.sidebar-chat-badge {
-  font-size: 11px;
-  /* A touch lighter than the accent -- at this size, on the sidebar's
-     dark background, the plain accent blue read a bit too dark/muddy. */
-  background: color-mix(in srgb, var(--accent) 78%, white);
-  background-clip: text;
-  -webkit-background-clip: text;
-  color: transparent;
-  -webkit-text-fill-color: transparent;
-  letter-spacing: 0.02em;
+.sidebar-chat-menu[hidden] {
+  display: none;
+  opacity: 0;
+  transform: scale(0.94);
+  transition: opacity 0.15s ease, transform 0.15s ease, display 0.15s allow-discrete;
+}
+
+@starting-style {
+  .sidebar-chat-menu:not([hidden]) {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}
+
+.sidebar-chat-menu button {
+  background: none;
+  border: none;
+  color: var(--fg);
+  padding: 10px 12px;
+  text-align: left;
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.sidebar-chat-menu button:hover {
+  background: var(--surface);
+}
+
+#sidebar-chat-menu-delete {
+  color: var(--muted);
 }
 
 .sidebar-footer {

@@ -1203,6 +1203,141 @@
     return Math.round(diffHr / 24) + "d ago";
   }
 
+  // Long-press (or right-click, for a mouse) on any chat row opens a
+  // small Rename/Delete menu -- the sidebar is just a flat, recency-
+  // ordered chat history now, so this is the only per-chat management
+  // surface it needs.
+  var LONG_PRESS_MS = 450;
+  var sidebarChatMenu = document.getElementById("sidebar-chat-menu");
+  var sidebarChatMenuRenameBtn = document.getElementById("sidebar-chat-menu-rename");
+  var sidebarChatMenuDeleteBtn = document.getElementById("sidebar-chat-menu-delete");
+  var chatMenuTargetId = null;
+  var chatMenuTargetTitle = null;
+  // The same press-and-hold gesture that opens the menu also ends in a
+  // mouseup/touchend, which the browser turns into a trailing synthetic
+  // "click" on whatever's underneath -- outside the menu, at the row
+  // that opened it. Without this, that click would immediately trip
+  // the "click outside closes the menu" listener below and close the
+  // menu the instant it appeared. One flag, consumed by the very next
+  // document click, swallows just that one.
+  var menuJustOpened = false;
+
+  function openSidebarChatMenu(x, y, convId, title) {
+    chatMenuTargetId = convId;
+    chatMenuTargetTitle = title;
+    var menuWidth = 170, menuHeight = 100;
+    sidebarChatMenu.style.left = Math.min(x, window.innerWidth - menuWidth - 8) + "px";
+    sidebarChatMenu.style.top = Math.min(y, window.innerHeight - menuHeight - 8) + "px";
+    sidebarChatMenu.hidden = false;
+    menuJustOpened = true;
+    // Right-click opens the menu without a trailing click ever arriving
+    // to consume the flag above -- clear it after a short window so a
+    // later, unrelated click elsewhere doesn't get swallowed instead.
+    setTimeout(function () { menuJustOpened = false; }, 400);
+  }
+
+  function closeSidebarChatMenu() {
+    sidebarChatMenu.hidden = true;
+    chatMenuTargetId = null;
+  }
+
+  document.addEventListener("click", function (e) {
+    if (menuJustOpened) { menuJustOpened = false; return; }
+    if (sidebarChatMenu.hidden) return;
+    if (sidebarChatMenu.contains(e.target)) return;
+    closeSidebarChatMenu();
+  });
+
+  sidebarChatMenuRenameBtn.addEventListener("click", function () {
+    var convId = chatMenuTargetId;
+    var current = chatMenuTargetTitle;
+    closeSidebarChatMenu();
+    if (!convId) return;
+    var next = window.prompt("Rename chat", current || "");
+    if (next == null) return;
+    next = next.trim();
+    if (!next || next === current) return;
+    fetch("/api/chat/conversations/" + convId + "/rename", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: next }),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.ok) loadSidebarChats();
+      });
+  });
+
+  sidebarChatMenuDeleteBtn.addEventListener("click", function () {
+    var convId = chatMenuTargetId;
+    var title = chatMenuTargetTitle;
+    closeSidebarChatMenu();
+    if (!convId) return;
+    if (!window.confirm('Delete "' + (title || "this conversation") + '"? This can\'t be undone.')) return;
+    fetch("/api/chat/conversations/" + convId, { method: "DELETE" })
+      .then(function () {
+        loadSidebarChats();
+        if (convId === chatConversationId) startNewChat();
+      });
+  });
+
+  function attachLongPress(row, convId, title, onOpen) {
+    var pressTimer = null;
+    var startX = 0, startY = 0;
+    var longPressFired = false;
+
+    function start(x, y) {
+      startX = x;
+      startY = y;
+      pressTimer = setTimeout(function () {
+        pressTimer = null;
+        longPressFired = true;
+        if (navigator.vibrate) navigator.vibrate(12);
+        openSidebarChatMenu(x, y, convId, title);
+      }, LONG_PRESS_MS);
+    }
+
+    function cancel() {
+      if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
+    }
+
+    row.addEventListener("touchstart", function (e) {
+      var t = e.touches[0];
+      start(t.clientX, t.clientY);
+    }, { passive: true });
+    row.addEventListener("touchmove", function (e) {
+      var t = e.touches[0];
+      if (Math.abs(t.clientX - startX) > 10 || Math.abs(t.clientY - startY) > 10) cancel();
+    }, { passive: true });
+    row.addEventListener("touchend", cancel);
+    row.addEventListener("touchcancel", cancel);
+
+    row.addEventListener("mousedown", function (e) {
+      if (e.button !== 0) return;
+      start(e.clientX, e.clientY);
+    });
+    row.addEventListener("mouseup", cancel);
+    row.addEventListener("mouseleave", cancel);
+
+    // A right-click (or two-finger tap trackpad gesture) is the desktop-
+    // native equivalent of a mobile long-press -- support both instead
+    // of forcing desktop users to hold the mouse button down.
+    row.addEventListener("contextmenu", function (e) {
+      e.preventDefault();
+      cancel();
+      longPressFired = true;
+      openSidebarChatMenu(e.clientX, e.clientY, convId, title);
+    });
+
+    // A long-press still fires a trailing "click" on touch devices once
+    // the finger lifts -- swallow exactly that one so it doesn't also
+    // navigate into the chat right after the menu opens.
+    row.addEventListener("click", function () {
+      if (longPressFired) { longPressFired = false; return; }
+      onOpen();
+    });
+  }
+
   function loadSidebarChats() {
     fetch("/api/chat/conversations")
       .then(function (r) { return r.json(); })
@@ -1219,19 +1354,13 @@
         data.conversations.forEach(function (c) {
           var row = document.createElement("button");
           row.type = "button";
-          row.className = "sidebar-chat-row" + (c.kind === "job" ? " sidebar-chat-row-job" : "");
+          row.className = "sidebar-chat-row";
           row.title = formatRelativeTime(c.updated_at);
           var titleEl = document.createElement("span");
           titleEl.className = "sidebar-chat-title";
           titleEl.textContent = c.title || "Conversation";
           row.appendChild(titleEl);
-          if (c.kind === "job" && c.status_label) {
-            var badge = document.createElement("span");
-            badge.className = "sidebar-chat-badge mono";
-            badge.textContent = c.status_label;
-            row.appendChild(badge);
-          }
-          row.addEventListener("click", function () {
+          attachLongPress(row, c.id, c.title || "Conversation", function () {
             loadConversation(c.id);
             closeSidebar();
           });

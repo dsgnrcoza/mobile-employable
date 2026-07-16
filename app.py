@@ -1637,6 +1637,19 @@ def api_delete_conversation(conv_id):
     return jsonify({"ok": True})
 
 
+@app.route("/api/chat/conversations/<int:conv_id>/rename", methods=["POST"])
+@auth.login_required
+def api_rename_conversation(conv_id):
+    user = auth.current_user()
+    if not db.conversation_belongs_to_user(conv_id, user["id"]):
+        return jsonify({"ok": False, "error": "Conversation not found."}), 404
+    title = (request.get_json(force=True).get("title") or "").strip()[:80]
+    if not title:
+        return jsonify({"ok": False, "error": "Title can't be empty."}), 400
+    db.rename_conversation(conv_id, user["id"], title)
+    return jsonify({"ok": True, "title": title})
+
+
 @app.route("/api/chat/conversations", methods=["DELETE"])
 @auth.login_required
 def api_delete_all_conversations():
