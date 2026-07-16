@@ -36,11 +36,17 @@
 
   function formatChatText(text) {
     var formatted = escapeHtml(text).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-    // A defensive backstop, not the primary fix -- the model is told
-    // not to write out download links/URLs of its own (the Document
-    // card already has a real button), but if one slips through
-    // anyway, it should at least actually be clickable instead of
-    // reading as a link while doing nothing.
+    // The model has no real file URL of its own to hand out -- the
+    // only real download in this app is the Document card's own
+    // button -- so a markdown-style [label](url) it writes is always
+    // a hallucinated path (things like "sandbox:/file.pdf" that don't
+    // resolve to anything a browser can open). Drop the broken link
+    // wrapper and keep just the label instead of showing dead link
+    // syntax as literal text.
+    formatted = formatted.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
+    // A defensive backstop for a bare URL still showing up in plain
+    // text -- at least make it actually clickable instead of reading
+    // as a link while doing nothing.
     return formatted.replace(/(https?:\/\/[^\s<]+)/g, function (url) {
       var trail = "";
       var m = /[.,!?;:)\]]+$/.exec(url);
