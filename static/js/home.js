@@ -23,14 +23,10 @@
   var messagesEl = document.getElementById("chat-messages");
   var chatInput = document.getElementById("chat-input");
   var chatSendBtn = document.getElementById("chat-send-btn");
-  var chatAttachBtn = document.getElementById("chat-attach-btn");
-  var chatChipsEl = document.getElementById("chat-chips");
 
   var chatHistory = [];
   var chatConversationId = null;
   var chatSending = false;
-  var personalizedJobContext = null;
-  var personalizedBuilderMode = "cv";
 
   function escapeHtml(s) {
     return (s || "").replace(/[&<>"']/g, function (c) {
@@ -131,7 +127,7 @@
   // Swiping a bot bubble right is the gesture shortcut for the same
   // reply action the Reply icon triggers -- the bubble tracks the drag
   // finger 1:1 and either commits (past a distance/flick threshold) or
-  // springs back, the same feel as the attach-sheet's swipe-to-dismiss.
+  // springs back, the standard swipe-to-dismiss feel.
   function wireSwipeToReply(bubble, onReply) {
     var startX = null, startY = null, dx = 0, startTime = 0, dragging = false;
 
@@ -181,24 +177,24 @@
   // ones are a minority by design (repeating someone's name every
   // single chat gets old fast).
   var EMPTY_HEADLINES = [
-    ["What are we working on?", "Paste a job ad, or pick a move below."],
+    ["What are we working on?", "Paste a job ad, or ask me anything."],
     ["Hey" + (firstName ? " " + firstName : "") + ", what's the move?", "A job ad, a CV tweak, whatever's next."],
     ["Did you apply anywhere new?", "Tell me about it, or paste the job ad."],
-    ["What can we sort out today?", "Paste a job ad, or pick a move below."],
+    ["What can we sort out today?", "Paste a job ad, or ask me anything."],
     ["Where do we start?", "Paste a job ad, or ask me anything."],
     ["Got a job in mind?", "Paste the ad and I'll check your fit."],
     [(firstName ? firstName + ", " : "") + "what's on your mind?", "Job hunting, CV, cover letter — just say it."],
-    ["Let's get into it.", "Paste a job ad, or pick a move below."],
+    ["Let's get into it.", "Paste a job ad, or ask me anything."],
     ["What's next on the list?", "A job to check, a CV to fix, up to you."],
     ["Any new leads?", "Paste the job ad and I'll take a look."],
     ["What do you want to tackle?", "Paste a job ad, or ask me anything."],
-    ["Ready when you are" + (firstName ? ", " + firstName : "") + ".", "Paste a job ad, or pick a move below."],
-    ["Something new to look at?", "Paste a job ad, or pick a move below."],
+    ["Ready when you are" + (firstName ? ", " + firstName : "") + ".", "Paste a job ad, or ask me anything."],
+    ["Something new to look at?", "Paste a job ad, or ask me anything."],
     ["What's the plan today?", "A job ad, a CV question, anything."],
-    ["Talk to me.", "Paste a job ad, or pick a move below."],
+    ["Talk to me.", "Paste a job ad, or ask me anything."],
     ["Anything to report back on?", "Applications, interviews, whatever's up."],
-    ["What are we chasing today?", "Paste a job ad, or pick a move below."],
-    ["Back at it" + (firstName ? ", " + firstName : "") + "?", "Paste a job ad, or pick a move below."],
+    ["What are we chasing today?", "Paste a job ad, or ask me anything."],
+    ["Back at it" + (firstName ? ", " + firstName : "") + "?", "Paste a job ad, or ask me anything."],
     ["What can I help with?", "Paste a job ad, or ask me anything."],
     ["Found something worth checking?", "Paste the job ad and I'll score your fit."],
   ];
@@ -226,7 +222,6 @@
   function showEmptyState(show) {
     emptyEl.hidden = !show;
     messagesEl.hidden = show;
-    chatChipsEl.hidden = !show;
     if (show) rollEmptyStateCopy();
   }
 
@@ -870,25 +865,7 @@
       });
   }
 
-  function requestVerdictCard(jobAd) {
-    showEmptyState(false);
-    clearQuickReplies();
-    appendChatMessage("user", "Am I a fit for this job?");
-    chatHistory.push({ role: "user", text: "Am I a fit for this job?" });
-    requestCard("/api/verdict", { job_ad: jobAd });
-  }
-
   function requestDocumentCard(context) {
-    requestCard("/api/document", context);
-  }
-
-  function requestBuilderCard(context) {
-    context = context || {};
-    var label = context.job_title ? "Build my CV for " + context.job_title + "." : "Build my CV.";
-    showEmptyState(false);
-    clearQuickReplies();
-    appendChatMessage("user", label);
-    chatHistory.push({ role: "user", text: label });
     requestCard("/api/document", context);
   }
 
@@ -1044,6 +1021,7 @@
     clearReplyContext();
     chatInput.value = "";
     autoGrowChatInput();
+    hideSlashMenu();
     showEmptyState(false);
     clearQuickReplies();
     appendChatMessage("user", text);
@@ -1070,150 +1048,57 @@
   }
   chatInput.addEventListener("input", autoGrowChatInput);
 
-  // ---------- The 3 numbered chips ----------
+  // ---------- "/" slash commands (Discord-style) ----------
+  // Typing "/" opens a small picker above the input -- right now just
+  // /image, the one capability that used to live behind the removed
+  // Plug-Ins toggle. Picking it (or just typing it out by hand) inserts
+  // the command; the backend's generate_image tool description tells
+  // the model to treat a leading "/image" as an explicit, unambiguous
+  // command rather than plain text (see app.py's _CHAT_TOOLS).
 
-  var chipPasteWrap = document.getElementById("chip-paste-wrap");
-  var chipPasteInput = document.getElementById("chip-paste-input");
-  var chipPasteCancelBtn = document.getElementById("chip-paste-cancel-btn");
-  var chipPasteSubmitBtn = document.getElementById("chip-paste-submit-btn");
+  var SLASH_COMMANDS = [
+    { cmd: "/image", label: "Image", desc: "Generate an image from a description" },
+  ];
 
-  document.getElementById("chip-qualify").addEventListener("click", function () {
-    chatChipsEl.hidden = true;
-    chipPasteWrap.hidden = false;
-    chipPasteInput.focus();
-  });
+  var slashMenuEl = document.getElementById("chat-slash-menu");
 
-  function closeChipPaste() {
-    chipPasteWrap.hidden = true;
-    chipPasteInput.value = "";
-    chatChipsEl.hidden = false;
+  function renderSlashMenu(matches) {
+    slashMenuEl.innerHTML = "";
+    matches.forEach(function (c) {
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "chat-slash-item";
+      btn.innerHTML =
+        '<span class="chat-slash-cmd mono"></span><span class="chat-slash-desc"></span>';
+      btn.querySelector(".chat-slash-cmd").textContent = c.cmd;
+      btn.querySelector(".chat-slash-desc").textContent = c.desc;
+      btn.addEventListener("click", function () {
+        chatInput.value = c.cmd + " ";
+        autoGrowChatInput();
+        hideSlashMenu();
+        chatInput.focus();
+      });
+      slashMenuEl.appendChild(btn);
+    });
+    slashMenuEl.hidden = matches.length === 0;
   }
 
-  chipPasteCancelBtn.addEventListener("click", closeChipPaste);
+  function hideSlashMenu() {
+    slashMenuEl.hidden = true;
+  }
 
-  chipPasteSubmitBtn.addEventListener("click", function () {
-    var jobAd = chipPasteInput.value.trim();
-    if (!jobAd) {
-      chipPasteInput.focus();
+  function updateSlashMenu() {
+    var value = chatInput.value;
+    if (!/^\/\S*$/.test(value)) {
+      hideSlashMenu();
       return;
     }
-    closeChipPaste();
-    requestVerdictCard(jobAd);
-  });
-
-  document.getElementById("chip-builder").addEventListener("click", function () {
-    if (personalizedBuilderMode === "letter" && personalizedJobContext && personalizedJobContext.job_title) {
-      var letterLabel = "Write a cover letter for " + personalizedJobContext.job_title + ".";
-      showEmptyState(false);
-      clearQuickReplies();
-      appendChatMessage("user", letterLabel);
-      chatHistory.push({ role: "user", text: letterLabel });
-      requestLetterCard(personalizedJobContext);
-    } else {
-      requestBuilderCard(personalizedJobContext);
-    }
-  });
-
-  document.getElementById("chip-gaps").addEventListener("click", function () {
-    var gapsText = personalizedJobContext && personalizedJobContext.job_title
-      ? "What's holding me back from " + personalizedJobContext.job_title + "?"
-      : "What's holding me back?";
-    sendChatMessage(gapsText);
-  });
-
-  // ---------- Attach sheet ("Add context") ----------
-
-  var attachSheetOverlay = document.getElementById("attach-sheet-overlay");
-
-  function openAttachSheet() {
-    attachSheetOverlay.hidden = false;
-  }
-  function closeAttachSheet() {
-    attachSheetOverlay.hidden = true;
+    var typed = value.toLowerCase();
+    var matches = SLASH_COMMANDS.filter(function (c) { return c.cmd.indexOf(typed) === 0; });
+    renderSlashMenu(matches);
   }
 
-  if (chatAttachBtn) {
-    chatAttachBtn.addEventListener("click", openAttachSheet);
-  }
-  document.getElementById("attach-sheet-close-btn").addEventListener("click", closeAttachSheet);
-  attachSheetOverlay.addEventListener("click", function (e) {
-    if (e.target === attachSheetOverlay) closeAttachSheet();
-  });
-
-  // Swipe the sheet down to dismiss it, the standard bottom-sheet
-  // gesture -- past a distance or a fast enough flick, it closes;
-  // otherwise it springs back to where it started.
-  var attachSheetEl = document.querySelector(".attach-sheet");
-  var sheetDragStartY = null;
-  var sheetDragCurrentY = 0;
-  var sheetDragStartTime = 0;
-
-  attachSheetEl.addEventListener("touchstart", function (e) {
-    sheetDragStartY = e.touches[0].clientY;
-    sheetDragCurrentY = 0;
-    sheetDragStartTime = Date.now();
-    attachSheetEl.style.transition = "none";
-  });
-
-  attachSheetEl.addEventListener("touchmove", function (e) {
-    if (sheetDragStartY == null) return;
-    var dy = e.touches[0].clientY - sheetDragStartY;
-    if (dy <= 0) return; // only drag downward
-    sheetDragCurrentY = dy;
-    attachSheetEl.style.transform = "translateY(" + dy + "px)";
-  });
-
-  attachSheetEl.addEventListener("touchend", function () {
-    if (sheetDragStartY == null) return;
-    var elapsed = Date.now() - sheetDragStartTime;
-    var isFastFlick = sheetDragCurrentY > 40 && elapsed < 250;
-    attachSheetEl.style.transition = "";
-    attachSheetEl.style.transform = "";
-    if (sheetDragCurrentY > 100 || isFastFlick) {
-      closeAttachSheet();
-    }
-    sheetDragStartY = null;
-    sheetDragCurrentY = 0;
-  });
-
-  // ---------- Upload a document straight from chat ----------
-  // Reuses the same Vercel-safe endpoint as Profile's "Add document"
-  // (content is extracted and stored in the database, not relied on
-  // staying on disk) -- unlike the old chat-attachment upload this
-  // replaces, which wrote to a path that doesn't survive between
-  // serverless invocations in production.
-
-  var attachUploadBtn = document.getElementById("attach-upload-btn");
-  var attachUploadInput = document.getElementById("attach-upload-input");
-  var attachUploadStatus = document.getElementById("attach-upload-status");
-  var attachUploadStatusDefault = attachUploadStatus.textContent;
-
-  attachUploadBtn.addEventListener("click", function () {
-    attachUploadInput.click();
-  });
-
-  attachUploadInput.addEventListener("change", function () {
-    var file = attachUploadInput.files[0];
-    attachUploadInput.value = "";
-    if (!file) return;
-    var formData = new FormData();
-    formData.append("documents", file);
-    formData.append("category", "cv");
-    attachUploadStatus.textContent = "Uploading…";
-    fetch("/api/onboarding/upload", { method: "POST", body: formData })
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        attachUploadStatus.textContent = data.ok
-          ? "Uploaded — Ploy can use this now."
-          : (data.error || "Couldn't upload that file.");
-      })
-      .catch(function () {
-        attachUploadStatus.textContent = "Couldn't upload that — check your connection and try again.";
-      })
-      .finally(function () {
-        setTimeout(function () { attachUploadStatus.textContent = attachUploadStatusDefault; }, 3000);
-      });
-  });
+  chatInput.addEventListener("input", updateSlashMenu);
 
   function renderLoadedConversation(convId, messages) {
     chatConversationId = convId;
@@ -1252,6 +1137,7 @@
     showEmptyState(true);
     chatInput.value = "";
     autoGrowChatInput();
+    hideSlashMenu();
     chatInput.focus();
   }
 
@@ -1428,6 +1314,7 @@
       micStopIcon.hidden = !on;
       chatVoiceLive.hidden = !on;
       chatInput.hidden = on;
+      if (on) hideSlashMenu();
       if (!on) {
         chatDictationPreview.hidden = true;
         chatDictationPreview.textContent = "";
@@ -1526,39 +1413,6 @@
     chatVoiceCancelBtn.addEventListener("click", cancelListening);
   }
 
-  // ---------- Chip personalization based on history ----------
-  // Cosmetic only -- the chips still do exactly what they always did,
-  // this just swaps their label when there's a recent job thread to
-  // reference, so a returning user doesn't see the same "first-time"
-  // copy every single chat.
-
-  function personalizeChips(mostRecentJob) {
-    if (!mostRecentJob) return;
-    personalizedJobContext = { job_title: mostRecentJob.job_title, company: mostRecentJob.company };
-    var qualifyLabel = document.querySelector("#chip-qualify span:last-child");
-    var builderLabel = document.querySelector("#chip-builder span:last-child");
-    var gapsLabel = document.querySelector("#chip-gaps span:last-child");
-    var score = mostRecentJob.fit_score;
-    if (qualifyLabel) qualifyLabel.textContent = "Check my fit for another role";
-    if (builderLabel && mostRecentJob.job_title) {
-      personalizedBuilderMode = score != null && score >= 75 ? "letter" : "cv";
-      builderLabel.textContent = personalizedBuilderMode === "letter"
-        ? "Write a cover letter for " + mostRecentJob.job_title
-        : "Build my CV for " + mostRecentJob.job_title;
-    }
-    if (gapsLabel) {
-      if (score == null) {
-        gapsLabel.textContent = "What's still holding me back?";
-      } else if (score < 50) {
-        gapsLabel.textContent = "Close the gaps in my " + score + "/100 fit";
-      } else if (score < 75) {
-        gapsLabel.textContent = "Improve on my " + score + "/100 fit";
-      } else {
-        gapsLabel.textContent = "What's next after a " + score + "/100 fit?";
-      }
-    }
-  }
-
   // ---------- Initial load ----------
 
   // sessionStorage survives normal in-app navigation (e.g. Profile ->
@@ -1578,8 +1432,6 @@
   // actually showing up.
   var initialState = window.HOME_STATE || {};
   var conversations = initialState.conversations || [];
-  var mostRecentJob = conversations.find(function (c) { return c.kind === "job"; });
-  personalizeChips(mostRecentJob);
 
   if (requestedConvId) {
     loadConversation(Number(requestedConvId));

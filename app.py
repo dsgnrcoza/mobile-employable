@@ -726,8 +726,9 @@ def _build_skills_chart_card(user, chart_type):
 
 
 def _generate_chat_image(prompt):
-    """Image Generator plugin: generates via OpenAI's image model using
-    the same API key/client already configured for chat -- no separate
+    """Backs the generate_image tool (and its '/image' slash-command
+    shortcut in chat) -- generates via OpenAI's image model using the
+    same API key/client already configured for chat, no separate
     third-party service or credential to wire up. Returns base64 PNG
     data; raises on failure so the caller can turn it into a plain-text
     error reply."""
@@ -1068,37 +1069,6 @@ def api_document_save(document_id):
 @auth.login_required
 def conversations_page():
     return render_template("conversations.html")
-
-
-@app.route("/plugins")
-@auth.login_required
-def plugins_page():
-    user = auth.current_user()
-    try:
-        enabled = json.loads(user.get("enabled_plugins") or "[]")
-    except Exception:
-        enabled = []
-    return render_template("plugins.html", plugins=PLUGINS, enabled=enabled)
-
-
-@app.route("/api/plugins", methods=["POST"])
-@auth.login_required
-def api_set_plugin_enabled():
-    user = auth.current_user()
-    data = request.get_json(force=True)
-    key = (data.get("key") or "").strip()
-    if key not in PLUGINS:
-        return jsonify({"ok": False, "error": "Unknown plugin."}), 404
-    try:
-        enabled = set(json.loads(user.get("enabled_plugins") or "[]"))
-    except Exception:
-        enabled = set()
-    if data.get("enabled"):
-        enabled.add(key)
-    else:
-        enabled.discard(key)
-    db.set_enabled_plugins(user["id"], sorted(enabled))
-    return jsonify({"ok": True, "enabled": sorted(enabled)})
 
 
 @app.route("/api/upload", methods=["POST"])
@@ -2288,14 +2258,6 @@ def api_cv_download_docx():
 # content. Kept in one place so the Builder's live browser preview
 # (CSS classes, see style.css's .tmpl-* rules) and the actual PDF
 # (this dict) can't drift out of sync in what each template means.
-PLUGINS = {
-    "image_generator": {
-        "label": "Image Generator",
-        "blurb": "Ask Ploy to generate a real image — a mockup, a moodboard, a social graphic — right in chat.",
-    },
-}
-
-
 # Shared by _generate_tailored_document's design_guidance and api_cv_edit's
 # system prompt -- the one mandated CV structure (matching a real reference
 # CV's layout) that every AI-generated or AI-edited CV must follow, so the
@@ -2880,34 +2842,31 @@ _CHAT_TOOLS = [
             },
         },
     },
-]
-
-# Only offered to the model when the user has switched the Image
-# Generator plugin on (see PLUGINS/enabled_plugins) -- kept separate
-# from _CHAT_TOOLS instead of always-on so the model doesn't even know
-# the capability exists until the user has actually installed it.
-_IMAGE_GEN_TOOL = {
-    "type": "function",
-    "function": {
-        "name": "generate_image",
-        "description": (
-            "Generate a real image from a text description, using AI image generation. Call this whenever "
-            "the user asks you to create, draw, generate, design, or make an image, picture, graphic, "
-            "mockup, or visual of something -- not for charts of their own scored data (use "
-            "generate_skills_chart for that instead)."
-        ),
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "prompt": {
-                    "type": "string",
-                    "description": "A clear, detailed description of the image to generate.",
+    {
+        "type": "function",
+        "function": {
+            "name": "generate_image",
+            "description": (
+                "Generate a real image from a text description, using AI image generation. Call this whenever "
+                "the user asks you to create, draw, generate, design, or make an image, picture, graphic, "
+                "mockup, or visual of something -- not for charts of their own scored data (use "
+                "generate_skills_chart for that instead). If the user's message starts with '/image', that's "
+                "an explicit slash command (the app's own Discord-style command picker) -- always call this "
+                "tool immediately with everything after '/image' as the prompt, never treat it as plain text."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "prompt": {
+                        "type": "string",
+                        "description": "A clear, detailed description of the image to generate.",
+                    },
                 },
+                "required": ["prompt"],
             },
-            "required": ["prompt"],
         },
     },
-}
+]
 
 
 # ---------------- THE BRAIN: persistent profile + episodic memory ----------------
@@ -3128,7 +3087,7 @@ def _tool_call_detail(tool_name, args):
     return ""
 
 
-def _execute_chat_tool_call(user, tool_name, args, enabled_plugins):
+def _execute_chat_tool_call(user, tool_name, args):
     """Runs one tool call from /api/chat's agentic loop. Returns
     (kind, payload):
     - ("card", card_dict) -- a normal, successful action.
@@ -3136,8 +3095,7 @@ def _execute_chat_tool_call(user, tool_name, args, enabled_plugins):
       there, either because required info is missing (e.g. no job ad
       yet) or the call raised. Same shape either way since both are
       "here's why I can't continue" replies to the user.
-    - (None, None) -- unrecognized tool name (or a plugin tool called
-      without the plugin enabled), silently skipped.
+    - (None, None) -- unrecognized tool name, silently skipped.
     """
     try:
         if tool_name == "check_job_fit":
@@ -3169,7 +3127,7 @@ def _execute_chat_tool_call(user, tool_name, args, enabled_plugins):
             if not card:
                 return "text", "I don't have a scored breakdown for you yet -- upload your CV in Profile first and I'll be able to chart it."
             return "card", card
-        if tool_name == "generate_image" and "image_generator" in enabled_plugins:
+        if tool_name == "generate_image":
             prompt = (args.get("prompt") or "").strip()[:2000]
             if not prompt:
                 return "text", "What should the image show?"
@@ -3364,14 +3322,7 @@ Never claim you can't see their documents — if the block above says no content
             openai_messages.append({"role": role, "content": text or " "})
 
     model_name = "gpt-4o" if (has_images or _looks_complex(messages_in)) else "gpt-4o-mini"
-
-    try:
-        enabled_plugins = set(json.loads(user.get("enabled_plugins") or "[]"))
-    except Exception:
-        enabled_plugins = set()
-    active_tools = list(_CHAT_TOOLS)
-    if "image_generator" in enabled_plugins:
-        active_tools.append(_IMAGE_GEN_TOOL)
+    active_tools = _CHAT_TOOLS
 
     # Agentic loop: a genuinely multi-part request ("check my fit for
     # this job AND build me a CV for it") needs more than one tool call
@@ -3460,7 +3411,7 @@ Never claim you can't see their documents — if the block above says no content
                 args = json.loads(call.function.arguments or "{}")
             except Exception:
                 args = {}
-            kind, payload = _execute_chat_tool_call(user, call.function.name, args, enabled_plugins)
+            kind, payload = _execute_chat_tool_call(user, call.function.name, args)
             if kind == "card":
                 steps.append({
                     "type": "card",
