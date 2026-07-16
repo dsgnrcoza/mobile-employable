@@ -282,6 +282,27 @@ def init_db():
             used INTEGER NOT NULL DEFAULT 0,
             created_at TEXT NOT NULL
         );
+
+        -- A persistent, structured picture of this user (target roles,
+        -- recurring blockers, inferred tone, etc.) -- one row per user,
+        -- rebuilt/merged over time instead of re-derived from scratch
+        -- every message. See app.py's _consolidate_user_brain.
+        CREATE TABLE IF NOT EXISTS user_brain (
+            user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+            profile_json TEXT NOT NULL DEFAULT '{{}}',
+            updated_at TEXT NOT NULL
+        );
+
+        -- Episodic memory: short, one-line summaries of things that
+        -- actually happened ("Applied to X at Y, fit 78"), separate from
+        -- the structured profile above -- this is the log a real assistant
+        -- would recall specific events from, not just traits.
+        CREATE TABLE IF NOT EXISTS memory_log (
+            id {_PK},
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            summary TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        );
     """)
     conn.commit()
 
@@ -915,6 +936,17 @@ def conversation_belongs_to_user(conv_id, user_id):
         conn.close()
 
 
+def get_conversation(conv_id, user_id):
+    conn = get_db()
+    try:
+        row = conn.execute(
+            "SELECT * FROM chat_conversations WHERE id = ? AND user_id = ?", (conv_id, user_id)
+        ).fetchone()
+        return dict(row) if row else None
+    finally:
+        conn.close()
+
+
 def promote_conversation(conv_id, user_id, job_title="", company="", fit_score=None, status_label=""):
     """The core "job thread" mechanic: the moment a chat produces a
     Verdict or Document card, it's promoted out of the plain chat list
@@ -1137,5 +1169,90 @@ def clear_pending_code(user_id):
             (user_id,),
         )
         conn.commit()
+    finally:
+        conn.close()
+
+
+# ---------------- USER BRAIN + EPISODIC MEMORY ----------------
+# A persistent, structured profile (user_brain) plus a running log of
+# short one-line events (memory_log) -- what turns Ploy from a stateless
+# ask/respond loop into something that actually remembers who this
+# person is and what's already happened, across conversations. Both are
+# only ever written to when the user has "Remember all chats" switched
+# on (see app.py's api_chat) -- the same consent boundary that already
+# gates cross-conversation memory, just applied to this deeper layer too.
+
+def get_user_brain(user_id):
+    conn = get_db()
+    try:
+        row = conn.execute("SELECT profile_json FROM user_brain WHERE user_id = ?", (user_id,)).fetchone()
+        if not row:
+            return {}
+        try:
+            return json.loads(row["profile_json"] or "{}")
+        except Exception:
+            return {}
+    finally:
+        conn.close()
+
+
+def get_user_brain_updated_at(user_id):
+    conn = get_db()
+    try:
+        row = conn.execute("SELECT updated_at FROM user_brain WHERE user_id = ?", (user_id,)).fetchone()
+        return row["updated_at"] if row else None
+    finally:
+        conn.close()
+
+
+def save_user_brain(user_id, profile: dict):
+    conn = get_db()
+    try:
+        payload = json.dumps(profile)
+        existing = conn.execute("SELECT user_id FROM user_brain WHERE user_id = ?", (user_id,)).fetchone()
+        if existing:
+            conn.execute(
+                "UPDATE user_brain SET profile_json = ?, updated_at = ? WHERE user_id = ?",
+                (payload, now_iso(), user_id),
+            )
+        else:
+            conn.execute(
+                "INSERT INTO user_brain (user_id, profile_json, updated_at) VALUES (?, ?, ?)",
+                (user_id, payload, now_iso()),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def add_memory_log(user_id, summary):
+    conn = get_db()
+    try:
+        conn.execute(
+            "INSERT INTO memory_log (user_id, summary, created_at) VALUES (?, ?, ?)",
+            (user_id, (summary or "").strip()[:400], now_iso()),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_recent_memory(user_id, limit=8):
+    conn = get_db()
+    try:
+        rows = conn.execute(
+            "SELECT summary, created_at FROM memory_log WHERE user_id = ? ORDER BY created_at DESC LIMIT ?",
+            (user_id, limit),
+        ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def count_memory_log(user_id):
+    conn = get_db()
+    try:
+        row = conn.execute("SELECT COUNT(*) AS c FROM memory_log WHERE user_id = ?", (user_id,)).fetchone()
+        return row["c"] if row else 0
     finally:
         conn.close()

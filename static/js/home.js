@@ -203,8 +203,21 @@
     ["Found something worth checking?", "Paste the job ad and I'll score your fit."],
   ];
 
+  // A real proactive check-in, computed server-side from idle time and
+  // what Ploy remembers about this person (see app.py's
+  // _personalized_checkin) -- shown once, on the very first empty-state
+  // render after a cold load, then it steps aside for the normal random
+  // rotation so it doesn't repeat on every "New chat" tap this session.
+  var pendingCheckin = (window.HOME_STATE && window.HOME_STATE.personalized_checkin) || null;
+
   function rollEmptyStateCopy() {
     if (!emptyHeadlineEl) return;
+    if (pendingCheckin) {
+      emptyHeadlineEl.textContent = "Hey" + (firstName ? " " + firstName : "") + ".";
+      emptySubtextEl.textContent = pendingCheckin;
+      pendingCheckin = null;
+      return;
+    }
     var pick = EMPTY_HEADLINES[Math.floor(Math.random() * EMPTY_HEADLINES.length)];
     emptyHeadlineEl.textContent = pick[0];
     emptySubtextEl.textContent = pick[1];
@@ -279,6 +292,22 @@
       var expanded = el.classList.toggle("is-expanded");
       detailEl.hidden = !expanded;
     });
+  }
+
+  // A real reasoning pass, not decoration -- the backend runs a
+  // genuinely separate, cheap completion to decide its plan before
+  // touching any tool, and this renders that plan as its own quiet
+  // aside in the trail: a single line, brain icon, no dots/checkmark
+  // lifecycle like a tool step has, because it's already resolved by
+  // the time it reaches the client.
+  var THINKING_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 0 0-4 12.7V17a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-2.3A7 7 0 0 0 12 2Z"/><line x1="9.5" y1="22" x2="14.5" y2="22"/></svg>';
+
+  function createThinkingStep(text) {
+    var el = document.createElement("div");
+    el.className = "chat-step-status chat-thinking-step is-done";
+    el.innerHTML = THINKING_ICON + '<span class="chat-step-status-label"></span>';
+    el.querySelector(".chat-step-status-label").textContent = text;
+    return el;
   }
 
   // ---------- "Working…" elapsed-time indicator ----------
@@ -701,6 +730,7 @@
       '<div class="document-status mono">' + statusParts.join(" · ") + "</div>" +
       "</div>" +
       "</div>" +
+      (card.grounding_note ? '<div class="document-grounding-note">⚠ ' + escapeHtml(card.grounding_note) + "</div>" : "") +
       '<div class="card-actions">' +
       '<button type="button" class="btn btn-gold btn-sm document-download-btn">Download</button>' +
       '<button type="button" class="btn btn-ghost btn-sm document-edit-btn">Edit</button>' +
@@ -949,7 +979,11 @@
     }
     var step = steps[i];
     var isLast = i === steps.length - 1;
-    if (step.type === "card") {
+    if (step.type === "thinking") {
+      messagesEl.appendChild(createThinkingStep(step.text || "Thinking…"));
+      scrollChatToBottom();
+      setTimeout(function () { renderStepsSequentially(steps, i + 1); }, STEP_PAUSE_MS);
+    } else if (step.type === "card") {
       var statusEl = createStepStatus(step.label || "Working on that");
       messagesEl.appendChild(statusEl);
       scrollChatToBottom();
