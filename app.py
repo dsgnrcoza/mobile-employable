@@ -1498,13 +1498,11 @@ def api_set_remember_chats():
     return jsonify({"ok": True})
 
 
-AI_UPLOAD_ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "instance", "ai_uploads")
-
-
 @app.route("/api/chat/upload", methods=["POST"])
 @auth.login_required
 def api_chat_upload():
     """Upload a file for use in AI chat. Stored server-side, never added to CV profile."""
+    import base64 as _b64, tempfile
     user = auth.current_user()
     if "file" not in request.files:
         return jsonify({"ok": False, "error": "No file provided"}), 400
@@ -1512,24 +1510,41 @@ def api_chat_upload():
     if not f or not f.filename:
         return jsonify({"ok": False, "error": "Empty file"}), 400
 
-    user_upload_dir = os.path.join(AI_UPLOAD_ROOT, str(user["id"]))
-    os.makedirs(user_upload_dir, exist_ok=True)
-
-    safe_name = uuid.uuid4().hex + "_" + f.filename.replace(" ", "_")
-    stored_path = os.path.join(user_upload_dir, safe_name)
-    f.save(stored_path)
+    file_bytes = f.read()
+    if not file_bytes:
+        return jsonify({"ok": False, "error": "Empty file"}), 400
 
     mime_type = f.content_type or ""
     text_content = ""
     if not mime_type.startswith("image/"):
+        # extract.extract_text needs a real path on disk -- a temp file
+        # that's deleted right after is enough for that one read, and
+        # unlike a permanent path under the app's own directory, it
+        # works the same on a read-only/ephemeral serverless deploy.
+        ext = f.filename.rsplit(".", 1)[-1].lower() if "." in f.filename else "txt"
+        tmp_path = None
         try:
-            text_content = extract.extract_text(stored_path)
+            with tempfile.NamedTemporaryFile(delete=False, suffix=f".{ext}") as tmp:
+                tmp.write(file_bytes)
+                tmp_path = tmp.name
+            text_content = extract.extract_text(tmp_path)
             if text_content:
                 text_content = text_content.strip()[:8000]
         except Exception:
             pass
+        finally:
+            if tmp_path:
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
 
-    att_id = db.add_chat_attachment(user["id"], f.filename, stored_path, mime_type, text_content)
+    # The actual bytes live in the DB row itself (data_b64), not on
+    # disk -- same reason documents.file_bytes_b64 exists: a stored
+    # filesystem path doesn't survive to the next request on a
+    # serverless deploy with an ephemeral/read-only filesystem.
+    data_b64 = _b64.b64encode(file_bytes).decode("ascii")
+    att_id = db.add_chat_attachment(user["id"], f.filename, "", mime_type, text_content, data_b64)
     return jsonify({"ok": True, "id": att_id, "name": f.filename, "mime": mime_type, "is_image": mime_type.startswith("image/")})
 
 
@@ -1720,13 +1735,13 @@ def api_update_conversation_status(conv_id):
 @app.route("/api/chat/attachment-thumb/<int:att_id>")
 @auth.login_required
 def api_chat_attachment_thumb(att_id):
-    """Serve the stored image file for preview thumbnails."""
-    from flask import send_file
+    """Serve the stored image for preview thumbnails, straight out of the DB."""
+    import base64 as _b64
     user = auth.current_user()
     att = db.get_chat_attachment(user["id"], att_id)
-    if not att or not att["mime_type"].startswith("image/"):
+    if not att or not att["mime_type"].startswith("image/") or not att.get("data_b64"):
         return ("Not found", 404)
-    return send_file(att["stored_path"], mimetype=att["mime_type"])
+    return Response(_b64.b64decode(att["data_b64"]), mimetype=att["mime_type"])
 
 
 @app.route("/api/cv-text")
@@ -3312,11 +3327,9 @@ Never claim you can't see their documents — if the block above says no content
                 if not att:
                     continue
                 if att["mime_type"].startswith("image/"):
-                    try:
-                        with open(att["stored_path"], "rb") as img_f:
-                            b64 = _b64.b64encode(img_f.read()).decode("utf-8")
-                    except OSError:
-                        continue  # file no longer on disk (e.g. an older attachment on ephemeral storage)
+                    b64 = att.get("data_b64") or ""
+                    if not b64:
+                        continue  # an older attachment predating data_b64, with nothing left to read
                     content.append({
                         "type": "image_url",
                         "image_url": {"url": f"data:{att['mime_type']};base64,{b64}", "detail": "high"}
