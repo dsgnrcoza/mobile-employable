@@ -6210,11 +6210,14 @@ button.auth-tab.active {
   touch-action: none;
   cursor: grab;
   will-change: transform;
-  /* Cards behind the top one sit slightly scaled and dropped, so the
-     deck reads as a real stack instead of everything living at the
-     exact same spot until the top card is swiped away. */
-  transform: scale(calc(1 - var(--stack-i, 0) * 0.04))
-    translateY(calc(var(--stack-i, 0) * 10px));
+  /* swiper.js drives every stack position and drag/fly-away frame via
+     inline style.transform directly (for buttery, uninterrupted
+     per-frame control), so no transform is set here -- this rule only
+     needs to guard against the browser's own touch gestures fighting
+     the drag. */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .swiper-card-top {
