@@ -1764,6 +1764,21 @@
     }
   });
 
+  // ---------- Outbox badge ----------
+
+  var sidebarOutboxBadge = document.getElementById("sidebar-outbox-badge");
+  if (sidebarOutboxBadge) {
+    fetch("/api/applications")
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data.ok) return;
+        var count = data.applications.filter(function (a) { return a.status === "drafted"; }).length;
+        sidebarOutboxBadge.textContent = count > 99 ? "99+" : String(count);
+        sidebarOutboxBadge.hidden = count === 0;
+      })
+      .catch(function () {});
+  }
+
   // ---------- Initial load ----------
 
   // sessionStorage survives normal in-app navigation (e.g. Profile ->
