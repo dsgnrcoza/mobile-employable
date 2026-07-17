@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Outbox — Ploy{% endblock %}
+
+{% block content %}
+<div class="outbox-shell">
+  <header class="stub-header">
+    <a href="{{ url_for('dashboard') }}" class="stub-back-btn" aria-label="Back">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+    </a>
+    <span class="stub-header-title">Outbox</span>
+    <a href="{{ url_for('swiper_page') }}" class="chat-icon-btn" aria-label="Find more jobs">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    </a>
+  </header>
+
+  <div class="outbox-filter-row" id="outbox-filter-row"></div>
+
+  <div class="outbox-list" id="outbox-list"></div>
+
+  <div class="outbox-empty" id="outbox-empty" hidden>
+    <h2>No drafts yet</h2>
+    <p>Swipe right on a job in the swiper and it'll land here, ready to send.</p>
+    <a href="{{ url_for('swiper_page') }}" class="btn btn-gold btn-sm">Find jobs</a>
+  </div>
+</div>
+
+<div class="outbox-review-overlay" id="outbox-review-overlay" hidden>
+  <div class="outbox-review-sheet">
+    <div class="outbox-review-handle" aria-hidden="true"></div>
+    <div class="outbox-review-header">
+      <div class="outbox-review-heading">
+        <span class="outbox-review-title" id="outbox-review-job-title"></span>
+        <span class="outbox-review-company" id="outbox-review-company"></span>
+      </div>
+      <button type="button" class="chat-icon-btn" id="outbox-review-close-btn" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <div class="outbox-review-body">
+      <div class="outbox-review-recipient" id="outbox-review-recipient"></div>
+
+      <label class="outbox-review-label">Subject</label>
+      <input type="text" class="outbox-review-subject" id="outbox-review-subject">
+
+      <label class="outbox-review-label">Message</label>
+      <textarea class="outbox-review-textarea" id="outbox-review-message" rows="10"></textarea>
+      <span class="outbox-review-autosave" id="outbox-review-autosave"></span>
+
+      <div class="outbox-review-reminder">
+        <span>📎 Attach your CV in Gmail before sending — a compose link can't carry attachments.</span>
+        <button type="button" class="btn btn-ghost btn-sm" id="outbox-review-download-cv-btn" hidden>Download CV</button>
+      </div>
+
+      <div class="outbox-review-nudge" id="outbox-review-nudge" hidden></div>
+
+      <div class="outbox-review-status-row">
+        <span class="outbox-review-label">Status</span>
+        <select class="outbox-status-select" id="outbox-status-select">
+          <option value="drafted">Drafted</option>
+          <option value="sent">Sent</option>
+          <option value="replied">Replied</option>
+          <option value="interview">Interview</option>
+          <option value="rejected">Rejected</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="outbox-review-actions">
+      <button type="button" class="btn btn-gold outbox-send-btn" id="outbox-open-gmail-btn">Open in Gmail</button>
+    </div>
+  </div>
+</div>
+
+<div class="outbox-confirm-overlay" id="outbox-confirm-overlay" hidden>
+  <div class="outbox-confirm-sheet">
+    <p class="outbox-confirm-question">Did you send it?</p>
+    <div class="outbox-confirm-actions">
+      <button type="button" class="btn btn-ghost" id="outbox-confirm-not-yet-btn">Not yet</button>
+      <button type="button" class="btn btn-gold" id="outbox-confirm-yes-btn">Yes, sent it</button>
+    </div>
+  </div>
+</div>
+
+<div class="outbox-toast" id="outbox-toast" hidden></div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/outbox.js') }}?v={{ asset_version }}"></script>
+{% endblock %}

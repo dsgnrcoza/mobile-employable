@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Find Jobs — Ploy{% endblock %}
+
+{% block content %}
+<div class="swiper-shell">
+  <header class="stub-header">
+    <a href="{{ url_for('dashboard') }}" class="stub-back-btn" aria-label="Back">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+    </a>
+    <span class="stub-header-title">Find Jobs</span>
+    <a href="{{ url_for('outbox_page') }}" class="swiper-outbox-btn" aria-label="Outbox">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z"/></svg>
+      <span class="swiper-outbox-badge" id="swiper-outbox-badge" hidden>0</span>
+    </a>
+  </header>
+
+  <div class="swiper-deck" id="swiper-deck"></div>
+
+  <div class="swiper-empty" id="swiper-empty" hidden>
+    <h2>You're all caught up</h2>
+    <p>No more jobs to show right now — check back later for new listings.</p>
+  </div>
+
+  <div class="swiper-fallback-actions" id="swiper-fallback-actions" hidden>
+    <button type="button" class="swiper-action-btn swiper-action-hide" id="swiper-hide-btn" aria-label="Not interested">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+    <button type="button" class="swiper-action-btn swiper-action-apply" id="swiper-apply-btn" aria-label="Apply">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 12 9 17 20 6"/></svg>
+    </button>
+  </div>
+
+  <div class="swiper-toast" id="swiper-toast" hidden></div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/swiper.js') }}?v={{ asset_version }}"></script>
+{% endblock %}

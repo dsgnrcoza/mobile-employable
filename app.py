@@ -37,6 +37,7 @@ import analyzer
 import extract
 import identity
 import cache as cache_module
+import jobs_data
 
 load_dotenv()  # reads OPENAI_API_KEY and FLASK_SECRET_KEY from a local .env file
 
@@ -981,6 +982,189 @@ def _generate_tailored_document(user, kind, job_title="", company="", job_ad="",
         "fit_score": fit_score,
         "grounding_note": grounding_note,
     }
+
+
+# ==========================================================================
+# JobSwiper -> Outbox -> Tracker
+# ==========================================================================
+# A swipe deck of job listings (jobs_data.py) -- swipe left hides a job
+# permanently, swipe right drafts a personalized application email
+# (grounded in the user's real uploaded documents, same approach as
+# _generate_tailored_document above) and queues it in the Outbox. The
+# Outbox is also where drafted -> sent -> replied/interview/rejected
+# status lives, backed by the "trackers" table above (previously
+# defined but unused anywhere in this app -- extended here rather than
+# adding a parallel table).
+
+_TRACKER_STATUSES = ("drafted", "sent", "replied", "interview", "rejected")
+
+
+def _serialize_tracker_entry(row):
+    return {
+        "id": row["id"],
+        "jobId": row["job_id"],
+        "jobTitle": row["job_title"],
+        "company": row["company"],
+        "jobUrl": row.get("job_url") or "",
+        "recipientEmail": row.get("recipient_email") or "",
+        "subject": row.get("subject") or "",
+        "body": row.get("body") or "",
+        "status": row["status"],
+        "createdAt": row["created_at"],
+        "sentAt": row.get("sent_at"),
+        "updatedAt": row["updated_at"],
+    }
+
+
+def _generate_application_draft(user, job):
+    """Writes a short, personalized application email for one specific
+    job listing, grounded in the user's real uploaded documents -- same
+    grounding rule as CV/cover-letter generation: every fact has to come
+    from what they actually uploaded, never invented. Returns
+    (subject, body); raises on failure (caller turns that into a JSON
+    error response, same convention as every other generation route)."""
+    from openai import OpenAI
+
+    real_docs = _real_uploaded_docs(user["id"])
+    doc_content_block = _doc_content_block(real_docs)
+    brain_section = _brain_and_memory_section(user)
+
+    system = (
+        "You are writing a short, genuine job application email for this user to send from their own Gmail. "
+        "Ground every fact (employer names, job titles, dates, schools, achievements) in their real documents "
+        "below -- never invent a person, career, employer, or achievement that isn't actually theirs.\n\n"
+        "Write like a real, specific person applying for this exact role -- 3-5 short paragraphs: a direct "
+        "opening naming the role, 1-2 paragraphs connecting their real experience to what this job actually "
+        "needs, a short closing. No corporate filler ('I am writing to express my interest...').\n\n"
+        "OUTPUT RULES -- return a JSON object with exactly these keys:\n"
+        "- 'subject': a short, specific email subject line naming the role and, if there's room, the user's name.\n"
+        "- 'body': the full email body as plain text -- real blank lines between paragraphs, no HTML, no "
+        "markdown, no placeholder brackets like [Company Name] -- use the real values given below.\n\n"
+        f"Role: {job['title']}\nCompany: {job['company']}\nLocation: {job.get('location', '')}\n"
+        f"Job description:\n{job.get('description', '')}\n\n"
+        f"This user's name: {user.get('full_name') or 'Unknown'}\n"
+        f"{brain_section}\n"
+        f"Full content of the user's actual uploaded documents (the ONLY source of truth):\n{doc_content_block}"
+    )
+    client = OpenAI(api_key=analyzer.get_openai_api_key(), timeout=analyzer.get_client_timeout(), max_retries=analyzer.CLIENT_MAX_RETRIES)
+    resp = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "system", "content": system}, {"role": "user", "content": "Write the application email now."}],
+        max_tokens=700,
+        response_format={"type": "json_object"},
+    )
+    parsed = json.loads(resp.choices[0].message.content.strip())
+    subject = (parsed.get("subject") or "").strip()[:200] or f"Application for {job['title']}"
+    body = (parsed.get("body") or "").strip()
+    if not body:
+        raise ValueError("Couldn't generate a draft from your documents -- try again.")
+    return subject, body
+
+
+@app.route("/swiper")
+@auth.login_required
+def swiper_page():
+    return render_template("swiper.html")
+
+
+@app.route("/outbox")
+@auth.login_required
+def outbox_page():
+    return render_template("outbox.html")
+
+
+@app.route("/api/jobs")
+@auth.login_required
+def api_jobs():
+    user = auth.current_user()
+    hidden_ids = db.get_hidden_job_ids(user["id"])
+    applied_ids = {e["job_id"] for e in db.get_tracker_entries_for_user(user["id"]) if e["job_id"]}
+    jobs = jobs_data.get_jobs(exclude_ids=hidden_ids | applied_ids)
+    return jsonify({"ok": True, "jobs": jobs})
+
+
+@app.route("/api/jobs/<job_id>/hide", methods=["POST"])
+@auth.login_required
+def api_hide_job(job_id):
+    user = auth.current_user()
+    db.hide_job(user["id"], job_id)
+    return jsonify({"ok": True})
+
+
+@app.route("/api/jobs/<job_id>/apply", methods=["POST"])
+@auth.login_required
+def api_apply_job(job_id):
+    user = auth.current_user()
+
+    # Swiping the same job right twice must never create a duplicate --
+    # surface the card that already exists instead.
+    existing = db.get_tracker_entry_by_job_id(user["id"], job_id)
+    if existing:
+        return jsonify({"ok": True, "application": _serialize_tracker_entry(existing), "duplicate": True})
+
+    job = jobs_data.get_job_by_id(job_id)
+    if not job:
+        return jsonify({"ok": False, "error": "That job listing is no longer available."}), 404
+
+    try:
+        subject, body = _generate_application_draft(user, job)
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"Couldn't draft that application -- {e}"}), 500
+
+    entry_id = db.create_tracker_entry(
+        user["id"], job_id, job["title"], job["company"], job.get("url", ""),
+        job.get("email", ""), subject, body,
+    )
+    entry = db.get_tracker_entry(user["id"], entry_id)
+    return jsonify({"ok": True, "application": _serialize_tracker_entry(entry)})
+
+
+@app.route("/api/applications")
+@auth.login_required
+def api_get_applications():
+    user = auth.current_user()
+    entries = db.get_tracker_entries_for_user(user["id"])
+    return jsonify({"ok": True, "applications": [_serialize_tracker_entry(e) for e in entries]})
+
+
+@app.route("/api/applications/<int:entry_id>", methods=["PATCH"])
+@auth.login_required
+def api_update_application(entry_id):
+    """Autosave for the review view (subject/body edits) and the status
+    picker -- either can arrive alone or together in one request."""
+    user = auth.current_user()
+    if not db.get_tracker_entry(user["id"], entry_id):
+        return jsonify({"ok": False, "error": "Application not found."}), 404
+    data = request.get_json(force=True)
+
+    if "subject" in data or "body" in data:
+        db.update_tracker_entry(
+            user["id"], entry_id,
+            subject=(data.get("subject") or "").strip()[:300] if "subject" in data else None,
+            body=(data.get("body") or "").strip() if "body" in data else None,
+        )
+    if "status" in data:
+        status = data.get("status")
+        if status not in _TRACKER_STATUSES:
+            return jsonify({"ok": False, "error": "Invalid status."}), 400
+        db.update_tracker_status(user["id"], entry_id, status)
+
+    entry = db.get_tracker_entry(user["id"], entry_id)
+    return jsonify({"ok": True, "application": _serialize_tracker_entry(entry)})
+
+
+@app.route("/api/applications/<int:entry_id>/mark-sent", methods=["POST"])
+@auth.login_required
+def api_mark_application_sent(entry_id):
+    """"Did you send it?" -> Yes, right after "Open in Gmail" -- sets
+    status + a real sent timestamp so the 5-day "Heard back yet?" nudge
+    has something real to count from."""
+    user = auth.current_user()
+    if not db.get_tracker_entry(user["id"], entry_id):
+        return jsonify({"ok": False, "error": "Application not found."}), 404
+    db.update_tracker_status(user["id"], entry_id, "sent", sent_at=db.now_iso())
+    entry = db.get_tracker_entry(user["id"], entry_id)
+    return jsonify({"ok": True, "application": _serialize_tracker_entry(entry)})
 
 
 @app.route("/api/document", methods=["POST"])

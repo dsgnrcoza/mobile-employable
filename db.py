@@ -303,6 +303,13 @@ def init_db():
             summary TEXT NOT NULL,
             created_at TEXT NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS hidden_jobs (
+            id {_PK},
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            job_id TEXT NOT NULL,
+            hidden_at TEXT NOT NULL
+        );
     """)
     conn.commit()
 
@@ -350,6 +357,17 @@ def init_db():
         # Same fix as documents.file_bytes_b64 above: keep the actual
         # bytes in the row itself.
         "ALTER TABLE chat_attachments ADD COLUMN data_b64 TEXT NOT NULL DEFAULT ''",
+        # The JobSwiper -> Outbox -> Tracker feature extends this
+        # existing (previously unused) trackers table rather than
+        # creating a parallel one -- it already had exactly the job
+        # application-tracking shape this needed, just missing the
+        # fields a real drafted-email flow requires.
+        "ALTER TABLE trackers ADD COLUMN job_id TEXT NOT NULL DEFAULT ''",
+        "ALTER TABLE trackers ADD COLUMN job_url TEXT NOT NULL DEFAULT ''",
+        "ALTER TABLE trackers ADD COLUMN recipient_email TEXT NOT NULL DEFAULT ''",
+        "ALTER TABLE trackers ADD COLUMN subject TEXT NOT NULL DEFAULT ''",
+        "ALTER TABLE trackers ADD COLUMN body TEXT NOT NULL DEFAULT ''",
+        "ALTER TABLE trackers ADD COLUMN sent_at TEXT DEFAULT NULL",
         # Deliberately last and best-effort, not part of the CREATE TABLE
         # block above: if any pre-existing rows already share a non-blank
         # email (e.g. two accounts that both had their email set to the
@@ -626,7 +644,7 @@ def delete_user(user_id):
     """
     Deletes the user row outright. Every other table (documents, skills,
     analyses, job_applications, score_history, chat_conversations,
-    chat_attachments, roadmap_completions) references user_id with
+    chat_attachments, roadmap_completions, trackers, hidden_jobs) references user_id with
     ON DELETE CASCADE, so this one delete removes all of it — the
     caller is still responsible for removing anything on disk (uploaded
     files, chat attachments), since cascading a DB row doesn't touch
@@ -765,6 +783,126 @@ def add_application(user_id, job_title, company):
         )
         conn.commit()
         return cur.lastrowid
+    finally:
+        conn.close()
+
+
+# ---------------- JOBSWIPER: TRACKER (drafted -> sent -> replied/interview/rejected) ----------------
+
+def get_tracker_entries_for_user(user_id):
+    conn = get_db()
+    try:
+        rows = conn.execute(
+            "SELECT * FROM trackers WHERE user_id = ? ORDER BY created_at DESC", (user_id,)
+        ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def get_tracker_entry(user_id, entry_id):
+    conn = get_db()
+    try:
+        row = conn.execute(
+            "SELECT * FROM trackers WHERE id = ? AND user_id = ?", (entry_id, user_id)
+        ).fetchone()
+        return dict(row) if row else None
+    finally:
+        conn.close()
+
+
+def get_tracker_entry_by_job_id(user_id, job_id):
+    """Used to dedupe a right-swipe on a job already applied to --
+    swiping the same job twice must surface the existing card, never
+    create a second one."""
+    conn = get_db()
+    try:
+        row = conn.execute(
+            "SELECT * FROM trackers WHERE user_id = ? AND job_id = ?", (user_id, job_id)
+        ).fetchone()
+        return dict(row) if row else None
+    finally:
+        conn.close()
+
+
+def create_tracker_entry(user_id, job_id, job_title, company, job_url, recipient_email, subject, body):
+    conn = get_db()
+    try:
+        now = now_iso()
+        cur = conn.execute(
+            """INSERT INTO trackers
+               (user_id, job_id, job_title, company, job_url, recipient_email, subject, body,
+                status, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'drafted', ?, ?)""",
+            (user_id, job_id, job_title, company, job_url, recipient_email, subject, body, now, now),
+        )
+        conn.commit()
+        return cur.lastrowid
+    finally:
+        conn.close()
+
+
+def update_tracker_entry(user_id, entry_id, subject=None, body=None):
+    """Autosave for the review view -- only touches fields actually
+    passed in, so a save that's only editing the subject never clobbers
+    a body edit still in flight (or vice versa)."""
+    conn = get_db()
+    try:
+        sets, params = [], []
+        if subject is not None:
+            sets.append("subject = ?")
+            params.append(subject)
+        if body is not None:
+            sets.append("body = ?")
+            params.append(body)
+        if not sets:
+            return
+        sets.append("updated_at = ?")
+        params.append(now_iso())
+        params.extend([entry_id, user_id])
+        conn.execute(f"UPDATE trackers SET {', '.join(sets)} WHERE id = ? AND user_id = ?", params)
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def update_tracker_status(user_id, entry_id, status, sent_at=None):
+    conn = get_db()
+    try:
+        if sent_at is not None:
+            conn.execute(
+                "UPDATE trackers SET status = ?, sent_at = ?, updated_at = ? WHERE id = ? AND user_id = ?",
+                (status, sent_at, now_iso(), entry_id, user_id),
+            )
+        else:
+            conn.execute(
+                "UPDATE trackers SET status = ?, updated_at = ? WHERE id = ? AND user_id = ?",
+                (status, now_iso(), entry_id, user_id),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+# ---------------- JOBSWIPER: HIDDEN JOBS (permanent left-swipe) ----------------
+
+def get_hidden_job_ids(user_id):
+    conn = get_db()
+    try:
+        rows = conn.execute("SELECT job_id FROM hidden_jobs WHERE user_id = ?", (user_id,)).fetchall()
+        return {r["job_id"] for r in rows}
+    finally:
+        conn.close()
+
+
+def hide_job(user_id, job_id):
+    conn = get_db()
+    try:
+        conn.execute(
+            "INSERT INTO hidden_jobs (user_id, job_id, hidden_at) VALUES (?, ?, ?)",
+            (user_id, job_id, now_iso()),
+        )
+        conn.commit()
     finally:
         conn.close()
 
