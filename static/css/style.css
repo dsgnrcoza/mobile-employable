@@ -4023,8 +4023,9 @@ button.auth-tab.active {
   flex: 1;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
+  text-align: center;
   gap: 10px;
   padding: 24px;
 }
@@ -4045,6 +4046,7 @@ button.auth-tab.active {
 .chat-empty p {
   color: var(--muted);
   font-size: 13px;
+  max-width: 300px;
 }
 
 .chat-messages {
@@ -4139,15 +4141,54 @@ button.auth-tab.active {
   height: 18px;
 }
 
+/* A recognized leading "/command" needs to render in color -- something
+   a plain <textarea> can never do for just part of its text. The real
+   textarea's own text is made fully transparent (the caret stays
+   visible via caret-color) and a same-sized overlay behind it renders
+   the actual visible text, coloring just the command token. Typing,
+   selection, and auto-grow all still happen on the real (invisible)
+   textarea exactly as before -- the overlay is purely decorative and
+   never receives input (pointer-events: none). */
+.chat-input-highlight-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.chat-input-highlight {
+  position: absolute;
+  inset: 0;
+  padding: 9px 4px;
+  font-size: 14px;
+  font-family: inherit;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  color: var(--fg);
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.chat-input-highlight .cmd-chip {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  border-radius: 6px;
+  padding: 0 5px;
+  font-weight: 700;
+}
+
 .chat-input {
   display: block;
-  flex: 1;
-  min-width: 0;
+  width: 100%;
+  position: relative;
+  z-index: 1;
   background: transparent;
   border: none;
   outline: none;
   resize: none;
-  color: var(--fg);
+  color: transparent;
+  caret-color: var(--fg);
   font-size: 14px;
   font-family: inherit;
   line-height: 1.4;

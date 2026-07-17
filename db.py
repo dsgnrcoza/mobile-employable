@@ -345,6 +345,11 @@ def init_db():
         "ALTER TABLE notes ADD COLUMN source TEXT NOT NULL DEFAULT 'user'",
         "ALTER TABLE users ADD COLUMN enabled_plugins TEXT NOT NULL DEFAULT '[]'",
         "ALTER TABLE users ADD COLUMN remember_all_chats INTEGER NOT NULL DEFAULT 0",
+        # Chat attachments used to only keep a filesystem path -- which
+        # doesn't survive on a read-only/ephemeral serverless deploy.
+        # Same fix as documents.file_bytes_b64 above: keep the actual
+        # bytes in the row itself.
+        "ALTER TABLE chat_attachments ADD COLUMN data_b64 TEXT NOT NULL DEFAULT ''",
         # Deliberately last and best-effort, not part of the CREATE TABLE
         # block above: if any pre-existing rows already share a non-blank
         # email (e.g. two accounts that both had their email set to the
@@ -828,13 +833,13 @@ def set_remember_all_chats(user_id, enabled: bool):
 
 # ---------------- CHAT ATTACHMENT QUERIES ----------------
 
-def add_chat_attachment(user_id, filename, stored_path, mime_type, text_content=""):
+def add_chat_attachment(user_id, filename, stored_path, mime_type, text_content="", data_b64=""):
     conn = get_db()
     try:
         cur = conn.execute(
-            """INSERT INTO chat_attachments (user_id, filename, stored_path, mime_type, text_content, created_at)
-               VALUES (?, ?, ?, ?, ?, ?)""",
-            (user_id, filename, stored_path, mime_type, text_content, now_iso()),
+            """INSERT INTO chat_attachments (user_id, filename, stored_path, mime_type, text_content, data_b64, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (user_id, filename, stored_path, mime_type, text_content, data_b64, now_iso()),
         )
         conn.commit()
         return cur.lastrowid

@@ -222,6 +222,18 @@
     ["Something new to look at?", "Paste a job ad and I'll score it against your profile."],
     ["What can I help with?", "Fit checks, CVs, cover letters, or just questions — I'm listening."],
     ["Ready when you are" + (firstName ? ", " + firstName : "") + ".", "Share a job posting or a document, and I'll get to work."],
+    // A short, punchy Claude-style opener — a couple words, not a full
+    // sentence — mixed into the same rotation as the longer ones above.
+    ["Coffee and Ploy?", "Let's find your next move."],
+    ["Tea and a job hunt?", "Paste a job ad and let's get into it."],
+    ["Job hunt o'clock.", "Paste a job ad and I'll size it up."],
+    ["Let's make some moves.", "A job ad, a CV, a cover letter — your call."],
+    ["New day, new lead?", "Share a job ad or a document to review."],
+    ["Onwards and upwards.", "Paste a job ad, or ask me anything."],
+    ["Let's get you hired.", "Paste a job ad and I'll tell you your real odds."],
+    ["You vs. the job market.", "I'm on your side — paste a job ad to start."],
+    ["Ready to job hunt?", "Paste a job ad, or ask me anything."],
+    ["You, me, a job hunt.", "Paste a job ad and I'll tell you where you stand."],
   ];
 
   // A real proactive check-in, computed server-side from idle time and
@@ -1146,8 +1158,34 @@
   function autoGrowChatInput() {
     chatInput.style.height = "auto";
     chatInput.style.height = chatInput.scrollHeight + "px";
+    updateInputHighlight();
   }
   chatInput.addEventListener("input", autoGrowChatInput);
+
+  // The real textarea's own text is fully transparent (see the CSS) --
+  // this overlay behind it renders the visible text and is the only
+  // place a recognized leading "/command" actually gets colored, since
+  // a plain textarea can never color just part of its own text.
+  var chatInputHighlightEl = document.getElementById("chat-input-highlight");
+
+  function updateInputHighlight() {
+    var value = chatInput.value;
+    var match = /^(\/\w+)(\s|$)/.exec(value);
+    var html;
+    if (match && SLASH_COMMANDS.some(function (c) { return c.cmd === match[1].toLowerCase(); })) {
+      html = '<span class="cmd-chip">' + escapeHtml(match[1]) + "</span>" + escapeHtml(value.slice(match[1].length));
+    } else {
+      html = escapeHtml(value);
+    }
+    // A trailing newline needs a second one to actually render as a
+    // visible blank line in a pre-wrap block -- same quirk a plain
+    // <pre> has.
+    chatInputHighlightEl.innerHTML = html.replace(/\n$/, "\n\n");
+    chatInputHighlightEl.scrollTop = chatInput.scrollTop;
+  }
+  chatInput.addEventListener("scroll", function () {
+    chatInputHighlightEl.scrollTop = chatInput.scrollTop;
+  });
 
   // ---------- "/" slash commands (Discord-style) ----------
   // Typing "/" -- or tapping the dedicated "/" button on the input --
@@ -1259,8 +1297,17 @@
     fetch("/api/chat/upload", { method: "POST", body: formData })
       .then(function (r) { return r.json(); })
       .then(function (data) {
-        if (!data.ok) return;
+        if (!data.ok) {
+          appendChatMessageTyped(data.error || "Couldn't upload that photo. Try again?");
+          return;
+        }
         sendQualifyImage(data.id, "/api/chat/attachment-thumb/" + data.id);
+      })
+      // A failed upload used to just go silent -- a network hiccup or
+      // server error left the sheet closed with nothing having
+      // visibly happened at all.
+      .catch(function () {
+        appendChatMessageTyped("Couldn't upload that photo — check your connection and try again.");
       });
   });
 

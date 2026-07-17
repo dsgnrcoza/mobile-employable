@@ -54,7 +54,10 @@
     <div class="chat-slash-menu" id="chat-slash-menu" hidden></div>
 
     <div class="chat-input-shell">
-      <textarea id="chat-input" class="chat-input" placeholder="Paste a job ad or ask anything…" rows="1"></textarea>
+      <div class="chat-input-highlight-wrap">
+        <div class="chat-input-highlight" id="chat-input-highlight" aria-hidden="true"></div>
+        <textarea id="chat-input" class="chat-input" placeholder="Paste a job ad or ask anything…" rows="1"></textarea>
+      </div>
       <div class="chat-voice-live" id="chat-voice-live" hidden>
         <button type="button" class="chat-voice-cancel-btn" id="chat-voice-cancel-btn" aria-label="Cancel dictation">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
