@@ -10,8 +10,12 @@
   var badgeEl = document.getElementById("swiper-outbox-badge");
 
   var queue = [];
+  var stack = []; // {el, job} front-to-back, stack[0] is always the interactive top card
   var toastTimer = null;
-  var topCardEl = null;
+
+  var SPRING_BACK = "transform 0.42s cubic-bezier(0.34, 1.56, 0.64, 1)";
+  var STACK_SHIFT = "transform 0.38s cubic-bezier(0.22, 1, 0.36, 1)";
+  var FLY_AWAY = "transform 0.42s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.42s ease";
 
   function escapeHtml(s) {
     return (s || "").replace(/[&<>"']/g, function (c) {
@@ -49,9 +53,20 @@
   }
 
   function refreshEmptyState() {
-    var hasCards = deckEl.children.length > 0;
+    var hasCards = stack.length > 0;
     emptyEl.hidden = hasCards;
     fallbackActionsEl.hidden = !hasCards;
+  }
+
+  // Resting transform for a given position in the stack -- position 0
+  // (front, interactive) sits at full size; each position behind it is
+  // very slightly smaller and dropped, so the deck reads as a real
+  // physical stack of cards rather than everything living in one spot.
+  // Accepts fractional positions too, so a card mid-transition between
+  // two slots can be driven frame-by-frame instead of only snapping
+  // between whole positions.
+  function restTransform(i) {
+    return "scale(" + (1 - i * 0.04) + ") translateY(" + (i * 10) + "px)";
   }
 
   function buildCard(job) {
@@ -77,42 +92,56 @@
     return card;
   }
 
-  function renderDeck() {
+  function addCardAt(i) {
+    var job = queue[i];
+    var el = buildCard(job);
+    el.style.transition = "none";
+    el.style.transform = restTransform(i);
+    el.style.zIndex = String(10 - i);
+    if (i === 0) el.classList.add("is-top");
+    deckEl.appendChild(el);
+    var entry = { el: el, job: job };
+    stack.push(entry);
+    wireDrag(entry);
+    return entry;
+  }
+
+  // First paint: build the whole visible stack from scratch. Every
+  // later swipe uses advanceStack() instead, which shifts the existing
+  // DOM cards forward rather than tearing the deck down and rebuilding
+  // it -- that's what makes the reveal underneath feel like one
+  // continuous motion instead of a jump cut.
+  function renderInitialDeck() {
     deckEl.innerHTML = "";
-    topCardEl = null;
-    // Only the top 3 need to exist in the DOM -- the rest of the queue
-    // is invisible behind them anyway, so building the whole stack up
-    // front would just be wasted layout work on every swipe. Built
-    // back-to-front (so the top card's DOM node paints last, above the
-    // others) -- topCardEl is kept separately since that back-to-front
-    // order means the top card is never simply deckEl's first child.
-    var visible = queue.slice(0, 3);
-    for (var i = visible.length - 1; i >= 0; i--) {
-      var card = buildCard(visible[i]);
-      card.style.zIndex = String(10 - i);
-      card.style.setProperty("--stack-i", String(i));
-      deckEl.appendChild(card);
-      if (i === 0) {
-        card.classList.add("is-top");
-        wireDrag(card, visible[i]);
-        topCardEl = card;
-      }
-    }
+    stack = [];
+    var count = Math.min(3, queue.length);
+    for (var i = 0; i < count; i++) addCardAt(i);
     refreshEmptyState();
   }
 
-  function removeTopJob() {
+  function advanceStack() {
     queue.shift();
-    renderDeck();
+    stack.shift();
+
+    stack.forEach(function (entry, i) {
+      entry.el.style.transition = STACK_SHIFT;
+      entry.el.style.zIndex = String(10 - i);
+      entry.el.style.transform = restTransform(i);
+      entry.el.classList.toggle("is-top", i === 0);
+    });
+
+    while (stack.length < 3 && stack.length < queue.length) {
+      addCardAt(stack.length);
+    }
+
+    refreshEmptyState();
   }
 
   function commitSwipe(direction, job) {
-    // Optimistic UI: the card is already flying off-screen and the next
-    // one is already showing before the network call below even
-    // resolves. If the hide/apply call fails, the job just never gets
-    // removed server-side and will reappear on the next full reload of
-    // the queue -- an acceptable, simple failure mode that keeps the
-    // swipe loop itself fast and uninterrupted, per spec.
+    // Fired immediately, in parallel with the fly-away animation below
+    // -- the swipe loop never waits on this network call. If it fails,
+    // the job just never gets removed server-side and reappears on the
+    // next full reload of the queue.
     if (direction === "left") {
       fetch("/api/jobs/" + encodeURIComponent(job.id) + "/hide", { method: "POST" }).catch(function () {});
     } else {
@@ -130,33 +159,70 @@
           showToast("Couldn't reach Ploy — that one didn't save. Try again.");
         });
     }
-    removeTopJob();
   }
 
-  function flyCardAway(card, direction, onDone) {
-    var travel = window.innerWidth * 1.4;
-    card.style.transition = "transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1)";
+  function flyCardAway(entry, direction) {
+    var card = entry.el;
+    var travel = window.innerWidth * 1.5;
+    var rise = -60 - Math.random() * 30;
+    // This card is no longer in the stack array by the time it flies
+    // away (advanceStack already shifted it out) -- drop its is-top
+    // marker explicitly so exactly one card ever carries it, even
+    // during the brief overlap while this one is still departing.
+    card.classList.remove("is-top");
+    card.style.transition = FLY_AWAY;
     card.style.transform =
-      "translate(" + (direction === "left" ? -travel : travel) + "px, -40px) rotate(" +
-      (direction === "left" ? -24 : 24) + "deg)";
-    setTimeout(onDone, 300);
+      "translate(" + (direction === "left" ? -travel : travel) + "px, " + rise + "px) rotate(" +
+      (direction === "left" ? -28 : 28) + "deg) scale(0.92)";
+    card.style.opacity = "0.4";
+    setTimeout(function () { card.remove(); }, 420);
   }
 
-  function wireDrag(card, job) {
+  function swipeCommitted(entry, direction) {
+    commitSwipe(direction, entry.job);
+    flyCardAway(entry, direction);
+    advanceStack();
+  }
+
+  function wireDrag(entry) {
+    var card = entry.el;
     var startX = 0, startY = 0, dx = 0, dy = 0, startTime = 0, dragging = false, decided = false;
     var stampApply = card.querySelector(".swiper-card-stamp-apply");
     var stampHide = card.querySelector(".swiper-card-stamp-hide");
+    var rafPending = false;
+
+    function isTop() {
+      return stack.length > 0 && stack[0].el === card;
+    }
+
+    function applyFrame() {
+      rafPending = false;
+      var rotation = dx / 16;
+      card.style.transform = "translate(" + dx + "px, " + dy + "px) rotate(" + rotation + "deg)";
+      var pull = Math.min(1, Math.abs(dx) / 120);
+      stampApply.style.opacity = dx > 0 ? pull : 0;
+      stampHide.style.opacity = dx < 0 ? pull : 0;
+      // The next card in the stack rises to meet the front position as
+      // this one is dragged away, so committing mid-drag (a fast flick
+      // released early) never has to "catch up" visually afterward --
+      // by the time this card commits, the one underneath is already
+      // sitting close to where it needs to be.
+      var beneath = stack[1];
+      if (beneath) {
+        beneath.el.style.transition = "none";
+        beneath.el.style.transform = restTransform(1 - pull);
+      }
+    }
 
     function onPointerMove(e) {
       dx = e.clientX - startX;
       dy = e.clientY - startY;
       if (!dragging && Math.hypot(dx, dy) < 6) return;
       dragging = true;
-      var rotation = dx / 18;
-      card.style.transform = "translate(" + dx + "px, " + dy + "px) rotate(" + rotation + "deg)";
-      var pull = Math.min(1, Math.abs(dx) / 100);
-      stampApply.style.opacity = dx > 0 ? pull : 0;
-      stampHide.style.opacity = dx < 0 ? pull : 0;
+      if (!rafPending) {
+        rafPending = true;
+        requestAnimationFrame(applyFrame);
+      }
     }
 
     function onPointerUp() {
@@ -165,23 +231,27 @@
       card.removeEventListener("pointercancel", onPointerUp);
       if (decided) return;
       var elapsed = Date.now() - startTime;
-      var isFastFlick = Math.abs(dx) > 30 && elapsed < 250;
-      var committed = dragging && (Math.abs(dx) > 100 || isFastFlick);
+      var isFastFlick = Math.abs(dx) > 28 && elapsed < 260;
+      var committed = dragging && (Math.abs(dx) > 110 || isFastFlick);
       if (committed) {
         decided = true;
-        var direction = dx < 0 ? "left" : "right";
-        flyCardAway(card, direction, function () { commitSwipe(direction, job); });
+        swipeCommitted(entry, dx < 0 ? "left" : "right");
       } else {
-        card.style.transition = "transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1)";
-        card.style.transform = "";
+        card.style.transition = SPRING_BACK;
+        card.style.transform = restTransform(0);
         stampApply.style.opacity = 0;
         stampHide.style.opacity = 0;
+        var beneath = stack[1];
+        if (beneath) {
+          beneath.el.style.transition = SPRING_BACK;
+          beneath.el.style.transform = restTransform(1);
+        }
       }
       dragging = false;
     }
 
     card.addEventListener("pointerdown", function (e) {
-      if (decided) return;
+      if (decided || !isTop()) return;
       startX = e.clientX;
       startY = e.clientY;
       dx = 0;
@@ -194,15 +264,11 @@
       card.addEventListener("pointerup", onPointerUp);
       card.addEventListener("pointercancel", onPointerUp);
     });
-
-    // Fallback buttons act on whatever the current top card is.
-    card.dataset.wired = "1";
   }
 
   function triggerFallback(direction) {
-    if (!topCardEl || !queue.length) return;
-    var job = queue[0];
-    flyCardAway(topCardEl, direction, function () { commitSwipe(direction, job); });
+    if (!stack.length) return;
+    swipeCommitted(stack[0], direction);
   }
 
   hideBtn.addEventListener("click", function () { triggerFallback("left"); });
@@ -212,11 +278,11 @@
     .then(function (r) { return r.json(); })
     .then(function (data) {
       queue = data.ok ? data.jobs : [];
-      renderDeck();
+      renderInitialDeck();
     })
     .catch(function () {
       queue = [];
-      renderDeck();
+      renderInitialDeck();
       showToast("Couldn't load jobs — check your connection.");
     });
 
