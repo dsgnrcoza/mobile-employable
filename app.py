@@ -754,6 +754,7 @@ def _run_verdict(user, job_ad):
         "GROUNDING: base the verdict only on what's actually in the documents below. Never invent "
         "experience, skills, or qualifications that aren't there. If there isn't enough real document "
         "content to judge, say so in 'breakdown' and score low.\n\n"
+        f"{SA_EMPLOYMENT_EXPERTISE}\n\n"
         "OUTPUT RULES -- return a JSON object with exactly these keys:\n"
         "- 'job_title': the job title, extracted from the ad.\n"
         "- 'company': the company name if stated in the ad, else an empty string.\n"
@@ -815,6 +816,7 @@ def _run_gap_analysis(user, target_role):
         "GROUNDING: base this only on what's actually in the documents below versus what that role/field "
         "typically and genuinely requires. Never invent experience they don't have, and never invent a "
         "requirement that isn't a real, common expectation for that role.\n\n"
+        f"{SA_EMPLOYMENT_EXPERTISE}\n\n"
         "OUTPUT RULES -- return a JSON object with exactly these keys:\n"
         "- 'target_role': the role/field, cleaned up, as given.\n"
         "- 'readiness_score': an integer 0-100 for how ready they are for that kind of role right now. Be "
@@ -912,6 +914,7 @@ def _generate_tailored_document(user, kind, job_title="", company="", job_ad="",
         "dates, schools, achievements, contact details) must come from the user's real documents below. "
         "NEVER invent a person, career, employer, or achievement that isn't actually theirs. If there isn't "
         "enough real information to write this, say so plainly in 'description' instead of fabricating.\n\n"
+        f"{SA_EMPLOYMENT_EXPERTISE}\n\n"
         "OUTPUT RULES -- return a JSON object with exactly these keys:\n"
         "- 'html': the full document as valid HTML using <p>, <strong>, <em>, <ul>, <li>, <h1>, <h2>, <h3>, "
         "<hr>, <br> tags"
@@ -2475,6 +2478,49 @@ def api_cv_download_docx():
 # renderer (_render_cv_pdf_bytes / api_cv_download_docx, both keyed off
 # cv_export.parse_cv_html's block kinds and css_class) always knows what
 # it's looking at regardless of which flow produced the HTML.
+# Real, specific South African labour-market knowledge -- not generic
+# "how to write a CV" filler. Injected into every AI call that judges
+# fit/gaps or writes a document, so advice and generated content both
+# reflect what actually works for a young SA job seeker rather than
+# defaulting to generic Western CV conventions that don't quite fit
+# this market (ID numbers, NQF levels, language proficiencies, YES
+# programme/learnerships as legitimate first-job routes, etc.).
+SA_EMPLOYMENT_EXPERTISE = (
+    "SOUTH AFRICAN EMPLOYMENT CONTEXT -- apply this real, specific knowledge, not generic CV advice:\n"
+    "- Personal info: leave out ID number, date of birth, marital status, race, and photo by default -- "
+    "modern SA practice (and POPIA privacy norms) treats these as unnecessary and sometimes discriminatory "
+    "to disclose upfront. Only include one if the specific job ad explicitly asks for it (some government/"
+    "parastatal/security-sector roles still do).\n"
+    "- Qualifications: reference NQF levels where they clarify standing (matric is NQF 4; a diploma is "
+    "typically NQF 6; a bachelor's degree NQF 7) -- useful for entry-level candidates whose only credential "
+    "is matric, so name real matric subjects/symbols if that's genuinely their strongest evidence.\n"
+    "- Languages: list real language proficiencies (English, Afrikaans, isiZulu, isiXhosa, Sesotho, "
+    "Setswana, etc.) as a genuine differentiator, especially for customer-facing, call-centre, retail, "
+    "hospitality, or government-adjacent roles where multilingual ability is actively valued -- never invent "
+    "one that isn't in their real documents.\n"
+    "- No formal work history yet: this is normal, not a disqualifier -- surface real alternatives as "
+    "legitimate CV content: learnerships, internships, the YES (Youth Employment Service) programme, "
+    "SETA-funded training, NYDA programmes, informal or part-time work, tutoring, community/church/NGO "
+    "volunteering, school leadership roles, and personal projects. Frame these as real evidence of "
+    "reliability and initiative, not filler.\n"
+    "- References: 2 real named referees (name, role, relationship, contact) beat 'available on request' "
+    "whenever the user's documents actually contain them -- only fall back to the generic line when no real "
+    "referee is on record.\n"
+    "- ATS reality: SA employers increasingly screen through PNet, Careers24, LinkedIn, Indeed, or an "
+    "internal ATS before a human ever reads it -- keep formatting parseable (no tables/text boxes/columns "
+    "for a CV meant to survive a parser) and mirror the exact keywords/terminology the job ad itself uses.\n"
+    "- Format conventions: DD/MM/YYYY dates, 'R' for Rand amounts, 'matric' (not 'high school diploma') for "
+    "the NSC.\n"
+    "- Cover letters here run short -- well under a page, naming the specific role and where it was seen, a "
+    "real named greeting when the job ad gives one (not a generic 'Dear Sir/Madam'), and a direct, confident "
+    "closing rather than a generic 'I look forward to hearing from you' filler line.\n"
+    "- Universal craft that still matters most: quantify achievements with real numbers (%, R value, "
+    "headcount, time saved) wherever their documents actually support one, use strong action verbs over "
+    "passive description, tailor per application rather than reusing one generic version, and treat a typo "
+    "or inconsistent formatting as a real, damaging red flag -- SA recruiters skim in seconds and do dock "
+    "for it just like anywhere else."
+)
+
 CV_STRUCTURE_GUIDANCE = (
     "STRUCTURE -- follow this exact shape so the app can render your CV in different visual templates "
     "without you having to think about styling at all (the app's own templates handle every visual "
@@ -3299,14 +3345,32 @@ def _tool_call_detail(tool_name, args):
     return ""
 
 
+# Shown to the user (and fed back to the model as this tool call's
+# result) when a tool raises something unexpected -- friendly and
+# specific to what was being attempted, never the raw exception text,
+# which would read as a stack trace leaking into a chat bubble.
+_TOOL_FAILURE_MESSAGES = {
+    "check_job_fit": "Couldn't score that fit just now -- want me to try again?",
+    "build_tailored_cv": "Your CV didn't generate that time -- want me to try again?",
+    "build_cover_letter": "The cover letter didn't generate that time -- want me to try again?",
+    "analyze_skill_gaps": "Couldn't run that gap analysis just now -- want me to try again?",
+    "generate_skills_chart": "Couldn't build that chart just now -- want me to try again?",
+    "generate_image": "That image didn't generate that time -- want me to try again?",
+}
+
+
 def _execute_chat_tool_call(user, tool_name, args):
     """Runs one tool call from /api/chat's agentic loop. Returns
     (kind, payload):
     - ("card", card_dict) -- a normal, successful action.
-    - ("text", reply_str) -- a dead end that should stop the loop right
-      there, either because required info is missing (e.g. no job ad
-      yet) or the call raised. Same shape either way since both are
-      "here's why I can't continue" replies to the user.
+    - ("text", reply_str) -- a genuine dead end that should stop the
+      whole turn right there, because required info is missing (e.g. no
+      job ad yet) and nothing else in a multi-part request can sensibly
+      continue without it.
+    - ("error", reply_str) -- this one call failed unexpectedly (a raised
+      exception), but that doesn't invalidate the rest of a multi-part
+      request -- the loop keeps going so whatever else was asked still
+      gets attempted, and only this part gets reported as unsuccessful.
     - (None, None) -- unrecognized tool name, silently skipped.
     """
     try:
@@ -3345,7 +3409,8 @@ def _execute_chat_tool_call(user, tool_name, args):
                 return "text", "What should the image show?"
             return "card", {"type": "image", "prompt": prompt, "image_b64": _generate_chat_image(prompt)}
     except Exception as e:
-        return "text", f"Something went wrong there -- {e}"
+        print(f"[chat tool error] {tool_name}({args}): {e!r}")
+        return "error", _TOOL_FAILURE_MESSAGES.get(tool_name, "Something didn't work there -- want me to try again?")
     return None, None
 
 
@@ -3447,6 +3512,9 @@ NEVER DESCRIBE AN ACTION INSTEAD OF TAKING IT. You have no web/internet access, 
 1. Across turns: never say "hold on," "give me a second," "I'll search for some listings," or "I'll get back to you" — there is nothing on the other side of that promise. If you don't have real job listings to point to, say so directly and pivot to what you can actually do right now.
 2. Within THIS SAME reply: if what you're about to say is "I'll build that CV for you," "let me check your fit," "I'll generate that image," or any equivalent — stop before you write it, and call the matching tool (build_tailored_cv / check_job_fit / build_cover_letter / analyze_skill_gaps / generate_skills_chart / generate_image) in this exact reply instead of narrating it. You can call more than one tool across a multi-part request, in sequence, one after another — nothing stops you from checking a fit AND building a CV AND drafting a letter all in response to one message, if that's what was actually asked. A sentence describing an action is never an acceptable substitute for the tool call that actually performs it. If a whole request has several parts, work through all of them via tool calls before your final reply, not just the first one.
 Worked example — user pastes a job ad and says "check my fit for this and build me a CV for it": your first move is calling check_job_fit with that job ad — not text, a real tool call. Once you see the score come back, that's part one done; part two ("build me a CV") is still outstanding, so your very next move in this same turn is calling build_tailored_cv — again, an actual call, not "now let me build your CV." Only after both calls have actually happened do you write a short closing line (e.g. "Done — want a cover letter too?"). Getting this wrong looks like: writing "I'll check your fit and then build your CV" as plain text and stopping — that's the exact failure mode this section exists to prevent.
+If one part of a multi-part request comes back as a failure (you'll see this as a tool result saying something didn't work), that failure belongs to that one part only — it never cancels the rest of the request. Keep going and attempt whatever else was asked, then mention the one that failed briefly and plainly in your closing line ("Your CV's ready — the cover letter didn't generate, want me to try that again?") instead of abandoning the whole reply or apologizing at length.
+
+BE SMART ABOUT REAL, MULTI-PART REQUESTS. A message with several asks in it ("check my fit, build me a CV, and write a cover letter for this one") is not three separate conversations — it's one turn where you work through all three before you're done. Don't silently pick the first one and drop the rest, don't ask which one they want when they've already told you, and don't summarize what you're "about to do" instead of just doing it. If a later part genuinely depends on the outcome of an earlier one (e.g. tailoring a CV specifically to a job you were only asked to fit-check first), use the earlier result to inform the later call rather than treating them as unrelated.
 
 SLASH COMMANDS — this app's chat input has three explicit commands the user can trigger, each an unambiguous instruction, not something to interpret loosely: '/builder' at the start of a message means everything after it is an explicit build request — read it to tell whether they want a CV, a cover letter, or both, and call the matching tool(s) immediately rather than asking which they meant unless it's genuinely unclear. '/qualify' means they've attached a photo of a job ad (see check_job_fit's own description for exactly how to handle it). '/gaps' at the start of a message is an explicit alias for a gap analysis — call analyze_skill_gaps with whatever role/field follows it.
 
@@ -3464,6 +3532,8 @@ Voice: sharp, confident, on the user's side, zero corporate filler. Talk like a 
 - Fragments and one-word reactions are fine. It's fine to have a light opinion, disagree, or push back if something in their plan seems off — a real friend wouldn't just validate everything.
 
 SKILLS OVER POLISH. Today's job market is saturated with candidates who already have well-written CVs and cover letters — those remain necessary, but they're no longer the strongest differentiator on their own. What actually sets a candidate apart is demonstrable skills, measurable abilities, relevant experience, and real proof of competence. Let that shape your guidance by default: point the user toward developing, showcasing, validating, and communicating their actual skills, and treat a CV or cover letter as the vehicle that presents those skills, not the main event. When someone asks purely for wordsmithing, give them that — but don't let "make my CV/letter better" be where the conversation quietly stops if there's a more fundamental gap (a missing skill, no evidence for a claim they're making, nothing to back up a line on the page) sitting underneath it.
+
+{SA_EMPLOYMENT_EXPERTISE}
 
 The moves this app is built around — steer the user toward whichever is the useful next step, don't just wait to be asked:
 - "Am I a fit for this job?" — paste a job ad, get a fit verdict scored against their real CV.
@@ -3535,7 +3605,8 @@ Never claim you can't see their documents — if the block above says no content
         else:
             openai_messages.append({"role": role, "content": text or " "})
 
-    model_name = "gpt-4o" if (has_images or _looks_complex(messages_in)) else "gpt-4o-mini"
+    is_complex_request = _looks_complex(messages_in)
+    model_name = "gpt-4o" if (has_images or is_complex_request) else "gpt-4o-mini"
     active_tools = _CHAT_TOOLS
 
     # Agentic loop: a genuinely multi-part request ("check my fit for
@@ -3558,7 +3629,12 @@ Never claim you can't see their documents — if the block above says no content
     # rather than deciding turn-by-turn with no forethought. Skipped for
     # very short messages ("thanks", "ok") where there's nothing to plan.
     latest_user_text = next((m.get("text", "") for m in reversed(messages_in) if m.get("role") == "user"), "")
-    if len(latest_user_text.strip()) >= 12:
+    # A genuinely multi-part request already has an obvious plan (it's
+    # spelled out in the message itself) and is exactly the case where
+    # every second of budget matters most for actually finishing all of
+    # it -- skip the separate planning pass there and spend that time
+    # on the real work instead.
+    if len(latest_user_text.strip()) >= 12 and not is_complex_request:
         brain = db.get_user_brain(user["id"]) if user.get("remember_all_chats") else {}
         thinking_note = _generate_thinking_note(client, latest_user_text, brain.get("summary", ""))
         if thinking_note:
@@ -3573,7 +3649,13 @@ Never claim you can't see their documents — if the block above says no content
     # re-parsing raw JSON tool output each round).
     scratchpad = []
 
-    MAX_TOOL_ROUNDS = 4
+    # 6 rather than 4 -- a genuinely multi-part request (fit-check + CV +
+    # cover letter, say) can span several rounds even though each round
+    # itself may carry more than one tool call, and a failed tool call no
+    # longer ends the turn early (see the "error" kind above), so there's
+    # more legitimate reason to keep going a little further before
+    # cutting off.
+    MAX_TOOL_ROUNDS = 6
     for _ in range(MAX_TOOL_ROUNDS):
         if scratchpad:
             openai_messages.append({
@@ -3590,9 +3672,10 @@ Never claim you can't see their documents — if the block above says no content
                 tool_choice="auto",
             )
         except Exception as e:
+            print(f"[chat completion error] {e!r}")
             if steps:
                 break  # show what we already have rather than losing it to a later-round failure
-            return jsonify({"ok": False, "error": str(e)}), 500
+            return jsonify({"ok": False, "error": "Couldn't reach Ploy just now -- check your connection and try again."}), 500
 
         message = resp.choices[0].message
         tool_calls = message.tool_calls or []
@@ -3640,7 +3723,13 @@ Never claim you can't see their documents — if the block above says no content
                 steps.append({"type": "text", "text": payload})
                 openai_messages.append({"role": "tool", "tool_call_id": call.id, "content": payload})
                 scratchpad.append(f"- {call.function.name}({args}) -> dead end: {payload[:120]}")
-                stop_here = True  # a dead end (missing info / error) ends the turn right there
+                stop_here = True  # missing info the model needs before it can continue at all
+            elif kind == "error":
+                steps.append({"type": "text", "text": payload})
+                openai_messages.append({"role": "tool", "tool_call_id": call.id, "content": payload})
+                scratchpad.append(f"- {call.function.name}({args}) -> failed unexpectedly, but keep going with anything else that was asked.")
+                # Doesn't set stop_here -- one part of a multi-part request
+                # failing shouldn't cancel the rest of it.
             else:
                 openai_messages.append({"role": "tool", "tool_call_id": call.id, "content": "Unavailable."})
 
