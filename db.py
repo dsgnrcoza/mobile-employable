@@ -368,6 +368,12 @@ def init_db():
         "ALTER TABLE trackers ADD COLUMN subject TEXT NOT NULL DEFAULT ''",
         "ALTER TABLE trackers ADD COLUMN body TEXT NOT NULL DEFAULT ''",
         "ALTER TABLE trackers ADD COLUMN sent_at TEXT DEFAULT NULL",
+        # Free-text, same shape as jobs_data's own "salary" field (e.g.
+        # "R6,500 - R8,000 / month") -- captured once at apply time so
+        # the Outbox can sort by it later without needing to go back to
+        # the original job listing, which may no longer even be in the
+        # current pool by then.
+        "ALTER TABLE trackers ADD COLUMN salary TEXT NOT NULL DEFAULT ''",
         # Deliberately last and best-effort, not part of the CREATE TABLE
         # block above: if any pre-existing rows already share a non-blank
         # email (e.g. two accounts that both had their email set to the
@@ -825,16 +831,16 @@ def get_tracker_entry_by_job_id(user_id, job_id):
         conn.close()
 
 
-def create_tracker_entry(user_id, job_id, job_title, company, job_url, recipient_email, subject, body):
+def create_tracker_entry(user_id, job_id, job_title, company, job_url, recipient_email, subject, body, salary=""):
     conn = get_db()
     try:
         now = now_iso()
         cur = conn.execute(
             """INSERT INTO trackers
-               (user_id, job_id, job_title, company, job_url, recipient_email, subject, body,
+               (user_id, job_id, job_title, company, job_url, recipient_email, subject, body, salary,
                 status, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'drafted', ?, ?)""",
-            (user_id, job_id, job_title, company, job_url, recipient_email, subject, body, now, now),
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'drafted', ?, ?)""",
+            (user_id, job_id, job_title, company, job_url, recipient_email, subject, body, salary, now, now),
         )
         conn.commit()
         return cur.lastrowid
@@ -880,6 +886,31 @@ def update_tracker_status(user_id, entry_id, status, sent_at=None):
                 (status, now_iso(), entry_id, user_id),
             )
         conn.commit()
+    finally:
+        conn.close()
+
+
+def delete_tracker_entry(user_id, entry_id):
+    """Returns True if a row was actually deleted -- lets the route tell
+    a real delete apart from someone re-deleting (or deleting another
+    user's) already-gone entry."""
+    conn = get_db()
+    try:
+        cur = conn.execute("DELETE FROM trackers WHERE id = ? AND user_id = ?", (entry_id, user_id))
+        conn.commit()
+        return cur.rowcount > 0
+    finally:
+        conn.close()
+
+
+def delete_tracker_entries_by_status(user_id, status):
+    """Bulk "Clear drafted"-style delete -- returns how many rows were
+    actually removed, so the caller can report a real count back."""
+    conn = get_db()
+    try:
+        cur = conn.execute("DELETE FROM trackers WHERE user_id = ? AND status = ?", (user_id, status))
+        conn.commit()
+        return cur.rowcount
     finally:
         conn.close()
 

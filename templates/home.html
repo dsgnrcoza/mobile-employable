@@ -66,16 +66,19 @@
         <textarea id="chat-input" class="chat-input" placeholder="Paste a job ad or ask anything…" rows="1"></textarea>
       </div>
       <div class="chat-voice-live" id="chat-voice-live" hidden>
-        <button type="button" class="chat-voice-cancel-btn" id="chat-voice-cancel-btn" aria-label="Cancel dictation">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        </button>
         <div class="chat-voice-waveform" aria-hidden="true">
           <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
         </div>
       </div>
       <div class="chat-input-buttons-row">
+        <!-- Doubles as the "/" slash-command trigger and, while
+             dictating, the cancel-dictation control -- swapping icons
+             in place rather than showing a second X button stacked
+             above it, so cancel visually replaces "/" instead of
+             appearing as an extra element. -->
         <button type="button" class="chat-slash-btn" id="chat-slash-btn" aria-label="Slash commands">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="17" y1="3" x2="7" y2="21"/></svg>
+          <svg class="chat-slash-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="17" y1="3" x2="7" y2="21"/></svg>
+          <svg class="chat-slash-cancel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
         <div class="chat-input-actions">
           <button type="button" class="chat-mic-btn" id="chat-mic-btn" aria-label="Voice dictation">

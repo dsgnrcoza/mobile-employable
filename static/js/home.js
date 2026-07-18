@@ -1147,6 +1147,13 @@
       openQualifySheet();
       return;
     }
+    // /help never reaches the model at all -- see renderHelpMessage's
+    // own comment for why -- so typing it by hand and hitting send has
+    // to short-circuit here too, not just the slash-menu item's click.
+    if (raw.toLowerCase() === "/help") {
+      renderHelpMessage();
+      return;
+    }
     var text = pendingReplyContext ? 'Replying to: "' + pendingReplyContext + '"\n' + raw : raw;
     clearReplyContext();
     chatInput.value = "";
@@ -1214,9 +1221,11 @@
   // inserting anything into the input.
 
   var SLASH_COMMANDS = [
-    { cmd: "/builder", label: "Builder", desc: "Turn your next message into a CV or cover letter request" },
-    { cmd: "/qualify", label: "Qualify", desc: "Upload a photo of a job ad to check your fit" },
-    { cmd: "/gaps", label: "Gaps", desc: "See what's holding you back from a role you name" },
+    { cmd: "/builder", label: "Builder", desc: "Build a CV or cover letter" },
+    { cmd: "/qualify", label: "Qualify", desc: "Snap a job ad to check your fit" },
+    { cmd: "/gaps", label: "Gaps", desc: "See what's holding you back" },
+    { cmd: "/image", label: "Image", desc: "Generate an image" },
+    { cmd: "/help", label: "Help", desc: "What this app can do" },
   ];
 
   var slashMenuEl = document.getElementById("chat-slash-menu");
@@ -1238,6 +1247,10 @@
           chatInput.value = "";
           autoGrowChatInput();
           openQualifySheet();
+          return;
+        }
+        if (c.cmd === "/help") {
+          renderHelpMessage();
           return;
         }
         chatInput.value = c.cmd + " ";
@@ -1270,10 +1283,110 @@
   // typed -- typing "/" is the filtered/incremental path, this is the
   // "just show me what's available" path Discord itself also offers.
   chatSlashBtn.addEventListener("click", function () {
+    // While dictating, this same button cancels instead -- handled by
+    // its own listener further down, once voice dictation is set up
+    // (cancelListening lives in that block's scope). Checking the class
+    // here rather than a shared variable keeps this listener safe to
+    // run even in browsers where speech recognition never initializes.
+    if (chatSlashBtn.classList.contains("is-listening")) return;
     if (!slashMenuEl.hidden) { hideSlashMenu(); return; }
     renderSlashMenu(SLASH_COMMANDS);
     chatInput.focus();
   });
+
+  // ---------- /help: a static guide, not a model turn ----------
+  // Deliberately never reaches /api/chat -- this is a fixed description
+  // of the app's own real structure (routes, what each slash command
+  // does), and the model has no way to know that more reliably than
+  // hardcoding it here does. Built directly into the DOM rather than
+  // through chatHistory/appendChatMessage, so it also never gets sent
+  // back to the model as conversation context and never needs to
+  // survive a reload -- a one-off lookup, not a real exchange.
+
+  var HELP_SECTIONS = [
+    { title: "Chat", desc: "This screen. Paste a job ad, ask for a CV or cover letter, or just talk through your job hunt -- it's the main way to use everything else here.", nav: null },
+    { title: "Find Jobs", desc: "Swipe through real listings -- right to apply, left to skip. Applying drafts an email for you automatically.", nav: "/swiper" },
+    { title: "Outbox", desc: "Every application you've drafted or sent, with its status. Tap one to review, edit, or send it; hold one down to delete it.", nav: "/outbox" },
+    { title: "Builder", desc: "Pick a template and generate a CV or cover letter to download as a PDF.", nav: "/builder" },
+    { title: "Profile", desc: "Your documents, account details, personality settings, and security key live here.", nav: "/profile" },
+  ];
+
+  function renderHelpMessage() {
+    hideSlashMenu();
+    chatInput.value = "";
+    autoGrowChatInput();
+    showEmptyState(false);
+
+    var userGroup = document.createElement("div");
+    userGroup.className = "chat-msg-group chat-msg-group-user";
+    var userBubble = document.createElement("div");
+    userBubble.className = "chat-msg chat-msg-user";
+    userBubble.textContent = "/help";
+    userGroup.appendChild(userBubble);
+    messagesEl.appendChild(userGroup);
+
+    var group = document.createElement("div");
+    group.className = "chat-msg-group chat-msg-group-bot";
+    var bubble = document.createElement("div");
+    bubble.className = "chat-msg chat-msg-bot chat-help-card";
+
+    var intro = document.createElement("p");
+    intro.className = "chat-help-intro";
+    intro.textContent = "Here's everything, in one place:";
+    bubble.appendChild(intro);
+
+    var cmdLabel = document.createElement("span");
+    cmdLabel.className = "chat-help-label";
+    cmdLabel.textContent = "Slash commands";
+    bubble.appendChild(cmdLabel);
+
+    var cmdList = document.createElement("div");
+    cmdList.className = "chat-help-cmd-list";
+    SLASH_COMMANDS.forEach(function (c) {
+      var row = document.createElement("div");
+      row.className = "chat-help-cmd-row";
+      var cmd = document.createElement("span");
+      cmd.className = "chat-help-cmd mono";
+      cmd.textContent = c.cmd;
+      var desc = document.createElement("span");
+      desc.className = "chat-help-cmd-desc";
+      desc.textContent = c.desc;
+      row.appendChild(cmd);
+      row.appendChild(desc);
+      cmdList.appendChild(row);
+    });
+    bubble.appendChild(cmdList);
+
+    var secLabel = document.createElement("span");
+    secLabel.className = "chat-help-label";
+    secLabel.textContent = "Where things are";
+    bubble.appendChild(secLabel);
+
+    var secList = document.createElement("div");
+    secList.className = "chat-help-section-list";
+    HELP_SECTIONS.forEach(function (s) {
+      var row = document.createElement("div");
+      row.className = "chat-help-section-row";
+      var text = document.createElement("div");
+      text.className = "chat-help-section-text";
+      text.innerHTML = "<strong>" + s.title + "</strong><span>" + s.desc + "</span>";
+      row.appendChild(text);
+      if (s.nav) {
+        var btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "btn btn-ghost btn-sm chat-help-nav-btn";
+        btn.textContent = "Open";
+        btn.addEventListener("click", function () { window.location.href = s.nav; });
+        row.appendChild(btn);
+      }
+      secList.appendChild(row);
+    });
+    bubble.appendChild(secList);
+
+    group.appendChild(bubble);
+    messagesEl.appendChild(group);
+    scrollChatToBottom();
+  }
 
   // ---------- /qualify: upload a job-ad photo ----------
 
@@ -1632,7 +1745,6 @@
 
   var chatMicBtn = document.getElementById("chat-mic-btn");
   var chatVoiceLive = document.getElementById("chat-voice-live");
-  var chatVoiceCancelBtn = document.getElementById("chat-voice-cancel-btn");
   var chatDictationPreview = document.getElementById("chat-dictation-preview");
   var SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
 
@@ -1673,6 +1785,9 @@
       chatMicBtn.hidden = on;
       chatVoiceLive.hidden = !on;
       chatInput.hidden = on;
+      // The "/" button doubles as cancel-dictation while listening --
+      // see the matching class in style.css for the icon swap itself.
+      chatSlashBtn.classList.toggle("is-listening", on);
       if (on) hideSlashMenu();
       if (!on) {
         chatDictationPreview.hidden = true;
@@ -1753,7 +1868,7 @@
       try { recognition.stop(); } catch (e) {}
     }
 
-    chatMicBtn.addEventListener("click", function () {
+    function startListeningGesture() {
       baseText = chatInput.value.trim();
       finalTranscript = "";
       shouldRestart = true;
@@ -1766,9 +1881,53 @@
         shouldRestart = false;
         setListening(false);
       }
+    }
+
+    // Press-and-hold works like a walkie-talkie button: a quick tap
+    // still starts continuous listening exactly as before (Send or the
+    // "/" cancel button stop it manually, whenever that is). Holding
+    // past MIC_HOLD_THRESHOLD_MS and then releasing instead behaves
+    // like tapping Send while listening -- stop and commit the
+    // transcript the instant the finger/button lifts, no second tap
+    // needed. Started on pointerdown (not click) so the hold can be
+    // timed from the moment the press actually begins.
+    var MIC_HOLD_THRESHOLD_MS = 350;
+    var micHoldTimer = null;
+    var micGestureActive = false;
+    var micHoldReached = false;
+
+    chatMicBtn.addEventListener("pointerdown", function (e) {
+      if (listening) return; // already listening from an earlier tap -- Send/cancel handle stopping that one
+      e.preventDefault();
+      micGestureActive = true;
+      micHoldReached = false;
+      micHoldTimer = setTimeout(function () { micHoldReached = true; }, MIC_HOLD_THRESHOLD_MS);
+      startListeningGesture();
     });
 
-    chatVoiceCancelBtn.addEventListener("click", cancelListening);
+    // Listened for on document, not the mic button itself -- the button
+    // hides the instant listening starts (see setListening), and a
+    // hidden element doesn't reliably keep receiving pointer events
+    // from a gesture that began on it.
+    document.addEventListener("pointerup", function () {
+      if (!micGestureActive) return;
+      micGestureActive = false;
+      clearTimeout(micHoldTimer);
+      if (micHoldReached && listening) stopListening();
+    });
+
+    document.addEventListener("pointercancel", function () {
+      micGestureActive = false;
+      clearTimeout(micHoldTimer);
+    });
+
+    // The "/" button cancels dictation in place of opening the slash
+    // menu while listening -- listening/cancelListening only exist in
+    // this scope, which is exactly why this listener (rather than the
+    // slash-menu one defined earlier) is the one that calls it.
+    chatSlashBtn.addEventListener("click", function () {
+      if (listening) cancelListening();
+    });
   }
 
   chatSendBtn.addEventListener("click", function () {
