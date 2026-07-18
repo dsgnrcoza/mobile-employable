@@ -3797,6 +3797,7 @@ button.auth-tab.active {
   flex-shrink: 0;
   display: flex;
   align-items: center;
+  gap: 14px;
   padding: max(18px, env(safe-area-inset-top)) 16px 10px;
 }
 
@@ -3818,13 +3819,13 @@ button.auth-tab.active {
 }
 
 .chat-icon-btn svg {
-  width: 21px;
-  height: 21px;
+  width: 24px;
+  height: 24px;
 }
 
 .chat-icon-btn-lg svg {
-  width: 26px;
-  height: 26px;
+  width: 29px;
+  height: 29px;
 }
 
 .chat-topbar-spacer {
@@ -3833,21 +3834,27 @@ button.auth-tab.active {
 
 .chat-topbar-jobs-btn {
   position: relative;
-  text-decoration: none;
+  white-space: nowrap;
+}
+
+.chat-topbar-jobs-btn svg {
+  width: 19px;
+  height: 19px;
 }
 
 .chat-topbar-jobs-badge {
   position: absolute;
-  top: 2px;
-  right: 2px;
-  min-width: 14px;
-  height: 14px;
+  top: -6px;
+  right: -6px;
+  min-width: 16px;
+  height: 16px;
   padding: 0 4px;
-  border-radius: 7px;
-  background: var(--accent);
-  color: var(--accent-ink);
+  border-radius: 8px;
+  background: var(--bad);
+  color: #ffffff;
+  border: 2px solid var(--bg);
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 9.5px;
   font-weight: 600;
   line-height: 14px;
   text-align: center;
