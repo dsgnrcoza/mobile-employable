@@ -91,7 +91,14 @@
 
   // ---------- List + filters ----------
 
+  var jobTabBadge = document.getElementById("job-tab-badge");
+
   function renderFilters() {
+    if (jobTabBadge) {
+      var draftedCount = applications.filter(function (a) { return a.status === "drafted"; }).length;
+      jobTabBadge.textContent = draftedCount > 99 ? "99+" : String(draftedCount);
+      jobTabBadge.hidden = draftedCount === 0;
+    }
     filterRowEl.innerHTML = "";
     FILTERS.forEach(function (f) {
       var count = f.key === "all" ? applications.length : applications.filter(function (a) { return a.status === f.key; }).length;
