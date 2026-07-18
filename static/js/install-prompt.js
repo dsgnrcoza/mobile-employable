@@ -41,7 +41,9 @@
     try { localStorage.setItem(DISMISS_KEY, "1"); } catch (e) {}
   }
 
-  document.getElementById("install-choice-web-btn").addEventListener("click", function () {
+  var webBtn = document.getElementById("install-choice-web-btn");
+
+  webBtn.addEventListener("click", function () {
     overlay.hidden = true;
     markSeen();
   });
@@ -52,6 +54,11 @@
     // note below stays visible) — the choice has been made either way,
     // no need to ask again on a future visit.
     markSeen();
+    // "Continue on Web" already closes the overlay regardless of which
+    // path was chosen -- once the download note is showing, relabel it
+    // so it reads as the dismiss action it now is, instead of a second
+    // competing choice.
+    webBtn.textContent = "Done";
     if (isIOSDevice()) {
       // No .ipa side-loading equivalent exists on iOS outside the App
       // Store/TestFlight — the real native-feeling install there is

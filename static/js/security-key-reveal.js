@@ -12,6 +12,22 @@
     navigator.clipboard.writeText(text).then(function () {
       copyBtn.classList.add("is-copied");
       setTimeout(function () { copyBtn.classList.remove("is-copied"); }, 1500);
+    }).catch(function () {
+      // Clipboard permission denied or unavailable (e.g. non-HTTPS
+      // context) -- select the key text in place so the user still has
+      // a visible, manually-copyable fallback instead of the button
+      // silently doing nothing. The button itself is icon-only, so
+      // feedback goes through its aria-label rather than replacing the
+      // icon with text.
+      var range = document.createRange();
+      range.selectNodeContents(keyValueEl);
+      var sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      copyBtn.setAttribute("aria-label", "Key selected — copy it manually");
+      setTimeout(function () {
+        copyBtn.setAttribute("aria-label", "Copy security key");
+      }, 2500);
     });
   });
 

@@ -213,18 +213,27 @@
     if (!text) return;
     navigator.clipboard.writeText(text).then(function () {
       setStatus("Copied to clipboard.", false);
+    }).catch(function () {
+      setStatus("Couldn't copy — check clipboard permissions and try again.", true);
     });
   });
 
+  var downloading = false;
   downloadBtn.addEventListener("click", function () {
     var html = currentHtml[activeType];
-    if (!html) return;
+    if (!html || downloading) return;
+    downloading = true;
+    downloadBtn.disabled = true;
+    setStatus("Preparing your PDF…", false);
     fetch("/api/cv-download/pdf", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ cv_html: html, template: activeType === "cv" ? selectedTemplate.cv : null }),
     })
-      .then(function (r) { return r.blob(); })
+      .then(function (r) {
+        if (!r.ok) throw new Error("bad status");
+        return r.blob();
+      })
       .then(function (blob) {
         var url = URL.createObjectURL(blob);
         var a = document.createElement("a");
@@ -234,6 +243,14 @@
         a.click();
         a.remove();
         URL.revokeObjectURL(url);
+        setStatus("Downloaded.", false);
+      })
+      .catch(function () {
+        setStatus("Couldn't generate that PDF — check your connection and try again.", true);
+      })
+      .finally(function () {
+        downloading = false;
+        downloadBtn.disabled = false;
       });
   });
 

@@ -5,6 +5,24 @@
   <div class="splash-logo wordmark">PL<span class="wordmark-o">O</span>Y</div>
   <div class="splash-loader"></div>
 </div>
+<script>
+  // See the matching script in login.html -- same "fresh app open" check
+  // so this splash also only plays once per session instead of on every
+  // visit to /signup.
+  (function () {
+    try {
+      var navEntries = window.performance && performance.getEntriesByType
+        ? performance.getEntriesByType("navigation") : [];
+      var isReload = (navEntries.length && navEntries[0].type === "reload") ||
+        (window.performance && performance.navigation && performance.navigation.type === 1);
+      var isFreshAppOpen = isReload || !sessionStorage.getItem("ploy_session_active");
+      sessionStorage.setItem("ploy_session_active", "1");
+      if (!isFreshAppOpen) {
+        document.currentScript.previousElementSibling.classList.add("splash-skip");
+      }
+    } catch (e) {}
+  })();
+</script>
 <div class="auth-shell" data-auth-page="signup">
   <div class="auth-card" id="auth-view">
 

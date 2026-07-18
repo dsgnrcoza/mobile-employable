@@ -144,10 +144,12 @@
 
   replyPreviewCloseBtn.addEventListener("click", clearReplyContext);
 
-  // Swiping a bot bubble right is the gesture shortcut for the same
-  // reply action the Reply icon triggers -- the bubble tracks the drag
-  // finger 1:1 and either commits (past a distance/flick threshold) or
-  // springs back, the standard swipe-to-dismiss feel.
+  // Swiping either role's bubble right is the gesture shortcut for the
+  // same reply action the Reply icon triggers (replying to your own
+  // earlier message is just as valid as replying to the bot's) -- the
+  // bubble tracks the drag finger 1:1 and either commits (past a
+  // distance/flick threshold) or springs back via the CSS transition
+  // on .chat-msg, the standard swipe-to-dismiss feel.
   function wireSwipeToReply(bubble, onReply) {
     var startX = null, startY = null, dx = 0, startTime = 0, dragging = false;
 
@@ -451,6 +453,11 @@
     var current = chatHistory[idx];
     if (!current) return;
     var parsed = parseReplyQuote(current.text);
+    // renderBubbleContent (used by both Cancel and Save below) clears
+    // the whole bubble before filling it back in -- grab any attached
+    // image now so it can be re-inserted afterward instead of being
+    // silently lost the moment editing starts.
+    var existingThumb = bubble.querySelector(".chat-msg-attachment-thumb");
     bubble.innerHTML = "";
     if (parsed.quote) {
       var q = document.createElement("span");
@@ -487,6 +494,7 @@
 
     cancelBtn.addEventListener("click", function () {
       group._textEl = renderBubbleContent(bubble, current.text, !!current.edited);
+      if (existingThumb) bubble.insertBefore(existingThumb, bubble.firstChild);
     });
 
     saveBtn.addEventListener("click", function () {
@@ -498,6 +506,7 @@
       chatHistory[idx].edited = true;
       truncateHistoryFrom(idx + 1);
       group._textEl = renderBubbleContent(bubble, fullText, true);
+      if (existingThumb) bubble.insertBefore(existingThumb, bubble.firstChild);
       saveConversation();
       runAssistantTurn();
     });
@@ -1051,6 +1060,13 @@
 
   function renderStepsSequentially(steps, i) {
     i = i || 0;
+    if (i === 0 && steps.length === 0) {
+      // Defensive fallback -- the server always injects a "something went
+      // wrong" text step rather than ever sending an empty list, but if
+      // that ever slipped through, silently stopping the typing indicator
+      // with nothing rendered would look exactly like the app hung.
+      steps = [{ type: "text", text: "Something went wrong there. Try again?" }];
+    }
     if (i >= steps.length) {
       stopWorkingTimer();
       saveConversation();
@@ -1634,7 +1650,10 @@
     // user, who just experiences one continuous listening session.
     recognition.continuous = false;
     recognition.interimResults = true;
-    recognition.lang = "en-US";
+    // en-ZA over en-US -- this app's whole audience is South African, and
+    // the two locales' speech models transcribe local accents/vocabulary
+    // differently enough that this is worth being deliberate about.
+    recognition.lang = "en-ZA";
 
     var listening = false;
     var shouldRestart = false;

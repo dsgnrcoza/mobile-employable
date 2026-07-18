@@ -15,6 +15,7 @@
   var reviewMessageEl = document.getElementById("outbox-review-message");
   var reviewAutosaveEl = document.getElementById("outbox-review-autosave");
   var reviewDownloadCvBtn = document.getElementById("outbox-review-download-cv-btn");
+  var reviewReminderEl = document.getElementById("outbox-review-reminder");
   var reviewNudgeEl = document.getElementById("outbox-review-nudge");
   var statusSelect = document.getElementById("outbox-status-select");
   var openGmailBtn = document.getElementById("outbox-open-gmail-btn");
@@ -40,6 +41,12 @@
   var cvDocId = null;
   var autosaveTimer = null;
   var awaitingSendConfirmation = false;
+  // Captured separately from reviewId at the moment Gmail is opened --
+  // closeReview() clears reviewId as soon as the sheet is dismissed, but
+  // the "Did you send it?" prompt can still land afterward (it only
+  // fires once the tab regains focus), so it needs its own record of
+  // which application that prompt is actually about.
+  var pendingConfirmId = null;
   var toastTimer = null;
 
   function escapeHtml(s) {
@@ -185,9 +192,13 @@
 
     if (app.recipientEmail) {
       openGmailBtn.textContent = "Open in Gmail";
+      reviewReminderEl.hidden = false;
     } else {
       openGmailBtn.textContent = app.jobUrl ? "Open job posting" : "No email listed";
       openGmailBtn.disabled = !app.jobUrl;
+      // No Gmail compose happens on this path at all -- a reminder about
+      // attaching a CV "in Gmail" would be actively confusing here.
+      reviewReminderEl.hidden = true;
     }
 
     reviewDownloadCvBtn.hidden = true;
@@ -319,6 +330,7 @@
     }
 
     awaitingSendConfirmation = true;
+    pendingConfirmId = reviewId;
   });
 
   document.addEventListener("visibilitychange", function () {
@@ -339,12 +351,14 @@
 
   confirmNotYetBtn.addEventListener("click", function () {
     confirmOverlay.hidden = true;
+    pendingConfirmId = null;
   });
 
   confirmYesBtn.addEventListener("click", function () {
     confirmOverlay.hidden = true;
-    if (reviewId == null) return;
-    var idForMarkSent = reviewId;
+    if (pendingConfirmId == null) return;
+    var idForMarkSent = pendingConfirmId;
+    pendingConfirmId = null;
     fetch("/api/applications/" + idForMarkSent + "/mark-sent", { method: "POST" })
       .then(function (r) { return r.json(); })
       .then(function (data) {

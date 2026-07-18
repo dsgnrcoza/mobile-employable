@@ -8,6 +8,7 @@
   var applyBtn = document.getElementById("swiper-apply-btn");
   var toastEl = document.getElementById("swiper-toast");
   var badgeEl = document.getElementById("swiper-outbox-badge");
+  var hintEl = document.getElementById("swiper-hint");
 
   var queue = [];
   var stack = []; // {el, job} front-to-back, stack[0] is always the interactive top card
@@ -56,6 +57,22 @@
     var hasCards = stack.length > 0;
     emptyEl.hidden = hasCards;
     fallbackActionsEl.hidden = !hasCards;
+    if (!hasCards) hintEl.hidden = true;
+  }
+
+  // Shown once, ever, before this user's very first swipe -- neither
+  // direction is explained anywhere else in the UI, so a first-time
+  // visitor has no way to know left means skip and right means apply
+  // until they've already committed to a gesture.
+  var HINT_SEEN_KEY = "employable_swiper_hint_seen";
+  var hintSeen = false;
+  try { hintSeen = localStorage.getItem(HINT_SEEN_KEY) === "1"; } catch (e) {}
+  if (!hintSeen) hintEl.hidden = false;
+
+  function dismissHint() {
+    if (hintEl.hidden) return;
+    hintEl.hidden = true;
+    try { localStorage.setItem(HINT_SEEN_KEY, "1"); } catch (e) {}
   }
 
   // Resting transform for a given position in the stack -- position 0
@@ -179,6 +196,7 @@
   }
 
   function swipeCommitted(entry, direction) {
+    dismissHint();
     commitSwipe(direction, entry.job);
     flyCardAway(entry, direction);
     advanceStack();
@@ -268,6 +286,13 @@
 
   function triggerFallback(direction) {
     if (!stack.length) return;
+    // A drag gets its stamp feedback for free from applyFrame(), which
+    // this button-triggered path never runs -- flash the matching stamp
+    // in directly so a tap feels just as confirmed as a real swipe,
+    // instead of the card silently flying off with no stamp at all.
+    var card = stack[0].el;
+    var stamp = card.querySelector(direction === "left" ? ".swiper-card-stamp-hide" : ".swiper-card-stamp-apply");
+    if (stamp) stamp.style.opacity = "1";
     swipeCommitted(stack[0], direction);
   }
 

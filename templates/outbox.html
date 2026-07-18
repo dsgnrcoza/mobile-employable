@@ -14,6 +14,7 @@
   </header>
 
   <div class="outbox-filter-row" id="outbox-filter-row"></div>
+  <p class="outbox-status-legend">Drafted → ready to send &nbsp;·&nbsp; Sent → waiting to hear back &nbsp;·&nbsp; Replied → they got back to you &nbsp;·&nbsp; Interview → moving forward &nbsp;·&nbsp; Rejected → passed on this one</p>
 
   <div class="outbox-list" id="outbox-list"></div>
 
@@ -47,7 +48,7 @@
       <textarea class="outbox-review-textarea" id="outbox-review-message" rows="10"></textarea>
       <span class="outbox-review-autosave" id="outbox-review-autosave"></span>
 
-      <div class="outbox-review-reminder">
+      <div class="outbox-review-reminder" id="outbox-review-reminder">
         <span>📎 Attach your CV in Gmail before sending — a compose link can't carry attachments.</span>
         <button type="button" class="btn btn-ghost btn-sm" id="outbox-review-download-cv-btn" hidden>Download CV</button>
       </div>
