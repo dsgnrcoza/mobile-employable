@@ -24,13 +24,15 @@
   var confirmNotYetBtn = document.getElementById("outbox-confirm-not-yet-btn");
   var confirmYesBtn = document.getElementById("outbox-confirm-yes-btn");
 
+  // Interview/Rejected are still real statuses (settable from the
+  // review sheet's status picker below, and still counted under "All")
+  // -- just not their own filter chips, so this row stays to the four
+  // that matter for the common case of scanning where things stand.
   var FILTERS = [
     { key: "all", label: "All" },
     { key: "drafted", label: "Drafted" },
     { key: "sent", label: "Sent" },
     { key: "replied", label: "Replied" },
-    { key: "interview", label: "Interview" },
-    { key: "rejected", label: "Rejected" },
   ];
   var STATUS_LABELS = { drafted: "Drafted", sent: "Sent", replied: "Replied", interview: "Interview", rejected: "Rejected" };
   var GMAIL_BODY_LIMIT = 1800;
