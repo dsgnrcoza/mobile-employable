@@ -1,6 +1,21 @@
 (function () {
   "use strict";
 
+  // Captured at module scope (not inside initInstallPrompt) so it's
+  // registered exactly once no matter how many times auth-transition.js
+  // re-invokes the function below -- Chrome only ever fires this once
+  // per page load, and only when the PWA installability criteria
+  // (manifest + service worker already controlling this page) are met.
+  // When it fires, a real one-tap native "Add to Home screen" install is
+  // available -- no download, no security warning, no detour through
+  // Chrome's own download UI -- so that's always tried first, with the
+  // APK only as a fallback for browsers that never offer it.
+  var deferredInstallPrompt = null;
+  window.addEventListener("beforeinstallprompt", function (e) {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+  });
+
   // First-visit choice, shown once per device on the very first screen
   // an unauthenticated visitor lands on (the login page, since that's
   // where "/" redirects anyone not already signed in): get the real
@@ -67,10 +82,29 @@
       note.hidden = false;
       return;
     }
-    // Same-origin proxy (see /download/android in app.py), triggered
-    // through a throwaway <a download> link rather than a full page
-    // navigation — the download starts immediately instead of
-    // navigating out to github.com, and the page itself never jumps.
+    if (deferredInstallPrompt) {
+      // The real thing: a native OS "Install app?" dialog. Accepting it
+      // installs Ploy as an actual standalone app -- its own icon, its
+      // own entry in the app drawer/switcher, opens with no address bar
+      // or browser chrome at all. No download, nothing to open
+      // afterward, no security warning.
+      var promptEvent = deferredInstallPrompt;
+      deferredInstallPrompt = null;
+      promptEvent.prompt();
+      promptEvent.userChoice.then(function (choice) {
+        note.textContent = choice.outcome === "accepted"
+          ? "Installing Ploy…"
+          : "You can install Ploy any time from here or the browser menu.";
+        note.hidden = false;
+      });
+      return;
+    }
+    // Fallback for browsers that never offer the native install prompt
+    // (e.g. Firefox for Android) -- same-origin proxy (see
+    // /download/android in app.py), triggered through a throwaway
+    // <a download> link rather than a full page navigation, so the
+    // download starts immediately instead of navigating out to
+    // github.com, and the page itself never jumps.
     var a = document.createElement("a");
     a.href = "/download/android";
     a.download = "employable.apk";
