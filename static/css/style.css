@@ -2296,8 +2296,19 @@ button.auth-tab.active {
   gap: 4px;
 }
 
+/* Most step labels are a short 2-4 word phrase ("Reading documents…"),
+   but the "thinking" step's text (see createThinkingStep in home.js) is
+   a genuine full sentence the model wrote, and can run long. This used
+   to be white-space: nowrap (fine for the short case) which forced a
+   long one off the right edge of the screen instead of wrapping --
+   only ever visible live, since a page reload never replays the
+   ephemeral steps trail, just the final saved message, which is why
+   refreshing always looked like it "fixed" it. */
 .chat-step-status-label {
-  white-space: nowrap;
+  min-width: 0;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 /* Once its card has landed, the status line stops looking like a live
@@ -2421,9 +2432,9 @@ button.auth-tab.active {
   animation: chat-working-pulse 1.2s ease-in-out infinite;
 }
 
-.chat-working-time {
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
+.chat-working-label {
+  font-size: 12px;
+  color: var(--muted);
 }
 
 @keyframes chat-working-pulse {
@@ -3424,61 +3435,6 @@ button.auth-tab.active {
    Profile screen
    ========================================================================== */
 
-.profile-menu {
-  display: flex;
-  flex-direction: column;
-}
-
-.profile-menu-row {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  background: none;
-  border: none;
-  border-bottom: 1px solid var(--line);
-  padding: 16px 4px;
-  color: var(--fg);
-  cursor: pointer;
-  text-align: left;
-  width: 100%;
-  font-family: inherit;
-  transition: background 0.15s ease;
-}
-
-.profile-menu-row:active {
-  background: var(--surface);
-}
-
-.profile-menu-row:last-child {
-  border-bottom: none;
-}
-
-.profile-menu-icon {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--muted);
-}
-
-.profile-menu-icon svg {
-  width: 19px;
-  height: 19px;
-}
-
-.profile-menu-label {
-  flex: 1;
-  font-size: 13px;
-  font-weight: 500;
-}
-
-.profile-menu-chevron {
-  width: 16px;
-  height: 16px;
-  color: var(--muted);
-  flex-shrink: 0;
-}
-
 .toggle-switch {
   flex-shrink: 0;
   width: 42px;
@@ -4179,13 +4135,18 @@ button.auth-tab.active {
   overflow: hidden;
 }
 
+/* No border/padding/bold here -- anything that adds box-width to this
+   span makes it wider than the identical run of plain text sitting
+   underneath in the real (invisible) textarea, whose native caret
+   position is computed from that unstyled width. Any width mismatch
+   drags the visible highlight out of sync with where the real caret
+   actually is, which is what made typing look like it was landing
+   inside the highlighted command instead of right after it. Color and
+   background alone change appearance without touching layout width. */
 .chat-input-highlight .cmd-chip {
   color: var(--accent);
   background: color-mix(in srgb, var(--accent) 16%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
-  border-radius: 6px;
-  padding: 0 5px;
-  font-weight: 700;
+  border-radius: 4px;
 }
 
 .chat-input {
@@ -4561,6 +4522,20 @@ button.auth-tab.active {
   overflow: hidden;
   text-overflow: ellipsis;
   width: 100%;
+}
+
+.sidebar-chat-viewall {
+  display: block;
+  text-align: left;
+  color: var(--accent);
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 10px 8px 6px;
+  text-decoration: none;
+}
+
+.sidebar-chat-viewall:active {
+  opacity: 0.7;
 }
 
 .sidebar-chat-menu {
@@ -5630,12 +5605,35 @@ button.auth-tab.active {
 
 .profile-shell {
   min-height: 100vh;
-  padding-bottom: 40px;
+  padding: 4px 16px 40px;
+}
+
+/* A single grouped card (rounded, bordered) holding every settings row,
+   rather than raw edge-to-edge rows straight on the page background --
+   the latter is what read as "blocky and old school". Each row expands
+   its own content in place (see .profile-section-view below) instead
+   of navigating away, so the card never disappears while you work
+   through settings. */
+.profile-accordion {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.profile-accordion-item {
+  border-bottom: 1px solid var(--line);
+}
+
+.profile-accordion-item:last-child {
+  border-bottom: none;
 }
 
 .profile-section {
-  padding: 20px;
-  border-bottom: 1px solid var(--line);
+  padding: 16px;
+  border-top: 1px solid var(--line);
 }
 
 .profile-section-danger {
@@ -5656,39 +5654,10 @@ button.auth-tab.active {
   margin: -6px 0 12px;
 }
 
-.profile-section-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  background: none;
-  border: none;
-  padding: 0;
-  margin: 0;
-  cursor: pointer;
-  color: inherit;
-  font-family: inherit;
-  text-align: left;
-}
-
-.profile-section-toggle .profile-section-title {
-  margin: 0;
-}
-
-.profile-section-chevron {
-  flex-shrink: 0;
-  width: 18px;
-  height: 18px;
-  color: var(--muted);
-  transition: transform 0.2s ease;
-}
-
-.profile-section-toggle[aria-expanded="true"] .profile-section-chevron {
-  transform: rotate(180deg);
-}
-
-.profile-section-collapse {
-  padding-top: 12px;
+.profile-section-memory .profile-toggle-row {
+  border-bottom: none;
+  padding-bottom: 0;
+  margin-bottom: 12px;
 }
 
 .profile-toggle-row {
@@ -5719,8 +5688,55 @@ button.auth-tab.active {
   line-height: 1.4;
 }
 
-.profile-memory-viewall-btn {
-  margin-right: 8px;
+/* A quiet inset "nav" row (text + chevron) instead of a big ghost
+   button -- reads as one more line in the settings list, not a second
+   competing call-to-action sitting next to "Clear all conversations". */
+.profile-memory-viewall-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 11px 13px;
+  margin-bottom: 10px;
+  color: inherit;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 600;
+  transition: background 0.15s ease;
+}
+
+.profile-memory-viewall-row:active {
+  background: var(--surface);
+}
+
+.profile-memory-viewall-row svg {
+  width: 16px;
+  height: 16px;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.profile-memory-viewall-row[hidden] {
+  display: none;
+}
+
+.profile-memory-clear-link {
+  display: inline-block;
+  background: none;
+  border: none;
+  padding: 2px;
+  color: var(--bad);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.profile-memory-clear-link[hidden] {
+  display: none;
 }
 
 .profile-memory-preview {
@@ -5734,7 +5750,7 @@ button.auth-tab.active {
   display: flex;
   align-items: baseline;
   gap: 8px;
-  background: var(--surface);
+  background: var(--bg);
   border: 1px solid var(--line);
   border-radius: 10px;
   padding: 9px 12px;
@@ -5756,12 +5772,6 @@ button.auth-tab.active {
   flex-shrink: 0;
   font-size: 12px;
   color: var(--muted);
-}
-
-.profile-memory-preview-more {
-  font-size: 12px;
-  color: var(--muted);
-  margin: 0;
 }
 
 .profile-photo-row {
@@ -5891,34 +5901,14 @@ button.auth-tab.active {
   color: var(--bad);
 }
 
-.profile-menu {
-  display: flex;
-  flex-direction: column;
-  padding: 8px 16px;
-  opacity: 1;
-  transition: opacity 0.2s ease, display 0.2s allow-discrete;
-}
-
-.profile-menu[hidden] {
-  display: none;
-  opacity: 0;
-  transition: opacity 0.15s ease, display 0.15s allow-discrete;
-}
-
-@starting-style {
-  .profile-menu:not([hidden]) {
-    opacity: 0;
-  }
-}
-
 .profile-menu-row {
   display: flex;
   align-items: center;
+  width: 100%;
   gap: 14px;
-  padding: 14px 4px;
+  padding: 15px 16px;
   background: none;
   border: none;
-  border-bottom: 1px solid var(--line);
   color: inherit;
   font-family: inherit;
   font-size: 14px;
@@ -5928,7 +5918,7 @@ button.auth-tab.active {
 }
 
 .profile-menu-row:active {
-  background: var(--surface);
+  background: var(--bg);
 }
 
 .profile-menu-icon {
@@ -5938,8 +5928,8 @@ button.auth-tab.active {
 }
 
 .profile-menu-icon svg {
-  width: 20px;
-  height: 20px;
+  width: 19px;
+  height: 19px;
 }
 
 .profile-menu-label {
@@ -5952,30 +5942,37 @@ button.auth-tab.active {
   width: 16px;
   height: 16px;
   color: var(--muted);
+  transition: transform 0.25s ease;
 }
 
+.profile-menu-row[aria-expanded="true"] .profile-menu-chevron {
+  transform: rotate(90deg);
+}
+
+/* The classic CSS-only accordion trick: animating a grid track from
+   0fr to 1fr slides content open/closed to its natural height without
+   any JS ever having to measure it. The inner wrapper needs its own
+   overflow:hidden (and min-height:0, since a grid item won't shrink
+   below its content's min size by default) for the 0fr collapsed
+   state to actually clip to nothing instead of leaving content
+   poking out. */
 .profile-section-view {
-  opacity: 1;
-  transition: opacity 0.2s ease, display 0.2s allow-discrete;
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.28s ease;
 }
 
-.profile-section-view[hidden] {
-  display: none;
-  opacity: 0;
-  transition: opacity 0.15s ease, display 0.15s allow-discrete;
+.profile-section-view.is-open {
+  grid-template-rows: 1fr;
 }
 
-@starting-style {
-  .profile-section-view:not([hidden]) {
-    opacity: 0;
-  }
+.profile-section-view-inner {
+  overflow: hidden;
+  min-height: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .profile-menu,
-  .profile-menu[hidden],
-  .profile-section-view,
-  .profile-section-view[hidden] {
+  .profile-section-view {
     transition: none;
   }
 }
@@ -6544,6 +6541,7 @@ button.auth-tab.active {
      they fill the row edge to edge and stay put, rather than the
      content-sized, horizontally-scrollable chips this used to need
      when there were 6. */
+  position: relative;
   flex: 1;
   min-width: 0;
   display: flex;
@@ -6574,25 +6572,28 @@ button.auth-tab.active {
   text-overflow: ellipsis;
 }
 
-/* A separate badge for the count, not inline text -- this way the
-   label itself always stays full-size and legible; only the badge
-   needs to grow when the count does, and it grows outward (wider),
-   never by shrinking or truncating the label next to it. */
+/* A small notification-style bubble pinned to the chip's own top-right
+   corner (same idea as .job-tab-badge / .chat-topbar-jobs-badge)
+   instead of an inline sibling next to the label -- since it no longer
+   competes with the label for the chip's own width, the label never
+   has anything to shrink or truncate for, no matter how big the count
+   gets ("Drafted" always renders in full). */
 .outbox-filter-chip-badge {
-  flex-shrink: 0;
+  position: absolute;
+  top: -6px;
+  right: -6px;
   min-width: 16px;
   height: 16px;
   padding: 0 4px;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.16);
-  color: inherit;
-  font-size: 10px;
-  line-height: 16px;
+  background: var(--bad);
+  color: #ffffff;
+  border: 2px solid var(--bg);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  line-height: 14px;
   text-align: center;
-}
-
-.outbox-filter-chip.is-active .outbox-filter-chip-badge {
-  background: rgba(255, 255, 255, 0.28);
 }
 
 .outbox-list {
@@ -6660,71 +6661,45 @@ button.auth-tab.active {
   background: var(--surface);
 }
 
-/* Outbox options sheet (sort + Clear drafted) -- same bottom-sheet
-   fade/slide idiom as the template-preview and qualify sheets. */
-.outbox-options-overlay {
+/* Outbox options dropdown (sort + Clear drafted) -- a small floating
+   panel positioned under the header button (see positionOptionsDropdown
+   in outbox.js), not a full-screen sheet. No dark backdrop: the Outbox
+   list stays fully visible and interactive right behind it. */
+.outbox-options-dropdown {
   position: fixed;
-  inset: 0;
   z-index: 600;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(8px) saturate(1.3);
-  -webkit-backdrop-filter: blur(8px) saturate(1.3);
-  opacity: 1;
-  transition: opacity 0.22s ease, display 0.22s allow-discrete;
-}
-
-.outbox-options-overlay[hidden] {
-  display: none;
-  opacity: 0;
-  transition: opacity 0.18s ease, display 0.18s allow-discrete;
-}
-
-@starting-style {
-  .outbox-options-overlay:not([hidden]) {
-    opacity: 0;
-  }
-}
-
-.outbox-options-sheet {
-  width: 100%;
-  max-width: 480px;
   background: var(--card-bg);
   border: 1px solid var(--line-strong);
-  border-bottom: none;
-  border-radius: 24px 24px 0 0;
-  padding: 12px 20px max(20px, env(safe-area-inset-bottom));
+  border-radius: 14px;
+  padding: 8px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  transform: translateY(0);
-  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+  gap: 2px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  opacity: 1;
+  transform: scale(1);
+  transform-origin: top right;
+  transition: opacity 0.16s ease, transform 0.16s ease, display 0.16s allow-discrete;
 }
 
-.outbox-options-overlay[hidden] .outbox-options-sheet {
-  transform: translateY(40px);
+.outbox-options-dropdown[hidden] {
+  display: none;
+  opacity: 0;
+  transform: scale(0.95);
+  transition: opacity 0.12s ease, transform 0.12s ease, display 0.12s allow-discrete;
 }
 
 @starting-style {
-  .outbox-options-overlay:not([hidden]) .outbox-options-sheet {
-    transform: translateY(40px);
+  .outbox-options-dropdown:not([hidden]) {
+    opacity: 0;
+    transform: scale(0.95);
   }
 }
 
-.outbox-options-handle {
-  width: 36px;
-  height: 4px;
-  border-radius: 2px;
-  background: var(--line-strong);
-  margin: 4px auto 12px;
-}
-
-.outbox-options-title {
-  font-size: 16px;
-  font-weight: 700;
-  margin-bottom: 12px;
+@media (prefers-reduced-motion: reduce) {
+  .outbox-options-dropdown {
+    transition: none;
+  }
 }
 
 .outbox-options-group-label {
@@ -6784,10 +6759,6 @@ button.auth-tab.active {
 
 .outbox-options-danger {
   color: var(--bad);
-}
-
-.outbox-options-sheet .btn-ghost {
-  margin-top: 14px;
 }
 
 .outbox-item {

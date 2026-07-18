@@ -7,45 +7,41 @@
     el.classList.toggle("profile-status-error", !!isError);
   }
 
-  // ---------- Section navigation (menu list -> one section at a time) ----------
-  // A single long scrolling page felt like a wall of unrelated settings --
-  // this makes Profile behave like Claude/ChatGPT's settings: a menu of
-  // named sections, one open at a time, with Back returning to the menu
-  // (and only exiting to the dashboard once you're already at the menu).
+  // ---------- Section navigation (inline accordion) ----------
+  // Each menu row expands its content directly beneath it instead of
+  // swapping the whole screen -- the menu never leaves view, so opening
+  // Account then Personality then Security is just three taps in place,
+  // not three separate screens. Opening one closes whichever other
+  // section was open, so exactly one (or none) is ever expanded.
 
-  var profileMenu = document.getElementById("profile-menu");
-  var sectionViews = document.querySelectorAll(".profile-section-view");
-  var headerTitleEl = document.getElementById("profile-header-title");
-  var backBtn = document.getElementById("profile-back-btn");
-  var SECTION_LABELS = { account: "Account", personality: "Personality", security: "Security", data: "Your data", app: "App" };
+  var menuRows = document.querySelectorAll(".profile-menu-row");
 
-  function showProfileMenu() {
-    profileMenu.hidden = false;
-    sectionViews.forEach(function (el) { el.hidden = true; });
-    headerTitleEl.textContent = "Profile";
-    backBtn.dataset.mode = "exit";
+  function closeSection(row) {
+    row.setAttribute("aria-expanded", "false");
+    var view = row.nextElementSibling;
+    if (view) view.classList.remove("is-open");
   }
 
-  function showProfileSection(key) {
-    profileMenu.hidden = true;
-    sectionViews.forEach(function (el) { el.hidden = el.dataset.sectionView !== key; });
-    headerTitleEl.textContent = SECTION_LABELS[key] || "Profile";
-    backBtn.dataset.mode = "menu";
+  function openSection(row) {
+    row.setAttribute("aria-expanded", "true");
+    var view = row.nextElementSibling;
+    if (view) view.classList.add("is-open");
   }
 
-  document.querySelectorAll(".profile-menu-row").forEach(function (row) {
-    row.addEventListener("click", function () { showProfileSection(row.dataset.section); });
+  menuRows.forEach(function (row) {
+    row.addEventListener("click", function () {
+      var isOpen = row.getAttribute("aria-expanded") === "true";
+      menuRows.forEach(function (other) { if (other !== row) closeSection(other); });
+      if (isOpen) {
+        closeSection(row);
+      } else {
+        openSection(row);
+        setTimeout(function () {
+          row.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 60);
+      }
+    });
   });
-
-  backBtn.addEventListener("click", function () {
-    if (backBtn.dataset.mode === "menu") {
-      showProfileMenu();
-    } else {
-      window.location.href = backBtn.dataset.dashboardUrl;
-    }
-  });
-
-  showProfileMenu();
 
   // ---------- Profile photo (with a basic crop/zoom step before upload) ----------
 
@@ -433,18 +429,11 @@
 
   // ---------- Memory (conversations) ----------
 
-  var memoryToggle = document.getElementById("profile-memory-toggle");
-  var memoryCollapse = document.getElementById("profile-memory-collapse");
   var memoryDesc = document.getElementById("profile-memory-desc");
   var memoryPreview = document.getElementById("profile-memory-preview");
+  var memoryViewAllRow = document.getElementById("profile-memory-viewall-row");
   var memoryClearBtn = document.getElementById("profile-memory-clear-btn");
   var memoryStatus = document.getElementById("profile-memory-status");
-
-  memoryToggle.addEventListener("click", function () {
-    var expanded = memoryToggle.getAttribute("aria-expanded") === "true";
-    memoryToggle.setAttribute("aria-expanded", String(!expanded));
-    memoryCollapse.hidden = expanded;
-  });
 
   var rememberChatsToggle = document.getElementById("profile-remember-chats-toggle");
   rememberChatsToggle.addEventListener("click", function (e) {
@@ -481,11 +470,13 @@
         if (!data.conversations.length) {
           memoryDesc.textContent = "Nothing remembered yet.";
           memoryClearBtn.hidden = true;
+          memoryViewAllRow.hidden = true;
           return;
         }
         memoryDesc.textContent = "Ploy remembers " + data.conversations.length +
           (data.conversations.length === 1 ? " conversation." : " conversations.");
         memoryClearBtn.hidden = false;
+        memoryViewAllRow.hidden = false;
 
         data.conversations.slice(0, MEMORY_PREVIEW_COUNT).forEach(function (c) {
           var row = document.createElement("a");
@@ -501,12 +492,6 @@
           if (subtitle) row.querySelector(".profile-memory-preview-sub").textContent = subtitle;
           memoryPreview.appendChild(row);
         });
-        if (data.conversations.length > MEMORY_PREVIEW_COUNT) {
-          var more = document.createElement("p");
-          more.className = "profile-memory-preview-more";
-          more.textContent = "+" + (data.conversations.length - MEMORY_PREVIEW_COUNT) + " more";
-          memoryPreview.appendChild(more);
-        }
       });
   }
 

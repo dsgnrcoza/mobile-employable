@@ -406,10 +406,16 @@ def now_iso() -> str:
 def create_user(username, password_hash, security_question, security_answer_hash, full_name="", email=""):
     conn = get_db()
     try:
+        # remember_all_chats defaults to on for new signups -- explicit
+        # here rather than relying on the column's own DEFAULT, since
+        # that column was added by a later migration (DEFAULT 0, to
+        # avoid silently opting already-existing users into it) and a
+        # fresh signup should start on regardless of that column default.
         cur = conn.execute(
             """INSERT INTO users (username, password_hash, security_question,
-                                   security_answer_hash, full_name, email, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                                   security_answer_hash, full_name, email, created_at,
+                                   remember_all_chats)
+               VALUES (?, ?, ?, ?, ?, ?, ?, 1)""",
             (username, password_hash, security_question, security_answer_hash,
              full_name or "", email or "", now_iso()),
         )
