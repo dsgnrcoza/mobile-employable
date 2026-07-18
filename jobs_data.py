@@ -1,5 +1,10 @@
 """Job listing data source for JobSwiper.
 
+Note: this now generates several hundred synthetic listings alongside
+the hand-written ones below purely so QA can swipe/apply for as long as
+they want without running out mid-session -- see
+_generate_synthetic_jobs() near the bottom.
+
 Every caller downstream (the /api/jobs route, the draft-generation
 prompt, the swiper UI) only ever consumes the plain dict shape returned
 by get_jobs()/get_job_by_id() below -- never anything mock-specific.
@@ -479,13 +484,105 @@ MOCK_JOBS = [
 ]
 
 
+def _generate_synthetic_jobs(count=600):
+    """Procedurally generated filler listings so testing the swipe/apply
+    flow never runs dry -- the 40-odd hand-written jobs above run out
+    after one real testing session. Content here is deliberately generic
+    (not hand-polished like MOCK_JOBS); it exists purely to give an
+    effectively endless supply of realistic-shaped jobs to apply to.
+    Seeded so the same IDs always mean the same job for the life of a
+    running process, even though it's only ever regenerated once, at
+    import time.
+    """
+    import datetime
+    import random
+
+    titles = [
+        ("Cashier", "retail"), ("Store Assistant", "retail"), ("Till Operator", "retail"),
+        ("Merchandiser", "retail"), ("Customer Service Agent", "retail"),
+        ("Call Centre Agent", "retail"), ("Warehouse Assistant", "retail"),
+        ("Picker/Packer", "retail"), ("Security Officer", "retail"), ("Cleaner", "retail"),
+        ("Receptionist", "admin"), ("Data Capturer", "admin"), ("Admin Clerk", "admin"),
+        ("HR Assistant", "admin"), ("Payroll Clerk", "admin"), ("Office Coordinator", "admin"),
+        ("Junior Bookkeeper", "admin"),
+        ("Electrician's Assistant", "trade"), ("Plumber's Assistant", "trade"),
+        ("Diesel Mechanic", "trade"), ("Fitter and Turner", "trade"), ("Boilermaker", "trade"),
+        ("Junior Web Developer", "tech"), ("IT Support Technician", "tech"),
+        ("Junior Data Analyst", "tech"), ("Graphic Designer", "tech"),
+        ("Social Media Coordinator", "tech"), ("Junior Accountant", "tech"),
+        ("Sales Representative", "tech"), ("Account Manager", "tech"),
+        ("Teaching Assistant", "care"), ("Childcare Worker", "care"), ("Caregiver", "care"),
+        ("Pharmacy Assistant", "care"), ("Nursing Assistant", "care"),
+        ("Hotel Front Desk Agent", "hosp"), ("Chef de Partie", "hosp"),
+        ("Kitchen Assistant", "hosp"), ("Waitron", "hosp"), ("Barista", "hosp"),
+        ("Delivery Driver", "hosp"),
+    ]
+    company_prefixes = [
+        "Cape", "Joburg", "Sandton", "Durban", "Rosebank", "Umhlanga", "Century City",
+        "Tygervalley", "Midrand", "Fourways", "Menlyn", "Claremont", "Bryanston",
+        "Waterfall", "Southgate", "Northgate",
+    ]
+    company_suffixes = [
+        "Retail Group", "Logistics", "Solutions", "Traders", "Enterprises", "Foods",
+        "Motors", "Media", "Tech", "Construction", "Security Services",
+        "Hospitality Group", "Holdings", "Distributors", "Services",
+    ]
+    locations = [
+        "Cape Town, Western Cape", "Johannesburg, Gauteng", "Pretoria, Gauteng",
+        "Durban, KwaZulu-Natal", "Gqeberha, Eastern Cape", "Bloemfontein, Free State",
+        "Mbombela, Mpumalanga", "Polokwane, Limpopo", "Kimberley, Northern Cape",
+        "East London, Eastern Cape", "Stellenbosch, Western Cape",
+        "Pietermaritzburg, KwaZulu-Natal",
+    ]
+    salary_bands = {
+        "retail": (5500, 9000), "admin": (7000, 13000), "trade": (9000, 18000),
+        "tech": (14000, 32000), "care": (6500, 11000), "hosp": (6000, 10500),
+    }
+    descriptions = {
+        "retail": "Fast-paced, customer-facing role on the shop floor. No experience required -- full training given. Retail hours, including some weekends.",
+        "admin": "Support the day-to-day running of a busy office. Good with people, organised, comfortable on a computer. Matric required.",
+        "trade": "Hands-on work alongside a qualified team. Willing to learn, reliable, own transport to site an advantage.",
+        "tech": "Join a small, fast-moving team. We care more about how you think and what you've built than your CV on paper.",
+        "care": "Patient, caring, and dependable -- working directly with people who need it. Relevant experience or a willingness to be trained required.",
+        "hosp": "Guest-facing role in a busy, high-energy environment. Weekend and evening shifts required. Team-first attitude essential.",
+    }
+
+    rng = random.Random(20260101)
+    today = datetime.date.today()
+    jobs = []
+    for i in range(count):
+        title, category = rng.choice(titles)
+        company = rng.choice(company_prefixes) + " " + rng.choice(company_suffixes)
+        location = rng.choice(locations)
+        lo, hi = salary_bands[category]
+        low_pay = rng.randrange(lo, hi - 1000, 500)
+        salary = f"R{low_pay:,} - R{low_pay + 1500:,} / month"
+        posted = (today - datetime.timedelta(days=rng.randrange(0, 21))).isoformat()
+        slug = title.lower().replace(" ", "-").replace("/", "-").replace("'", "")
+        jobs.append({
+            "id": f"gen-{i:04d}",
+            "title": title,
+            "company": company,
+            "location": location,
+            "salary": salary,
+            "description": descriptions[category],
+            "posted_at": posted,
+            "email": f"jobs@{company.lower().replace(' ', '')}.example" if rng.random() < 0.6 else "",
+            "url": f"https://www.careerjet.co.za/jobad/example-{slug}-{i}",
+        })
+    return jobs
+
+
+ALL_JOBS = MOCK_JOBS + _generate_synthetic_jobs()
+
+
 def get_jobs(exclude_ids=None):
     """All available listings, minus any the caller already knows about
     (hidden or already applied to). Real pagination/search params would
     hang off this same function once it's backed by Careerjet."""
     exclude_ids = exclude_ids or set()
-    return [j for j in MOCK_JOBS if j["id"] not in exclude_ids]
+    return [j for j in ALL_JOBS if j["id"] not in exclude_ids]
 
 
 def get_job_by_id(job_id):
-    return next((j for j in MOCK_JOBS if j["id"] == job_id), None)
+    return next((j for j in ALL_JOBS if j["id"] == job_id), None)

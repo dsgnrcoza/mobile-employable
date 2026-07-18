@@ -8,10 +8,16 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
     </a>
     <span class="stub-header-title">Outbox</span>
-    <a href="{{ url_for('swiper_page') }}" class="chat-icon-btn" aria-label="Find more jobs">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-    </a>
+    <span class="stub-header-spacer"></span>
   </header>
+
+  <div class="job-tabs">
+    <a href="{{ url_for('swiper_page') }}" class="job-tab">Swipe</a>
+    <a href="{{ url_for('outbox_page') }}" class="job-tab is-active">
+      Outbox
+      <span class="job-tab-badge" id="job-tab-badge" hidden>0</span>
+    </a>
+  </div>
 
   <div class="outbox-filter-row" id="outbox-filter-row"></div>
   <p class="outbox-status-legend">Drafted → ready to send &nbsp;·&nbsp; Sent → waiting to hear back &nbsp;·&nbsp; Replied → they got back to you &nbsp;·&nbsp; Interview → moving forward &nbsp;·&nbsp; Rejected → passed on this one</p>

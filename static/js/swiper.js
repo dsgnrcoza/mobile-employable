@@ -7,7 +7,7 @@
   var hideBtn = document.getElementById("swiper-hide-btn");
   var applyBtn = document.getElementById("swiper-apply-btn");
   var toastEl = document.getElementById("swiper-toast");
-  var badgeEl = document.getElementById("swiper-outbox-badge");
+  var badgeEl = document.getElementById("job-tab-badge");
   var hintEl = document.getElementById("swiper-hint");
 
   var queue = [];
@@ -16,7 +16,13 @@
 
   var SPRING_BACK = "transform 0.42s cubic-bezier(0.34, 1.56, 0.64, 1)";
   var STACK_SHIFT = "transform 0.38s cubic-bezier(0.22, 1, 0.36, 1)";
-  var FLY_AWAY = "transform 0.42s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.42s ease";
+  var FLY_AWAY = "transform 0.36s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.36s ease";
+
+  // A short, sharp tick on commit -- most phones support it, iOS Safari
+  // silently doesn't, hence the feature check rather than a try/catch.
+  function hapticTick() {
+    if (navigator.vibrate) navigator.vibrate(12);
+  }
 
   function escapeHtml(s) {
     return (s || "").replace(/[&<>"']/g, function (c) {
@@ -180,8 +186,13 @@
 
   function flyCardAway(entry, direction) {
     var card = entry.el;
-    var travel = window.innerWidth * 1.5;
-    var rise = -60 - Math.random() * 30;
+    // Thrown well past the edge of the screen, with a bigger spin and a
+    // harder shrink than a gentle slide-off -- reads as flung, not just
+    // nudged away, which is most of what makes the gesture satisfying
+    // to repeat.
+    var travel = window.innerWidth * 2.1;
+    var rise = -110 - Math.random() * 60;
+    var spin = 34 + Math.random() * 14;
     // This card is no longer in the stack array by the time it flies
     // away (advanceStack already shifted it out) -- drop its is-top
     // marker explicitly so exactly one card ever carries it, even
@@ -190,13 +201,14 @@
     card.style.transition = FLY_AWAY;
     card.style.transform =
       "translate(" + (direction === "left" ? -travel : travel) + "px, " + rise + "px) rotate(" +
-      (direction === "left" ? -28 : 28) + "deg) scale(0.92)";
-    card.style.opacity = "0.4";
-    setTimeout(function () { card.remove(); }, 420);
+      (direction === "left" ? -spin : spin) + "deg) scale(0.8)";
+    card.style.opacity = "0.15";
+    setTimeout(function () { card.remove(); }, 370);
   }
 
   function swipeCommitted(entry, direction) {
     dismissHint();
+    hapticTick();
     commitSwipe(direction, entry.job);
     flyCardAway(entry, direction);
     advanceStack();
@@ -208,6 +220,7 @@
     var stampApply = card.querySelector(".swiper-card-stamp-apply");
     var stampHide = card.querySelector(".swiper-card-stamp-hide");
     var rafPending = false;
+    var thresholdHit = false;
 
     function isTop() {
       return stack.length > 0 && stack[0].el === card;
@@ -215,11 +228,30 @@
 
     function applyFrame() {
       rafPending = false;
-      var rotation = dx / 16;
-      card.style.transform = "translate(" + dx + "px, " + dy + "px) rotate(" + rotation + "deg)";
+      // Steeper tilt and a slight lift (scale) the further the card is
+      // pulled -- reads as picking the card up and throwing it, not
+      // just sliding it sideways.
+      var rotation = dx / 10;
       var pull = Math.min(1, Math.abs(dx) / 120);
+      var lift = 1 + pull * 0.04;
+      card.style.transform = "translate(" + dx + "px, " + dy + "px) rotate(" + rotation + "deg) scale(" + lift + ")";
       stampApply.style.opacity = dx > 0 ? pull : 0;
       stampHide.style.opacity = dx < 0 ? pull : 0;
+      // The instant a drag first crosses the commit threshold, the
+      // stamp snaps with a little overshoot instead of just smoothly
+      // reaching opacity 1 -- a distinct "locked in" moment the user
+      // can feel is coming before they even release.
+      if (pull >= 1 && !thresholdHit) {
+        thresholdHit = true;
+        var stamp = dx > 0 ? stampApply : stampHide;
+        stamp.style.transition = "transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1)";
+        stamp.style.transform = "scale(1.25)";
+        requestAnimationFrame(function () {
+          requestAnimationFrame(function () { stamp.style.transform = "scale(1)"; });
+        });
+      } else if (pull < 1 && thresholdHit) {
+        thresholdHit = false;
+      }
       // The next card in the stack rises to meet the front position as
       // this one is dragged away, so committing mid-drag (a fast flick
       // released early) never has to "catch up" visually afterward --
