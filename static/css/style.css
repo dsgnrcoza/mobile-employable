@@ -3835,6 +3835,12 @@ button.auth-tab.active {
 .chat-topbar-jobs-btn {
   position: relative;
   white-space: nowrap;
+  /* Extra breathing room beyond the topbar's own gap -- .chat-icon-btn's
+     negative margin (used to keep its hit target comfortable without
+     adding visual gaps elsewhere) was pulling the new-chat + right up
+     against this button, causing accidental taps meant for one to land
+     on the other. */
+  margin-right: 10px;
 }
 
 .chat-topbar-jobs-btn svg {

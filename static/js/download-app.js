@@ -73,6 +73,22 @@
       note.hidden = false;
       return;
     }
+    if (deferredInstallPrompt) {
+      // A real native OS install dialog, same as the desktop button
+      // below -- no download, no security warning, no detour through
+      // Chrome's own download UI. Tried first; the APK below only ever
+      // runs for browsers that never offer this.
+      var promptEvent = deferredInstallPrompt;
+      deferredInstallPrompt = null;
+      promptEvent.prompt();
+      promptEvent.userChoice.then(function (choice) {
+        note.textContent = choice.outcome === "accepted"
+          ? "Installing Ploy…"
+          : "You can install Ploy any time from here or the browser menu.";
+        note.hidden = false;
+      });
+      return;
+    }
     // Same-origin proxy (see /download/android in app.py) so the
     // download starts immediately instead of navigating out to
     // github.com first.
