@@ -305,7 +305,57 @@
     return Promise.resolve();
   }
 
-  // ---------- Open in Gmail / job posting ----------
+  // ---------- Open in mail app / job posting ----------
+
+  // No email URI scheme (mailto:, Gmail's own web compose link) can
+  // carry a file attachment -- that's a hard platform limitation, not
+  // something any web page can route around. The Web Share API is the
+  // one exception: handing the OS a real file lets whatever app the
+  // user picks from the native share sheet (Gmail included -- its
+  // Android share target genuinely attaches shared files) receive it
+  // as an actual attachment. Fetched fresh each time rather than cached
+  // once, since the underlying CV document can change between reviews.
+  function fetchCvFile() {
+    if (!cvDocId) return Promise.resolve(null);
+    return fetch("/api/document-download/" + cvDocId)
+      .then(function (r) {
+        if (!r.ok) throw new Error("bad status");
+        var disposition = r.headers.get("content-disposition") || "";
+        var match = disposition.match(/filename="?([^";]+)"?/);
+        var filename = match ? match[1] : "CV.pdf";
+        return r.blob().then(function (blob) {
+          return new File([blob], filename, { type: blob.type || "application/pdf" });
+        });
+      })
+      .catch(function () { return null; });
+  }
+
+  function markAwaitingConfirmation() {
+    awaitingSendConfirmation = true;
+    pendingConfirmId = reviewId;
+  }
+
+  // mailto: is what actually opens the device's real mail app (Gmail if
+  // it's set as the default, otherwise a native chooser) -- unlike
+  // Gmail's own "https://mail.google.com/..." compose link, which
+  // always opens as a browser tab/in-app browser, never the installed
+  // app itself. Used whenever the Share API (with a file) isn't
+  // available, and reminds the user to attach the CV manually since
+  // this path genuinely can't do it for them.
+  function openViaMailto(app, subject, fullBody) {
+    var result = truncateAtSentence(fullBody, GMAIL_BODY_LIMIT);
+    if (result.wasCut) {
+      copyToClipboard(fullBody).then(function () {
+        showToast("Full message copied — paste it in your mail app.");
+      });
+    }
+    window.location.href = "mailto:" + encodeURIComponent(app.recipientEmail) +
+      "?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(result.truncated);
+    if (cvDocId) {
+      showToast("Opening your mail app — attach the CV you downloaded before sending.");
+    }
+    markAwaitingConfirmation();
+  }
 
   openGmailBtn.addEventListener("click", function () {
     var app = findApp(reviewId);
@@ -318,28 +368,28 @@
 
     var subject = reviewSubjectEl.value.trim();
     var fullBody = reviewMessageEl.value;
-    var result = truncateAtSentence(fullBody, GMAIL_BODY_LIMIT);
-    if (result.wasCut) {
-      copyToClipboard(fullBody).then(function () {
-        showToast("Full message copied — paste it in Gmail.");
+
+    if (navigator.share && navigator.canShare && cvDocId) {
+      fetchCvFile().then(function (file) {
+        if (file && navigator.canShare({ files: [file] })) {
+          return navigator.share({ title: subject, text: fullBody, files: [file] }).then(function () {
+            markAwaitingConfirmation();
+            return true;
+          });
+        }
+        return false;
+      }).then(function (shared) {
+        if (!shared) openViaMailto(app, subject, fullBody);
+      }).catch(function (e) {
+        // AbortError just means the user backed out of the share sheet
+        // without picking anything -- not a failure worth falling back
+        // from into a second, competing compose flow.
+        if (e && e.name !== "AbortError") openViaMailto(app, subject, fullBody);
       });
+      return;
     }
 
-    var gmailUrl = "https://mail.google.com/mail/?view=cm" +
-      "&to=" + encodeURIComponent(app.recipientEmail) +
-      "&su=" + encodeURIComponent(subject) +
-      "&body=" + encodeURIComponent(result.truncated);
-
-    var win = null;
-    try { win = window.open(gmailUrl, "_blank"); } catch (e) { win = null; }
-    if (!win) {
-      var mailto = "mailto:" + encodeURIComponent(app.recipientEmail) +
-        "?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(result.truncated);
-      window.location.href = mailto;
-    }
-
-    awaitingSendConfirmation = true;
-    pendingConfirmId = reviewId;
+    openViaMailto(app, subject, fullBody);
   });
 
   document.addEventListener("visibilitychange", function () {
