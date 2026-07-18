@@ -6258,6 +6258,14 @@ button.auth-tab.active {
   color: var(--fg);
   margin: 16px 0 0;
   overflow-y: auto;
+  /* Touching down over this block specifically (the largest area on
+     the card, so where most real swipes actually start) was letting
+     the browser hand the gesture off to this element's own scroll --
+     firing pointercancel and killing the swipe before it could ever
+     commit. touch-action: none here (matching .swiper-card itself)
+     stops that hand-off; a long description just won't be
+     touch-scrollable, which loses far less than a broken swipe. */
+  touch-action: none;
 }
 
 .swiper-card-date {
