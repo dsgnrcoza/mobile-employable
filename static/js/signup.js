@@ -16,7 +16,10 @@
   var continueBtn = document.getElementById("celebrate-continue-btn");
   var submitBtn = form.querySelector("button[type=submit]");
 
-  var CONFETTI_COLORS = ["#8b5cf6", "#ec4899", "#1e3a8a", "#2dd4bf"];
+  // On-brand instead of the generic purple/pink/navy/teal palette this
+  // used to have -- the app's own accent plus its semantic good/mid
+  // tones, so the very first celebratory moment already looks like Ploy.
+  var CONFETTI_COLORS = ["#5286FF", "#4CC38A", "#E4B33C", "#8FB3FF"];
 
   function launchConfetti() {
     var sides = ["left", "right"];

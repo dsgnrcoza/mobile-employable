@@ -5,6 +5,29 @@
   <div class="splash-logo wordmark">PL<span class="wordmark-o">O</span>Y</div>
   <div class="splash-loader"></div>
 </div>
+<script>
+  // Only the very first screen of a fresh app open should get the splash
+  // -- without this it replays on every visit to /login or /signup within
+  // the same session (back button, logout, the "Back to Sign In" link),
+  // which reads as broken rather than intentional. Runs synchronously
+  // before first paint so skipping it never causes a flash of the splash
+  // appearing then vanishing. Same "fresh app open" definition and
+  // sessionStorage key home.js already uses, so logging out and landing
+  // back here correctly counts as still the same session.
+  (function () {
+    try {
+      var navEntries = window.performance && performance.getEntriesByType
+        ? performance.getEntriesByType("navigation") : [];
+      var isReload = (navEntries.length && navEntries[0].type === "reload") ||
+        (window.performance && performance.navigation && performance.navigation.type === 1);
+      var isFreshAppOpen = isReload || !sessionStorage.getItem("ploy_session_active");
+      sessionStorage.setItem("ploy_session_active", "1");
+      if (!isFreshAppOpen) {
+        document.currentScript.previousElementSibling.classList.add("splash-skip");
+      }
+    } catch (e) {}
+  })();
+</script>
 <div class="auth-shell" data-auth-page="login">
   <div class="auth-card" id="auth-view">
 

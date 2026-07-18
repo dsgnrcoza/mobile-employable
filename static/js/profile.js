@@ -156,12 +156,17 @@
             setStatus(photoStatus, data.error || "Couldn't upload that photo.", true);
             return;
           }
-          setStatus(photoStatus, "", false);
+          setStatus(photoStatus, "Photo updated.", false);
           var preview = document.getElementById("profile-photo-preview");
           var img = document.createElement("img");
           img.id = "profile-photo-preview";
           img.className = "profile-photo-preview";
           img.alt = "";
+          img.style.opacity = "0";
+          img.style.transition = "opacity 0.25s ease";
+          img.onload = function () {
+            requestAnimationFrame(function () { img.style.opacity = "1"; });
+          };
           img.src = data.avatar_url;
           preview.replaceWith(img);
         })
@@ -319,6 +324,16 @@
     navigator.clipboard.writeText(text).then(function () {
       keyRevealCopyBtn.classList.add("is-copied");
       setTimeout(function () { keyRevealCopyBtn.classList.remove("is-copied"); }, 1500);
+    }).catch(function () {
+      var range = document.createRange();
+      range.selectNodeContents(keyRevealValue);
+      var sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      keyRevealCopyBtn.setAttribute("aria-label", "Key selected — copy it manually");
+      setTimeout(function () {
+        keyRevealCopyBtn.setAttribute("aria-label", "Copy security key");
+      }, 2500);
     });
   });
 

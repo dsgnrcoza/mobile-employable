@@ -131,10 +131,23 @@ a {
   margin-bottom: 16px;
   color: var(--fg);
   background: transparent;
+  animation: chat-item-in 0.25s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.flash-error {
+  border-color: rgba(224, 86, 75, 0.4);
+  color: var(--bad);
+  background: rgba(224, 86, 75, 0.08);
 }
 
 .flash-error::before {
   content: "! ";
+}
+
+.flash-success {
+  border-color: rgba(76, 195, 138, 0.4);
+  color: var(--good);
+  background: rgba(76, 195, 138, 0.08);
 }
 
 .flash-success::before {
@@ -153,16 +166,32 @@ a {
   justify-content: center;
   gap: 28px;
   z-index: 9999;
-  transition: opacity 0.35s ease;
+  opacity: 1;
+  transition: opacity 0.35s ease, display 0.35s allow-discrete;
 }
 
 .splash[hidden] {
   display: none;
+  opacity: 0;
+  transition: opacity 0.25s ease, display 0.25s allow-discrete;
+}
+
+@starting-style {
+  .splash:not([hidden]) {
+    opacity: 0;
+  }
 }
 
 .splash.is-hidden {
   opacity: 0;
   pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .splash[hidden],
+  .splash {
+    transition: none;
+  }
 }
 
 .splash-logo {
@@ -213,6 +242,16 @@ a {
     animation-duration: 0.01ms;
     animation-delay: 500ms;
   }
+}
+
+/* Applied by an inline script the instant this isn't a fresh app open --
+   skips straight to the animation's end state so a repeat visit within
+   the same session never shows the splash at all. */
+.splash-skip {
+  animation: none;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 /* ---------- Auth shell (login / signup / forgot password / verify / reset) ---------- */
@@ -516,12 +555,13 @@ button.auth-tab.active {
 }
 
 .field-hint.is-met {
-  color: #2dd4bf;
+  color: var(--good);
+  transition: color 0.15s ease;
 }
 
 .key-format-hint {
   font-size: 12px;
-  color: #2dd4bf;
+  color: var(--good);
   margin-top: -8px;
   margin-bottom: 2px;
   line-height: 1.4;
@@ -566,12 +606,12 @@ button.auth-tab.active {
 }
 
 .password-reqs li.is-met {
-  color: #2dd4bf;
+  color: var(--good);
 }
 
 .password-reqs li.is-met::before {
-  border-color: #2dd4bf;
-  background: #2dd4bf;
+  border-color: var(--good);
+  background: var(--good);
 }
 
 /* ---------- Buttons ---------- */
@@ -734,8 +774,9 @@ button.auth-tab.active {
 }
 
 .security-key-copy-btn.is-copied {
-  color: #2dd4bf;
-  border-color: #2dd4bf;
+  color: var(--good);
+  border-color: var(--good);
+  transition: color 0.15s ease, border-color 0.15s ease;
 }
 
 .security-key-warning {
@@ -803,8 +844,24 @@ button.auth-tab.active {
    keeps its original plain-black layout rather than the white-header
    treatment below. */
 .ob-topbar {
+  position: relative;
   padding: 24px 24px 8px;
   text-align: center;
+}
+
+.ob-topbar-logout {
+  position: absolute;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.ob-topbar-logout:active {
+  color: var(--fg);
 }
 
 .ob-content {
@@ -906,6 +963,30 @@ button.auth-tab.active {
   margin-top: 12px;
 }
 
+.ob-step {
+  opacity: 1;
+  transition: opacity 0.22s ease, display 0.22s allow-discrete;
+}
+
+.ob-step[hidden] {
+  display: none;
+  opacity: 0;
+  transition: opacity 0.16s ease, display 0.16s allow-discrete;
+}
+
+@starting-style {
+  .ob-step:not([hidden]) {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ob-step,
+  .ob-step[hidden] {
+    transition: none;
+  }
+}
+
 .ob-step h1 {
   font-size: 22px;
   font-weight: 700;
@@ -930,19 +1011,38 @@ button.auth-tab.active {
   margin-bottom: 20px;
 }
 
+.ob-state-idle,
+.ob-state-uploading,
+.ob-state-complete {
+  opacity: 1;
+  transition: opacity 0.2s ease, display 0.2s allow-discrete;
+}
+
 .ob-upload-card[data-state="empty"] .ob-state-uploading,
-.ob-upload-card[data-state="empty"] .ob-state-complete {
-  display: none;
-}
-
+.ob-upload-card[data-state="empty"] .ob-state-complete,
 .ob-upload-card[data-state="uploading"] .ob-state-idle,
-.ob-upload-card[data-state="uploading"] .ob-state-complete {
-  display: none;
-}
-
+.ob-upload-card[data-state="uploading"] .ob-state-complete,
 .ob-upload-card[data-state="complete"] .ob-state-idle,
 .ob-upload-card[data-state="complete"] .ob-state-uploading {
   display: none;
+  opacity: 0;
+  transition: opacity 0.15s ease, display 0.15s allow-discrete;
+}
+
+@starting-style {
+  .ob-upload-card[data-state="empty"] .ob-state-idle,
+  .ob-upload-card[data-state="uploading"] .ob-state-uploading,
+  .ob-upload-card[data-state="complete"] .ob-state-complete {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ob-state-idle,
+  .ob-state-uploading,
+  .ob-state-complete {
+    transition: none;
+  }
 }
 
 .ob-upload-icon {
@@ -1136,6 +1236,8 @@ button.auth-tab.active {
   gap: 16px;
   padding: 60px 0;
   color: rgba(255, 255, 255, 0.55);
+  opacity: 1;
+  transition: opacity 0.22s ease, display 0.22s allow-discrete;
 }
 
 /* An author-stylesheet `display: flex` rule beats the UA stylesheet's
@@ -1144,6 +1246,40 @@ button.auth-tab.active {
    attribute alone does nothing without this explicit override. */
 .ob-readout-loading[hidden] {
   display: none;
+  opacity: 0;
+  transition: opacity 0.16s ease, display 0.16s allow-discrete;
+}
+
+@starting-style {
+  .ob-readout-loading:not([hidden]) {
+    opacity: 0;
+  }
+}
+
+.ob-readout-result {
+  opacity: 1;
+  transition: opacity 0.28s ease, display 0.28s allow-discrete;
+}
+
+.ob-readout-result[hidden] {
+  display: none;
+  opacity: 0;
+  transition: opacity 0.16s ease, display 0.16s allow-discrete;
+}
+
+@starting-style {
+  .ob-readout-result:not([hidden]) {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ob-readout-loading,
+  .ob-readout-loading[hidden],
+  .ob-readout-result,
+  .ob-readout-result[hidden] {
+    transition: none;
+  }
 }
 
 .ob-readout-result h1 {
@@ -1496,8 +1632,6 @@ button.auth-tab.active {
   .ob-preview-overlay,
   .ob-preview-overlay[hidden],
   .ob-preview-modal,
-  .chat-history-overlay,
-  .chat-history-overlay[hidden],
   .crop-overlay,
   .crop-overlay[hidden],
   .download-app-menu,
@@ -1744,19 +1878,6 @@ button.auth-tab.active {
   }
 }
 
-.chat-close-btn {
-  background: none;
-  border: none;
-  color: var(--muted);
-  cursor: pointer;
-  padding: 4px;
-}
-
-.chat-close-btn svg {
-  width: 18px;
-  height: 18px;
-}
-
 .chat-messages {
   flex: 1;
   overflow-y: auto;
@@ -1826,6 +1947,11 @@ button.auth-tab.active {
   overflow-wrap: break-word;
   word-break: break-word;
   max-width: 100%;
+  /* wireSwipeToReply (home.js) blanks this out to "none" for 1:1 drag
+     tracking, then resets it back to "" the instant the finger lifts --
+     this is what actually plays the spring-back it resets into, rather
+     than the bubble just snapping straight back to place. */
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .chat-msg-bot {
@@ -1875,6 +2001,13 @@ button.auth-tab.active {
   background: var(--fg);
   color: var(--bg);
   border-bottom-right-radius: 4px;
+  touch-action: pan-y;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-msg {
+    transition: none;
+  }
 }
 
 /* Below-bubble action icon row: copy / edit / reply / save. Hidden until
@@ -1922,8 +2055,9 @@ button.auth-tab.active {
 
 .chat-msg-action-btn.is-saved,
 .chat-msg-action-btn.is-copied {
-  color: #2dd4bf;
+  color: var(--good);
   opacity: 1;
+  transition: color 0.15s ease, opacity 0.15s ease;
 }
 
 /* Edit-in-place mode: the bubble's text swaps for a textarea + Save/Cancel */
@@ -2500,6 +2634,30 @@ button.auth-tab.active {
   border-top: 1px solid var(--line);
   padding-top: 10px;
   margin-bottom: 10px;
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), display 0.25s allow-discrete;
+}
+
+.card-breakdown[hidden] {
+  display: none;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: opacity 0.18s ease, transform 0.18s ease, display 0.18s allow-discrete;
+}
+
+@starting-style {
+  .card-breakdown:not([hidden]) {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-breakdown,
+  .card-breakdown[hidden] {
+    transition: none;
+  }
 }
 
 .card-actions {
@@ -2573,201 +2731,6 @@ button.auth-tab.active {
 
 .document-card .card-actions {
   margin-top: 14px;
-}
-
-.chat-input-row {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 16px;
-  padding-bottom: max(12px, env(safe-area-inset-bottom));
-  border-top: 1px solid var(--line);
-}
-
-.chat-input-row input {
-  flex: 1;
-  background: transparent;
-  border: 1px solid var(--line-strong);
-  border-radius: 20px;
-  padding: 10px 16px;
-  color: var(--fg);
-  font-size: 13px;
-  font-family: inherit;
-  outline: none;
-}
-
-.chat-input-row input::placeholder {
-  color: var(--muted);
-}
-
-.chat-input-row button {
-  background: var(--fg);
-  color: var(--bg);
-  border: none;
-  border-radius: 50%;
-  width: 36px;
-  height: 36px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-
-.chat-input-row button svg {
-  width: 17px;
-  height: 17px;
-}
-
-#chat-history-btn {
-  background: none;
-  color: var(--muted);
-}
-
-#chat-history-btn:hover {
-  color: var(--fg);
-}
-
-/* ==========================================================================
-   Chat history panel
-   ========================================================================== */
-
-.chat-history-overlay {
-  position: fixed;
-  inset: 0;
-  background: var(--bg);
-  z-index: 9999;
-  display: flex;
-  flex-direction: column;
-  opacity: 1;
-  transition: opacity 0.2s ease, display 0.2s allow-discrete;
-}
-
-.chat-history-overlay[hidden] {
-  display: none;
-  opacity: 0;
-  transition: opacity 0.2s ease, display 0.2s allow-discrete;
-}
-
-@starting-style {
-  .chat-history-overlay:not([hidden]) {
-    opacity: 0;
-  }
-}
-
-.chat-history-header {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 20px 16px 12px;
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.chat-history-header button {
-  background: none;
-  border: none;
-  color: var(--fg);
-  cursor: pointer;
-  padding: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.chat-history-header button svg {
-  width: 20px;
-  height: 20px;
-}
-
-.chat-history-search-row {
-  flex-shrink: 0;
-  padding: 4px 16px 14px;
-}
-
-.chat-history-search-row input {
-  width: 100%;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 20px;
-  padding: 10px 16px;
-  color: var(--fg);
-  font-size: 13px;
-  font-family: inherit;
-  outline: none;
-}
-
-.chat-history-search-row input::placeholder {
-  color: var(--muted);
-}
-
-.chat-history-list {
-  flex: 1;
-  overflow-y: auto;
-  padding: 0 8px 20px;
-}
-
-.chat-history-item {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  width: 100%;
-  background: none;
-  border: none;
-  text-align: left;
-  padding: 12px 12px;
-  border-radius: 10px;
-  cursor: pointer;
-  font-family: inherit;
-  color: var(--fg);
-  transition: background 0.15s ease;
-}
-
-.chat-history-item:hover,
-.chat-history-item:active {
-  background: var(--surface);
-}
-
-.chat-history-item.active {
-  background: var(--surface);
-}
-
-.chat-history-item-title {
-  font-size: 13px;
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.chat-history-new-fab {
-  position: absolute;
-  bottom: 20px;
-  right: 16px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--fg);
-  color: var(--bg);
-  border: none;
-  border-radius: 24px;
-  padding: 12px 20px;
-  font-size: 13px;
-  font-weight: 700;
-  font-family: inherit;
-  cursor: pointer;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
-}
-
-.chat-history-new-fab:hover {
-  opacity: 0.85;
-}
-
-.chat-history-new-fab svg {
-  width: 16px;
-  height: 16px;
 }
 
 /* ---------- Auth pages: small centered "Download App" button ----------
@@ -2879,18 +2842,6 @@ button.auth-tab.active {
   color: var(--muted);
   padding: 8px 10px 4px;
   white-space: normal;
-}
-
-.chat-history-item-time {
-  font-size: 12px;
-  color: var(--muted);
-}
-
-.chat-history-empty {
-  text-align: center;
-  color: var(--muted);
-  font-size: 13px;
-  padding: 40px 20px;
 }
 
 /* ==========================================================================
@@ -3380,92 +3331,6 @@ button.auth-tab.active {
    Profile screen
    ========================================================================== */
 
-.profile-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  padding-top: 12px;
-  margin-bottom: 28px;
-}
-
-.profile-avatar-btn {
-  position: relative;
-  width: 92px;
-  height: 92px;
-  border-radius: 50%;
-  border: 1px solid var(--line-strong);
-  background: none;
-  color: var(--fg);
-  cursor: pointer;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: visible;
-  margin-bottom: 14px;
-}
-
-.profile-avatar-btn img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  border-radius: 50%;
-}
-
-.profile-avatar-btn svg {
-  width: 40px;
-  height: 40px;
-}
-
-.profile-avatar-edit-badge {
-  position: absolute;
-  bottom: -2px;
-  right: -2px;
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  background: var(--fg);
-  color: var(--bg);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 2px solid var(--bg);
-}
-
-.profile-avatar-edit-badge svg {
-  width: 15px;
-  height: 15px;
-}
-
-.profile-name {
-  font-size: 18px;
-  font-weight: 700;
-  margin-bottom: 4px;
-}
-
-.profile-username {
-  display: block;
-  font-size: 12px;
-  color: var(--muted);
-  margin-bottom: 6px;
-}
-
-.profile-contact {
-  display: block;
-  font-size: 12.5px;
-  color: var(--muted);
-  margin-bottom: 2px;
-}
-
-.profile-contact[hidden] {
-  display: none;
-}
-
-.profile-edit-btn {
-  margin-top: 18px;
-}
-
 .profile-menu {
   display: flex;
   flex-direction: column;
@@ -3493,17 +3358,6 @@ button.auth-tab.active {
 
 .profile-menu-row:last-child {
   border-bottom: none;
-}
-
-/* The Dark Mode row isn't itself a navigation control -- only the
-   switch inside it is interactive -- so it drops the button-like
-   cursor/press feedback the other rows get. */
-.profile-menu-row-static {
-  cursor: default;
-}
-
-.profile-menu-row-static:active {
-  background: none;
 }
 
 .profile-menu-icon {
@@ -3562,21 +3416,6 @@ button.auth-tab.active {
 .toggle-switch.is-on .toggle-switch-knob {
   transform: translateX(18px);
   background: var(--bg);
-}
-
-.profile-legal-links {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  margin-top: 28px;
-  padding-bottom: 8px;
-}
-
-.profile-legal-links a {
-  color: var(--muted);
-  font-size: 11px;
-  text-decoration: underline;
 }
 
 /* ==========================================================================
@@ -3961,16 +3800,6 @@ button.auth-tab.active {
   padding: max(18px, env(safe-area-inset-top)) 16px 10px;
 }
 
-.chat-wordmark {
-  font-size: 14px;
-}
-
-.chat-topbar-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
 .chat-icon-btn {
   background: none;
   border: none;
@@ -4028,6 +3857,8 @@ button.auth-tab.active {
   text-align: center;
   gap: 10px;
   padding: 24px;
+  opacity: 1;
+  transition: opacity 0.22s ease, display 0.22s allow-discrete;
 }
 
 /* An author-stylesheet `display: flex` rule beats the UA stylesheet's
@@ -4036,6 +3867,14 @@ button.auth-tab.active {
    attribute alone does nothing without this explicit override. */
 .chat-empty[hidden] {
   display: none;
+  opacity: 0;
+  transition: opacity 0.18s ease, display 0.18s allow-discrete;
+}
+
+@starting-style {
+  .chat-empty:not([hidden]) {
+    opacity: 0;
+  }
 }
 
 .chat-empty h1 {
@@ -4056,10 +3895,29 @@ button.auth-tab.active {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  opacity: 1;
+  transition: opacity 0.22s ease, display 0.22s allow-discrete;
 }
 
 .chat-messages[hidden] {
   display: none;
+  opacity: 0;
+  transition: opacity 0.18s ease, display 0.18s allow-discrete;
+}
+
+@starting-style {
+  .chat-messages:not([hidden]) {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-empty,
+  .chat-empty[hidden],
+  .chat-messages,
+  .chat-messages[hidden] {
+    transition: none;
+  }
 }
 
 .chat-input-wrap {
@@ -5244,7 +5102,7 @@ button.auth-tab.active {
 }
 
 .builder-status-error {
-  color: #ec4899;
+  color: var(--bad);
 }
 
 .builder-preview-empty {
@@ -5511,6 +5369,7 @@ button.auth-tab.active {
   font-weight: 600;
   color: var(--good);
   margin-top: 10px;
+  transition: color 0.2s ease;
 }
 
 .builder-save-state::before {
@@ -5544,10 +5403,20 @@ button.auth-tab.active {
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(8px) saturate(1.3);
   -webkit-backdrop-filter: blur(8px) saturate(1.3);
+  opacity: 1;
+  transition: opacity 0.22s ease, display 0.22s allow-discrete;
 }
 
 .template-preview-overlay[hidden] {
   display: none;
+  opacity: 0;
+  transition: opacity 0.18s ease, display 0.18s allow-discrete;
+}
+
+@starting-style {
+  .template-preview-overlay:not([hidden]) {
+    opacity: 0;
+  }
 }
 
 .template-preview-sheet {
@@ -5560,6 +5429,27 @@ button.auth-tab.active {
   border-bottom: none;
   border-radius: 24px 24px 0 0;
   padding: 14px 16px calc(16px + env(safe-area-inset-bottom));
+  transform: translateY(0);
+  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.template-preview-overlay[hidden] .template-preview-sheet {
+  transform: translateY(40px);
+}
+
+@starting-style {
+  .template-preview-overlay:not([hidden]) .template-preview-sheet {
+    transform: translateY(40px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .template-preview-overlay,
+  .template-preview-overlay[hidden],
+  .template-preview-sheet,
+  .template-preview-overlay[hidden] .template-preview-sheet {
+    transition: none;
+  }
 }
 
 .template-preview-header {
@@ -5872,10 +5762,20 @@ button.auth-tab.active {
   display: flex;
   flex-direction: column;
   padding: 8px 16px;
+  opacity: 1;
+  transition: opacity 0.2s ease, display 0.2s allow-discrete;
 }
 
 .profile-menu[hidden] {
   display: none;
+  opacity: 0;
+  transition: opacity 0.15s ease, display 0.15s allow-discrete;
+}
+
+@starting-style {
+  .profile-menu:not([hidden]) {
+    opacity: 0;
+  }
 }
 
 .profile-menu-row {
@@ -5921,8 +5821,30 @@ button.auth-tab.active {
   color: var(--muted);
 }
 
+.profile-section-view {
+  opacity: 1;
+  transition: opacity 0.2s ease, display 0.2s allow-discrete;
+}
+
 .profile-section-view[hidden] {
   display: none;
+  opacity: 0;
+  transition: opacity 0.15s ease, display 0.15s allow-discrete;
+}
+
+@starting-style {
+  .profile-section-view:not([hidden]) {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .profile-menu,
+  .profile-menu[hidden],
+  .profile-section-view,
+  .profile-section-view[hidden] {
+    transition: none;
+  }
 }
 
 .profile-instructions-chips {
@@ -6282,11 +6204,13 @@ button.auth-tab.active {
   padding: 6px 14px;
   border: 3px solid;
   border-radius: 10px;
+  font-family: var(--font-mono);
   font-size: 18px;
   font-weight: 800;
   letter-spacing: 0.06em;
   opacity: 0;
   pointer-events: none;
+  transition: opacity 0.15s ease;
 }
 
 .swiper-card-stamp-apply {
@@ -6328,6 +6252,48 @@ button.auth-tab.active {
   color: var(--muted);
   margin: 0;
   max-width: 260px;
+}
+
+.swiper-hint {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 10px 16px 0;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  opacity: 1;
+  transition: opacity 0.3s ease, display 0.3s allow-discrete;
+}
+
+.swiper-hint[hidden] {
+  display: none;
+  opacity: 0;
+  transition: opacity 0.2s ease, display 0.2s allow-discrete;
+}
+
+@starting-style {
+  .swiper-hint:not([hidden]) {
+    opacity: 0;
+  }
+}
+
+.swiper-hint-skip {
+  color: var(--bad);
+}
+
+.swiper-hint-apply {
+  color: var(--good);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .swiper-hint,
+  .swiper-hint[hidden] {
+    transition: none;
+  }
 }
 
 .swiper-fallback-actions {
@@ -6419,6 +6385,16 @@ button.auth-tab.active {
 
 .outbox-filter-row[hidden] {
   display: none;
+}
+
+.outbox-status-legend {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0 16px 12px;
+  font-size: 11.5px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow-x: auto;
 }
 
 .outbox-filter-chip {
