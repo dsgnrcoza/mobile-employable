@@ -1784,16 +1784,28 @@
   });
 
   // ---------- Outbox badge ----------
+  // Same drafted-application count drives both the sidebar's Outbox row
+  // and the top bar's Jobs shortcut -- the top bar is the one most users
+  // will actually see first, since JobSwiper/Outbox is where a lot of
+  // time gets spent and shouldn't require opening the sidebar first.
 
   var sidebarOutboxBadge = document.getElementById("sidebar-outbox-badge");
-  if (sidebarOutboxBadge) {
+  var topbarJobsBadge = document.getElementById("chat-topbar-jobs-badge");
+  if (sidebarOutboxBadge || topbarJobsBadge) {
     fetch("/api/applications")
       .then(function (r) { return r.json(); })
       .then(function (data) {
         if (!data.ok) return;
         var count = data.applications.filter(function (a) { return a.status === "drafted"; }).length;
-        sidebarOutboxBadge.textContent = count > 99 ? "99+" : String(count);
-        sidebarOutboxBadge.hidden = count === 0;
+        var text = count > 99 ? "99+" : String(count);
+        if (sidebarOutboxBadge) {
+          sidebarOutboxBadge.textContent = text;
+          sidebarOutboxBadge.hidden = count === 0;
+        }
+        if (topbarJobsBadge) {
+          topbarJobsBadge.textContent = text;
+          topbarJobsBadge.hidden = count === 0;
+        }
       })
       .catch(function () {});
   }
