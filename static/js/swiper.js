@@ -172,7 +172,13 @@
         .then(function (r) { return r.json(); })
         .then(function (data) {
           if (data.ok) {
-            showToast(data.duplicate ? "Already in your Outbox" : "Drafted — check your Outbox");
+            // The Outbox tab's own badge count updating is enough
+            // signal that this landed -- a toast on top of it for
+            // every single successful swipe was just noise. Still
+            // worth a toast specifically when nothing new happened,
+            // though, since the badge not changing there could
+            // otherwise look like this one silently failed.
+            if (data.duplicate) showToast("Already in your Outbox");
             updateBadge();
           } else {
             showToast(data.error || "Couldn't draft that application.");

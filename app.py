@@ -1012,6 +1012,7 @@ def _serialize_tracker_entry(row):
         "recipientEmail": row.get("recipient_email") or "",
         "subject": row.get("subject") or "",
         "body": row.get("body") or "",
+        "salary": row.get("salary") or "",
         "status": row["status"],
         "createdAt": row["created_at"],
         "sentAt": row.get("sent_at"),
@@ -1116,7 +1117,7 @@ def api_apply_job(job_id):
 
     entry_id = db.create_tracker_entry(
         user["id"], job_id, job["title"], job["company"], job.get("url", ""),
-        job.get("email", ""), subject, body,
+        job.get("email", ""), subject, body, salary=job.get("salary", ""),
     )
     entry = db.get_tracker_entry(user["id"], entry_id)
     return jsonify({"ok": True, "application": _serialize_tracker_entry(entry)})
@@ -1168,6 +1169,31 @@ def api_mark_application_sent(entry_id):
     db.update_tracker_status(user["id"], entry_id, "sent", sent_at=db.now_iso())
     entry = db.get_tracker_entry(user["id"], entry_id)
     return jsonify({"ok": True, "application": _serialize_tracker_entry(entry)})
+
+
+@app.route("/api/applications/<int:entry_id>", methods=["DELETE"])
+@auth.login_required
+def api_delete_application(entry_id):
+    """Long-press an Outbox item -> Delete. Permanent -- the swiper only
+    ever excludes a job by id going forward, it never restores a
+    deleted application's history."""
+    user = auth.current_user()
+    deleted = db.delete_tracker_entry(user["id"], entry_id)
+    if not deleted:
+        return jsonify({"ok": False, "error": "Application not found."}), 404
+    return jsonify({"ok": True})
+
+
+@app.route("/api/applications/clear-drafted", methods=["POST"])
+@auth.login_required
+def api_clear_drafted_applications():
+    """Outbox's options menu -> "Clear drafted" -- bulk-removes every
+    application still sitting in the drafted state (never touches
+    sent/replied/interview/rejected -- those represent real progress,
+    not clutter)."""
+    user = auth.current_user()
+    count = db.delete_tracker_entries_by_status(user["id"], "drafted")
+    return jsonify({"ok": True, "count": count})
 
 
 @app.route("/api/document", methods=["POST"])
@@ -3124,6 +3150,33 @@ _CHAT_TOOLS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_jobs",
+            "description": (
+                "Search this app's live job listings pool -- the same one Find Jobs (the swiper) draws from "
+                "-- by keyword and/or location, and return real matches with title, company, location, "
+                "salary, and whether an application email is listed. Call this whenever the user asks you to "
+                "find, search for, or look up jobs/roles/openings directly in chat, instead of just telling "
+                "them to go swipe. Already-skipped and already-applied-to listings are excluded automatically. "
+                "Returns up to 8 of the closest matches."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "keywords": {
+                        "type": "string",
+                        "description": "Job title, skill, or keyword to search for, e.g. 'cashier' or 'web developer'. Leave blank to browse broadly.",
+                    },
+                    "location": {
+                        "type": "string",
+                        "description": "City or province to filter by, if the user named one, e.g. 'Cape Town' or 'Gauteng'.",
+                    },
+                },
+            },
+        },
+    },
 ]
 
 
@@ -3171,6 +3224,44 @@ def _brain_and_memory_section(user):
         "to sound like you actually know them and to avoid making them repeat themselves, but their real "
         "documents always win if the two ever conflict):\n" + "\n".join(lines) + "\n"
     )
+
+
+def _jobswiper_context_section(user):
+    """Real JobSwiper/Outbox activity for this user -- what they've
+    swiped past, applied to, and how those applications are tracking --
+    injected into every chat turn (unlike _brain_and_memory_section,
+    not gated on "remember all chats", since this is this user's own
+    current job-hunt state, not cross-conversation memory) so advice is
+    grounded in what's actually happened instead of only what's been
+    typed in this one conversation."""
+    hidden_ids = db.get_hidden_job_ids(user["id"])
+    entries = db.get_tracker_entries_for_user(user["id"])
+    if not hidden_ids and not entries:
+        return (
+            "\n\nJOB SWIPER / OUTBOX: This user hasn't swiped on any jobs yet -- Find Jobs and their Outbox "
+            "are both empty. If relevant, point them there rather than assuming they've applied anywhere.\n"
+        )
+
+    lines = [
+        "\n\nJOB SWIPER / OUTBOX ACTIVITY (real data from this user's actual swipes and applications -- "
+        "ground advice in this; never ask them to repeat what's already listed here):"
+    ]
+    lines.append(f"- Skipped (swiped left, not interested): {len(hidden_ids)} listing(s).")
+    if entries:
+        by_status = {}
+        for e in entries:
+            by_status.setdefault(e["status"], []).append(e)
+        status_order = ["drafted", "sent", "replied", "interview", "rejected"]
+        counts = ", ".join(f"{len(by_status[s])} {s}" for s in status_order if s in by_status)
+        lines.append(f"- Applied to (swiped right, in their Outbox): {len(entries)} total -- {counts}.")
+        recent = sorted(entries, key=lambda e: e.get("updated_at") or e.get("created_at") or "", reverse=True)[:8]
+        lines.append("Most recent applications, newest first:")
+        for e in recent:
+            sent_bit = " (marked sent -- they opened their mail app for this one)" if e.get("sent_at") else ""
+            lines.append(f"- {e['job_title']} at {e['company']}: {e['status']}{sent_bit}")
+    else:
+        lines.append("- No applications drafted yet.")
+    return "\n".join(lines) + "\n"
 
 
 def _consolidate_user_brain(user):
@@ -3315,6 +3406,7 @@ _TOOL_STATUS_LABELS = {
     "analyze_skill_gaps": "Analyzing your skill gaps",
     "generate_skills_chart": "Charting your scores",
     "generate_image": "Generating your image",
+    "search_jobs": "Searching job listings",
 }
 
 
@@ -3342,6 +3434,13 @@ def _tool_call_detail(tool_name, args):
     if tool_name == "generate_image":
         prompt = (args.get("prompt") or "").strip()
         return f'Generated an image from: "{prompt[:100]}"' if prompt else "Generated an image."
+    if tool_name == "search_jobs":
+        bits = []
+        if args.get("keywords"):
+            bits.append(f'"{args["keywords"]}"')
+        if args.get("location"):
+            bits.append(f'in {args["location"]}')
+        return "Searched listings" + (" for " + " ".join(bits) + "." if bits else ".")
     return ""
 
 
@@ -3356,7 +3455,47 @@ _TOOL_FAILURE_MESSAGES = {
     "analyze_skill_gaps": "Couldn't run that gap analysis just now -- want me to try again?",
     "generate_skills_chart": "Couldn't build that chart just now -- want me to try again?",
     "generate_image": "That image didn't generate that time -- want me to try again?",
+    "search_jobs": "Couldn't search job listings just now -- want me to try again?",
 }
+
+
+def _search_jobs_for_chat(user, keywords, location):
+    """Backs the search_jobs tool -- searches the exact same pool
+    Find Jobs draws from (jobs_data.get_jobs(), currently synthetic;
+    swapping that module for a real listings API is the only change
+    this needs once one's wired up), excluding anything this user has
+    already skipped or applied to, and returns a plain-text summary
+    ready to hand straight back to the model as this tool call's
+    result."""
+    hidden_ids = db.get_hidden_job_ids(user["id"])
+    applied_ids = {e["job_id"] for e in db.get_tracker_entries_for_user(user["id"])}
+    pool = jobs_data.get_jobs(exclude_ids=hidden_ids | applied_ids)
+
+    kw = keywords.lower()
+    loc = location.lower()
+    matches = []
+    for job in pool:
+        if kw and kw not in job["title"].lower() and kw not in job["company"].lower() and kw not in job["description"].lower():
+            continue
+        if loc and loc not in job["location"].lower():
+            continue
+        matches.append(job)
+        if len(matches) >= 8:
+            break
+
+    what = f' for "{keywords}"' if keywords else ""
+    where = f" in {location}" if location else ""
+    if not matches:
+        return f"No matches{what}{where} in the current listings pool -- try different keywords, or open Find Jobs to browse everything available."
+
+    lines = [f"Found {len(matches)} match" + ("es" if len(matches) != 1 else "") + f"{what}{where}:"]
+    for i, job in enumerate(matches, 1):
+        line = f"{i}. **{job['title']}** — {job['company']}, {job['location']}"
+        if job.get("salary"):
+            line += f" ({job['salary']})"
+        lines.append(line)
+    lines.append("\nWant me to check your fit against any of these, or open Find Jobs to swipe through the rest?")
+    return "\n".join(lines)
 
 
 def _execute_chat_tool_call(user, tool_name, args):
@@ -3408,6 +3547,8 @@ def _execute_chat_tool_call(user, tool_name, args):
             if not prompt:
                 return "text", "What should the image show?"
             return "card", {"type": "image", "prompt": prompt, "image_b64": _generate_chat_image(prompt)}
+        if tool_name == "search_jobs":
+            return "text", _search_jobs_for_chat(user, (args.get("keywords") or "").strip(), (args.get("location") or "").strip())
     except Exception as e:
         print(f"[chat tool error] {tool_name}({args}): {e!r}")
         return "error", _TOOL_FAILURE_MESSAGES.get(tool_name, "Something didn't work there -- want me to try again?")
@@ -3497,6 +3638,7 @@ def api_chat():
         )
 
     brain_section = _brain_and_memory_section(user)
+    jobswiper_section = _jobswiper_context_section(user)
 
     system_prompt = f"""You are Ploy — a chat-first AI career weapon for South African job seekers aged 18-25. You exist for one loop and everything you do serves it: paste a job, get a brutal-honest fit verdict, get the CV or cover letter rewritten for that exact job, download it, apply.
 
@@ -3516,7 +3658,7 @@ If one part of a multi-part request comes back as a failure (you'll see this as 
 
 BE SMART ABOUT REAL, MULTI-PART REQUESTS. A message with several asks in it ("check my fit, build me a CV, and write a cover letter for this one") is not three separate conversations — it's one turn where you work through all three before you're done. Don't silently pick the first one and drop the rest, don't ask which one they want when they've already told you, and don't summarize what you're "about to do" instead of just doing it. If a later part genuinely depends on the outcome of an earlier one (e.g. tailoring a CV specifically to a job you were only asked to fit-check first), use the earlier result to inform the later call rather than treating them as unrelated.
 
-SLASH COMMANDS — this app's chat input has three explicit commands the user can trigger, each an unambiguous instruction, not something to interpret loosely: '/builder' at the start of a message means everything after it is an explicit build request — read it to tell whether they want a CV, a cover letter, or both, and call the matching tool(s) immediately rather than asking which they meant unless it's genuinely unclear. '/qualify' means they've attached a photo of a job ad (see check_job_fit's own description for exactly how to handle it). '/gaps' at the start of a message is an explicit alias for a gap analysis — call analyze_skill_gaps with whatever role/field follows it.
+SLASH COMMANDS — this app's chat input has explicit commands the user can trigger, each an unambiguous instruction, not something to interpret loosely: '/builder' at the start of a message means everything after it is an explicit build request — read it to tell whether they want a CV, a cover letter, or both, and call the matching tool(s) immediately rather than asking which they meant unless it's genuinely unclear. '/qualify' means they've attached a photo of a job ad (see check_job_fit's own description for exactly how to handle it). '/gaps' at the start of a message is an explicit alias for a gap analysis — call analyze_skill_gaps with whatever role/field follows it. '/image' at the start of a message is an explicit alias for generate_image — call it immediately with whatever follows as the prompt, rather than asking them to describe it differently. '/help' is handled entirely client-side before it ever reaches you — you will never actually see it.
 
 ASK WHEN YOU DON'T KNOW, DON'T GUESS. Two different situations call for this, and both matter:
 1. Their INTENT is ambiguous — "help me with my CV," "should I apply" — ask ONE short, specific clarifying question rather than dumping generic advice across every possible interpretation. When the real answer is a small, nameable set of options (a platform, a tone, which document, which role) — not an open-ended "tell me more" — phrase the question so each option is short enough to be one of the quick-reply buttons below (e.g. "Mobile app or web app?" with [[QUICK_REPLIES]] Mobile app | Web app), so they can tap instead of typing it out. Save open quick-replies-free questions for when the answer genuinely can't be reduced to a few named choices.
@@ -3555,7 +3697,7 @@ Give 1-3 short options (2-5 words each, phrased as something the user would tap)
 This user's name: {user.get('full_name') or 'Unknown'}
 Roles they're targeting: {user.get('target_field') or 'Not specified — if this matters for what they just asked (e.g. a gap analysis), ask which roles they mean before answering.'}
 Documents uploaded: {doc_names}
-{custom_instructions_section}{chat_memory_section}{brain_section}
+{custom_instructions_section}{chat_memory_section}{brain_section}{jobswiper_section}
 
 Full content of their uploaded documents (ground every piece of advice in this, it's the only source of truth about their real experience):
 {doc_content_block}

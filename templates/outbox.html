@@ -8,7 +8,9 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
     </a>
     <span class="stub-header-title">Outbox</span>
-    <span class="stub-header-spacer"></span>
+    <button type="button" class="chat-icon-btn" id="outbox-options-btn" aria-label="Sort and organize">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="16" cy="6" r="1.6" fill="currentColor" stroke="none"/><circle cx="8" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="16" cy="18" r="1.6" fill="currentColor" stroke="none"/></svg>
+    </button>
   </header>
 
   <div class="job-tabs">
@@ -27,6 +29,32 @@
     <h2>No drafts yet</h2>
     <p>Swipe right on a job in the swiper and it'll land here, ready to send.</p>
     <a href="{{ url_for('swiper_page') }}" class="btn btn-gold btn-sm">Find jobs</a>
+  </div>
+</div>
+
+<div class="outbox-item-menu" id="outbox-item-menu" hidden>
+  <button type="button" id="outbox-item-menu-delete">Delete</button>
+</div>
+
+<div class="outbox-options-overlay" id="outbox-options-overlay" hidden>
+  <div class="outbox-options-sheet">
+    <div class="outbox-options-handle" aria-hidden="true"></div>
+    <h2 class="outbox-options-title">Sort &amp; organize</h2>
+
+    <span class="outbox-options-group-label">Sort by</span>
+    <div class="outbox-options-group">
+      <button type="button" class="outbox-sort-row" data-sort="newest">Newest first</button>
+      <button type="button" class="outbox-sort-row" data-sort="oldest">Oldest first</button>
+      <button type="button" class="outbox-sort-row" data-sort="salary-high">Salary: high to low</button>
+      <button type="button" class="outbox-sort-row" data-sort="salary-low">Salary: low to high</button>
+    </div>
+
+    <span class="outbox-options-group-label">Manage</span>
+    <div class="outbox-options-group">
+      <button type="button" class="outbox-options-danger" id="outbox-clear-drafted-btn">Clear all drafted</button>
+    </div>
+
+    <button type="button" class="btn btn-ghost btn-block" id="outbox-options-close-btn">Close</button>
   </div>
 </div>
 

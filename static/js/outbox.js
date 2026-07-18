@@ -39,6 +39,7 @@
 
   var applications = [];
   var activeFilter = "all";
+  var currentSort = "newest";
   var reviewId = null;
   var cvDocId = null;
   var autosaveTimer = null;
@@ -91,6 +92,40 @@
     return applications.filter(function (a) { return a.id === id; })[0] || null;
   }
 
+  // Salary is free text ("R6,500 - R9,000 / month") straight from the
+  // listing at the time this was applied to -- not a structured number
+  // -- so sorting by it means pulling out the first real figure rather
+  // than a proper numeric comparison. Entries with no salary on file
+  // (older applications from before this was captured, or a listing
+  // that never had one) sort to the back regardless of direction, not
+  // mixed in as if they were zero.
+  function parseSalaryValue(salary) {
+    if (!salary) return null;
+    var match = salary.replace(/,/g, "").match(/\d+(\.\d+)?/);
+    return match ? parseFloat(match[0]) : null;
+  }
+
+  function sortApplications(list) {
+    var sorted = list.slice();
+    if (currentSort === "oldest") {
+      sorted.sort(function (a, b) { return new Date(a.createdAt) - new Date(b.createdAt); });
+    } else if (currentSort === "salary-high" || currentSort === "salary-low") {
+      var dir = currentSort === "salary-high" ? -1 : 1;
+      sorted.sort(function (a, b) {
+        var av = parseSalaryValue(a.salary), bv = parseSalaryValue(b.salary);
+        if (av === null && bv === null) return 0;
+        if (av === null) return 1;
+        if (bv === null) return -1;
+        return (av - bv) * dir;
+      });
+    } else {
+      // "newest" (default) -- applications already arrive newest-first
+      // from the API, so this is really just "undo any other sort".
+      sorted.sort(function (a, b) { return new Date(b.createdAt) - new Date(a.createdAt); });
+    }
+    return sorted;
+  }
+
   // ---------- List + filters ----------
 
   var jobTabBadge = document.getElementById("job-tab-badge");
@@ -107,7 +142,20 @@
       var chip = document.createElement("button");
       chip.type = "button";
       chip.className = "outbox-filter-chip" + (activeFilter === f.key ? " is-active" : "");
-      chip.textContent = f.label + (count ? " (" + count + ")" : "");
+      // The count used to be inline text ("Drafted (12)"), which forced
+      // the label itself to shrink/truncate as the number grew -- a
+      // separate badge (same idea as the job-tab badge above) keeps the
+      // label full-width and fixed regardless of how big the count gets.
+      var label = document.createElement("span");
+      label.className = "outbox-filter-chip-label";
+      label.textContent = f.label;
+      chip.appendChild(label);
+      if (count > 0) {
+        var badge = document.createElement("span");
+        badge.className = "outbox-filter-chip-badge";
+        badge.textContent = count > 99 ? "99+" : String(count);
+        chip.appendChild(badge);
+      }
       chip.addEventListener("click", function () {
         activeFilter = f.key;
         renderFilters();
@@ -124,6 +172,7 @@
     if (!applications.length) return;
 
     var visible = activeFilter === "all" ? applications : applications.filter(function (a) { return a.status === activeFilter; });
+    visible = sortApplications(visible);
 
     if (!visible.length) {
       var none = document.createElement("p");
@@ -149,10 +198,162 @@
         '<span class="outbox-status-chip outbox-status-' + app.status + '">' + STATUS_LABELS[app.status] + "</span>" +
         '<span class="outbox-item-date">' + escapeHtml(formatDate(app.createdAt)) + "</span>" +
         "</div>";
-      item.addEventListener("click", function () { openReview(app.id); });
+      attachLongPress(item, app.id, function () { openReview(app.id); });
       listEl.appendChild(item);
     });
   }
+
+  // ---------- Long-press an item -> Delete ----------
+
+  var LONG_PRESS_MS = 450;
+  var itemMenu = document.getElementById("outbox-item-menu");
+  var itemMenuDeleteBtn = document.getElementById("outbox-item-menu-delete");
+  var itemMenuTargetId = null;
+  var itemMenuJustOpened = false;
+
+  function openItemMenu(x, y, appId) {
+    itemMenuTargetId = appId;
+    var menuWidth = 150, menuHeight = 48;
+    itemMenu.style.left = Math.min(x, window.innerWidth - menuWidth - 8) + "px";
+    itemMenu.style.top = Math.min(y, window.innerHeight - menuHeight - 8) + "px";
+    itemMenu.hidden = false;
+    itemMenuJustOpened = true;
+    setTimeout(function () { itemMenuJustOpened = false; }, 400);
+  }
+
+  function closeItemMenu() {
+    itemMenu.hidden = true;
+    itemMenuTargetId = null;
+  }
+
+  document.addEventListener("click", function (e) {
+    if (itemMenuJustOpened) { itemMenuJustOpened = false; return; }
+    if (itemMenu.hidden || itemMenu.contains(e.target)) return;
+    closeItemMenu();
+  });
+
+  itemMenuDeleteBtn.addEventListener("click", function () {
+    var appId = itemMenuTargetId;
+    closeItemMenu();
+    if (appId == null) return;
+    var app = findApp(appId);
+    if (!window.confirm('Delete "' + (app ? app.jobTitle : "this application") + '"? This can\'t be undone.')) return;
+    fetch("/api/applications/" + appId, { method: "DELETE" })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data.ok) { showToast(data.error || "Couldn't delete that."); return; }
+        applications = applications.filter(function (a) { return a.id !== appId; });
+        renderFilters();
+        renderList();
+      })
+      .catch(function () { showToast("Couldn't delete that — check your connection."); });
+  });
+
+  // Same press-and-hold gesture as the sidebar's chat rename/delete menu
+  // -- touch, mouse-hold, and right-click/two-finger-tap all open it,
+  // and the trailing synthetic click a touch long-press leaves behind
+  // gets swallowed so it doesn't also open the review sheet underneath.
+  function attachLongPress(row, appId, onOpen) {
+    var pressTimer = null;
+    var startX = 0, startY = 0;
+    var longPressFired = false;
+
+    function start(x, y) {
+      startX = x;
+      startY = y;
+      pressTimer = setTimeout(function () {
+        pressTimer = null;
+        longPressFired = true;
+        if (navigator.vibrate) navigator.vibrate(12);
+        openItemMenu(x, y, appId);
+      }, LONG_PRESS_MS);
+    }
+
+    function cancel() {
+      if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
+    }
+
+    row.addEventListener("touchstart", function (e) {
+      var t = e.touches[0];
+      start(t.clientX, t.clientY);
+    }, { passive: true });
+    row.addEventListener("touchmove", function (e) {
+      var t = e.touches[0];
+      if (Math.abs(t.clientX - startX) > 10 || Math.abs(t.clientY - startY) > 10) cancel();
+    }, { passive: true });
+    row.addEventListener("touchend", cancel);
+    row.addEventListener("touchcancel", cancel);
+
+    row.addEventListener("mousedown", function (e) {
+      if (e.button !== 0) return;
+      start(e.clientX, e.clientY);
+    });
+    row.addEventListener("mouseup", cancel);
+    row.addEventListener("mouseleave", cancel);
+
+    row.addEventListener("contextmenu", function (e) {
+      e.preventDefault();
+      cancel();
+      longPressFired = true;
+      openItemMenu(e.clientX, e.clientY, appId);
+    });
+
+    // A long-press still fires a trailing "click" on touch devices once
+    // the finger lifts -- swallow exactly that one so it doesn't also
+    // open the review sheet right after the menu appears.
+    row.addEventListener("click", function () {
+      if (longPressFired) { longPressFired = false; return; }
+      onOpen();
+    });
+  }
+
+  // ---------- Options sheet: sort + Clear drafted ----------
+
+  var optionsBtn = document.getElementById("outbox-options-btn");
+  var optionsOverlay = document.getElementById("outbox-options-overlay");
+  var optionsCloseBtn = document.getElementById("outbox-options-close-btn");
+  var sortRows = document.querySelectorAll(".outbox-sort-row");
+  var clearDraftedBtn = document.getElementById("outbox-clear-drafted-btn");
+
+  function renderSortRows() {
+    sortRows.forEach(function (row) {
+      row.classList.toggle("is-active", row.dataset.sort === currentSort);
+    });
+  }
+
+  optionsBtn.addEventListener("click", function () {
+    renderSortRows();
+    optionsOverlay.hidden = false;
+  });
+  optionsCloseBtn.addEventListener("click", function () { optionsOverlay.hidden = true; });
+  optionsOverlay.addEventListener("click", function (e) {
+    if (e.target === optionsOverlay) optionsOverlay.hidden = true;
+  });
+
+  sortRows.forEach(function (row) {
+    row.addEventListener("click", function () {
+      currentSort = row.dataset.sort;
+      renderSortRows();
+      renderList();
+    });
+  });
+
+  clearDraftedBtn.addEventListener("click", function () {
+    var draftedCount = applications.filter(function (a) { return a.status === "drafted"; }).length;
+    if (!draftedCount) { showToast("No drafted applications to clear."); return; }
+    if (!window.confirm("Clear all " + draftedCount + " drafted application" + (draftedCount === 1 ? "" : "s") + "? This can't be undone.")) return;
+    fetch("/api/applications/clear-drafted", { method: "POST" })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data.ok) { showToast("Couldn't clear drafted applications."); return; }
+        applications = applications.filter(function (a) { return a.status !== "drafted"; });
+        optionsOverlay.hidden = true;
+        renderFilters();
+        renderList();
+        showToast("Cleared " + data.count + " drafted application" + (data.count === 1 ? "" : "s") + ".");
+      })
+      .catch(function () { showToast("Couldn't clear drafted applications — check your connection."); });
+  });
 
   function fetchApplications() {
     return fetch("/api/applications")

@@ -1971,6 +1971,99 @@ button.auth-tab.active {
   text-underline-offset: 2px;
 }
 
+/* /help's static guide -- a wider, more structured bubble than a
+   normal reply, since it's genuinely a small reference doc rather than
+   a line of conversation. */
+.chat-help-card {
+  max-width: 100%;
+  padding: 14px 16px 16px;
+}
+
+.chat-help-intro {
+  margin: 0 0 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.chat-help-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 14px 0 6px;
+}
+
+.chat-help-label:first-of-type {
+  margin-top: 0;
+}
+
+.chat-help-cmd-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chat-help-cmd-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.chat-help-cmd {
+  flex-shrink: 0;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.chat-help-cmd-desc {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.chat-help-section-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.chat-help-section-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.chat-help-section-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.chat-help-section-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.chat-help-section-text strong {
+  font-size: 13px;
+}
+
+.chat-help-section-text span {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.chat-help-nav-btn {
+  flex-shrink: 0;
+}
+
 .chat-msg-attachment-thumb {
   display: block;
   max-width: 100%;
@@ -4016,6 +4109,26 @@ button.auth-tab.active {
   height: 18px;
 }
 
+.chat-slash-cancel-icon {
+  display: none;
+}
+
+/* While dictating, this same button shows the cancel-dictation X in
+   the slash icon's exact place, instead of a second X control stacked
+   above it. */
+.chat-slash-btn.is-listening {
+  color: var(--bad);
+  border-color: var(--bad);
+}
+
+.chat-slash-btn.is-listening .chat-slash-icon {
+  display: none;
+}
+
+.chat-slash-btn.is-listening .chat-slash-cancel-icon {
+  display: block;
+}
+
 .chat-send-btn {
   background: var(--accent-gradient);
   color: var(--accent-ink);
@@ -4288,25 +4401,6 @@ button.auth-tab.active {
   font-size: 14px;
   font-family: inherit;
   cursor: pointer;
-}
-
-.chat-voice-cancel-btn {
-  flex-shrink: 0;
-  background: var(--surface);
-  color: var(--muted);
-  border: none;
-  border-radius: 50%;
-  width: 30px;
-  height: 30px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-
-.chat-voice-cancel-btn svg {
-  width: 16px;
-  height: 16px;
 }
 
 /* Many thin, closely-spaced bars with a shallow height swing -- reads
@@ -6452,19 +6546,20 @@ button.auth-tab.active {
      when there were 6. */
   flex: 1;
   min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
   background: var(--surface);
   border: 1px solid var(--line);
   color: var(--muted);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
-  padding: 8px 2px;
+  padding: 9px 4px;
   border-radius: 12px;
   cursor: pointer;
   white-space: nowrap;
-  text-overflow: ellipsis;
-  overflow: hidden;
-  text-align: center;
   transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
@@ -6472,6 +6567,32 @@ button.auth-tab.active {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--accent-ink);
+}
+
+.outbox-filter-chip-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* A separate badge for the count, not inline text -- this way the
+   label itself always stays full-size and legible; only the badge
+   needs to grow when the count does, and it grows outward (wider),
+   never by shrinking or truncating the label next to it. */
+.outbox-filter-chip-badge {
+  flex-shrink: 0;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.16);
+  color: inherit;
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
+}
+
+.outbox-filter-chip.is-active .outbox-filter-chip-badge {
+  background: rgba(255, 255, 255, 0.28);
 }
 
 .outbox-list {
@@ -6488,6 +6609,185 @@ button.auth-tab.active {
   font-size: 13px;
   padding: 32px 24px;
   margin: 0;
+}
+
+/* Long-press context menu on an Outbox item -- identical shape/motion
+   to the sidebar's chat rename/delete menu, just with one action. */
+.outbox-item-menu {
+  position: fixed;
+  background: var(--card-bg);
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  min-width: 140px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  z-index: 9999;
+  opacity: 1;
+  transform: scale(1);
+  transform-origin: top left;
+  transition: opacity 0.15s ease, transform 0.15s ease, display 0.15s allow-discrete;
+}
+
+.outbox-item-menu[hidden] {
+  display: none;
+  opacity: 0;
+  transform: scale(0.94);
+  transition: opacity 0.15s ease, transform 0.15s ease, display 0.15s allow-discrete;
+}
+
+@starting-style {
+  .outbox-item-menu:not([hidden]) {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}
+
+.outbox-item-menu button {
+  background: none;
+  border: none;
+  color: var(--bad);
+  padding: 10px 12px;
+  text-align: left;
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.outbox-item-menu button:hover {
+  background: var(--surface);
+}
+
+/* Outbox options sheet (sort + Clear drafted) -- same bottom-sheet
+   fade/slide idiom as the template-preview and qualify sheets. */
+.outbox-options-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 600;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px) saturate(1.3);
+  -webkit-backdrop-filter: blur(8px) saturate(1.3);
+  opacity: 1;
+  transition: opacity 0.22s ease, display 0.22s allow-discrete;
+}
+
+.outbox-options-overlay[hidden] {
+  display: none;
+  opacity: 0;
+  transition: opacity 0.18s ease, display 0.18s allow-discrete;
+}
+
+@starting-style {
+  .outbox-options-overlay:not([hidden]) {
+    opacity: 0;
+  }
+}
+
+.outbox-options-sheet {
+  width: 100%;
+  max-width: 480px;
+  background: var(--card-bg);
+  border: 1px solid var(--line-strong);
+  border-bottom: none;
+  border-radius: 24px 24px 0 0;
+  padding: 12px 20px max(20px, env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transform: translateY(0);
+  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.outbox-options-overlay[hidden] .outbox-options-sheet {
+  transform: translateY(40px);
+}
+
+@starting-style {
+  .outbox-options-overlay:not([hidden]) .outbox-options-sheet {
+    transform: translateY(40px);
+  }
+}
+
+.outbox-options-handle {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line-strong);
+  margin: 4px auto 12px;
+}
+
+.outbox-options-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.outbox-options-group-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-top: 10px;
+  margin-bottom: 2px;
+}
+
+.outbox-options-group {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+
+.outbox-sort-row,
+.outbox-options-danger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  color: var(--fg);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 13px 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.outbox-sort-row:last-child,
+.outbox-options-danger:last-child {
+  border-bottom: none;
+}
+
+.outbox-sort-row:active,
+.outbox-options-danger:active {
+  background: var(--surface);
+}
+
+.outbox-sort-row.is-active {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.outbox-sort-row.is-active::after {
+  content: "✓";
+}
+
+.outbox-options-danger {
+  color: var(--bad);
+}
+
+.outbox-options-sheet .btn-ghost {
+  margin-top: 14px;
 }
 
 .outbox-item {
