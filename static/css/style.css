@@ -3831,6 +3831,32 @@ button.auth-tab.active {
   flex: 1;
 }
 
+.chat-topbar-jobs-btn {
+  position: relative;
+  text-decoration: none;
+}
+
+.chat-topbar-jobs-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 4px;
+  border-radius: 7px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 14px;
+  text-align: center;
+}
+
+.chat-topbar-jobs-badge[hidden] {
+  display: none;
+}
+
 .chat-avatar-btn {
   width: 30px;
   height: 30px;
