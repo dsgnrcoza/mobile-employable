@@ -307,11 +307,15 @@
     });
   }
 
-  // ---------- Options sheet: sort + Clear drafted ----------
+  // ---------- Options dropdown: sort + Clear drafted ----------
+  // An inline dropdown positioned under the header button (fixed,
+  // computed from its bounding rect) rather than a full-screen sheet --
+  // the Outbox list stays visible and live behind it, so picking a sort
+  // order is a change you watch happen right there, not something you
+  // apply and then close a sheet to go check.
 
   var optionsBtn = document.getElementById("outbox-options-btn");
   var optionsOverlay = document.getElementById("outbox-options-overlay");
-  var optionsCloseBtn = document.getElementById("outbox-options-close-btn");
   var sortRows = document.querySelectorAll(".outbox-sort-row");
   var clearDraftedBtn = document.getElementById("outbox-clear-drafted-btn");
 
@@ -321,13 +325,38 @@
     });
   }
 
-  optionsBtn.addEventListener("click", function () {
+  function positionOptionsDropdown() {
+    var btnRect = optionsBtn.getBoundingClientRect();
+    var menuWidth = 220;
+    optionsOverlay.style.top = (btnRect.bottom + 8) + "px";
+    optionsOverlay.style.right = Math.max(12, window.innerWidth - btnRect.right) + "px";
+    optionsOverlay.style.left = "auto";
+    // Keep it on-screen if that math would push it past the left edge
+    // on a very narrow viewport.
+    var maxWidth = window.innerWidth - 24;
+    optionsOverlay.style.width = Math.min(menuWidth, maxWidth) + "px";
+  }
+
+  function closeOptionsDropdown() {
+    optionsOverlay.hidden = true;
+  }
+
+  optionsBtn.addEventListener("click", function (e) {
+    e.stopPropagation();
+    if (!optionsOverlay.hidden) { closeOptionsDropdown(); return; }
     renderSortRows();
+    positionOptionsDropdown();
     optionsOverlay.hidden = false;
   });
-  optionsCloseBtn.addEventListener("click", function () { optionsOverlay.hidden = true; });
-  optionsOverlay.addEventListener("click", function (e) {
-    if (e.target === optionsOverlay) optionsOverlay.hidden = true;
+
+  document.addEventListener("click", function (e) {
+    if (optionsOverlay.hidden) return;
+    if (optionsOverlay.contains(e.target) || e.target === optionsBtn) return;
+    closeOptionsDropdown();
+  });
+
+  window.addEventListener("resize", function () {
+    if (!optionsOverlay.hidden) positionOptionsDropdown();
   });
 
   sortRows.forEach(function (row) {
@@ -347,7 +376,7 @@
       .then(function (data) {
         if (!data.ok) { showToast("Couldn't clear drafted applications."); return; }
         applications = applications.filter(function (a) { return a.status !== "drafted"; });
-        optionsOverlay.hidden = true;
+        closeOptionsDropdown();
         renderFilters();
         renderList();
         showToast("Cleared " + data.count + " drafted application" + (data.count === 1 ? "" : "s") + ".");

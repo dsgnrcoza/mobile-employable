@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% block title %}Terms & Conditions — Ploy{% endblock %}
+{% block title %}Terms & Conditions — Avryn{% endblock %}
 {% block content %}
 <div class="ob-shell">
   <div class="ob-topbar">
-    <span class="auth-wordmark wordmark">PL<span class="wordmark-o">O</span>Y</span>
+    <span class="auth-wordmark wordmark">AVRYN<span class="wordmark-star">*</span></span>
     <a href="{{ url_for('logout_page') }}" class="ob-topbar-logout">Log out</a>
   </div>
   <div class="ob-content terms-content">
@@ -12,7 +12,7 @@
 
     <div class="terms-point">
       <h2>What this app actually does</h2>
-      <p>Ploy reads your CV and any documents you upload, then gives you an honest score of how ready you are for the job market — plus specific steps to improve it.</p>
+      <p>Avryn reads your CV and any documents you upload, then gives you an honest score of how ready you are for the job market — plus specific steps to improve it.</p>
     </div>
 
     <div class="terms-point">
@@ -33,7 +33,7 @@
     <div id="terms-error" class="flash flash-error" hidden></div>
 
     {% if already_accepted %}
-      <a href="{{ url_for('dashboard') }}" class="btn btn-gold btn-block">Back to Ploy</a>
+      <a href="{{ url_for('dashboard') }}" class="btn btn-gold btn-block">Back to Avryn</a>
     {% else %}
       <button type="button" class="btn btn-gold btn-block" id="terms-accept-btn">I Accept — Let's Go</button>
     {% endif %}

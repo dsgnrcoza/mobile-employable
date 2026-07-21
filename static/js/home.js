@@ -226,7 +226,7 @@
     ["Ready when you are" + (firstName ? ", " + firstName : "") + ".", "Share a job posting or a document, and I'll get to work."],
     // A short, punchy Claude-style opener — a couple words, not a full
     // sentence — mixed into the same rotation as the longer ones above.
-    ["Coffee and Ploy?", "Let's find your next move."],
+    ["Coffee and Avryn?", "Let's find your next move."],
     ["Tea and a job hunt?", "Paste a job ad and let's get into it."],
     ["Job hunt o'clock.", "Paste a job ad and I'll size it up."],
     ["Let's make some moves.", "A job ad, a CV, a cover letter — your call."],
@@ -239,7 +239,7 @@
   ];
 
   // A real proactive check-in, computed server-side from idle time and
-  // what Ploy remembers about this person (see app.py's
+  // what Avryn remembers about this person (see app.py's
   // _personalized_checkin) -- shown once, on the very first empty-state
   // render after a cold load, then it steps aside for the normal random
   // rotation so it doesn't repeat on every "New chat" tap this session.
@@ -399,39 +399,20 @@
     return el;
   }
 
-  // ---------- "Working…" elapsed-time indicator ----------
-  // A small ticking clock pinned above the input for the full duration
-  // of a turn (from send through the last step actually landing), so
-  // the user can see real time passing on a slow multi-step reply
-  // instead of wondering whether anything is happening at all.
+  // ---------- "Working…" indicator ----------
+  // A small pulsing dot pinned above the input for the full duration of
+  // a turn (from send through the last step actually landing), so the
+  // user can see something is actively happening on a slow multi-step
+  // reply. This used to also tick up a live elapsed-seconds counter,
+  // which read as fussy/distracting -- the dot alone is enough signal.
 
   var workingBarEl = document.getElementById("chat-working-bar");
-  var workingTimeEl = document.getElementById("chat-working-time");
-  var workingTimerHandle = null;
-  var workingStartedAt = 0;
-
-  function formatElapsed(ms) {
-    var totalSec = Math.max(0, Math.floor(ms / 1000));
-    var m = Math.floor(totalSec / 60);
-    var s = totalSec % 60;
-    return m > 0 ? (m + "m " + s + "s") : (s + "s");
-  }
 
   function startWorkingTimer() {
-    workingStartedAt = Date.now();
-    workingTimeEl.textContent = "0s";
     workingBarEl.hidden = false;
-    if (workingTimerHandle) clearInterval(workingTimerHandle);
-    workingTimerHandle = setInterval(function () {
-      workingTimeEl.textContent = formatElapsed(Date.now() - workingStartedAt);
-    }, 1000);
   }
 
   function stopWorkingTimer() {
-    if (workingTimerHandle) {
-      clearInterval(workingTimerHandle);
-      workingTimerHandle = null;
-    }
     workingBarEl.hidden = true;
   }
 
@@ -871,7 +852,7 @@
       '<div class="card-header mono">IMAGE</div>' +
       '<img class="image-card-img" src="data:image/png;base64,' + card.image_b64 + '" alt="' + escapeHtml(card.prompt) + '">' +
       '<div class="card-actions">' +
-      '<a class="btn btn-gold btn-sm image-card-download-btn" href="data:image/png;base64,' + card.image_b64 + '" download="ploy-image.png">Download</a>' +
+      '<a class="btn btn-gold btn-sm image-card-download-btn" href="data:image/png;base64,' + card.image_b64 + '" download="avryn-image.png">Download</a>' +
       "</div>";
     return wrap;
   }
@@ -969,7 +950,7 @@
       })
       .catch(function () {
         removeTypingIndicator(typingEl);
-        appendChatMessage("assistant", "Couldn't reach Ploy just now — check your connection and try again.");
+        appendChatMessage("assistant", "Couldn't reach Avryn just now — check your connection and try again.");
       })
       .finally(function () {
         chatSending = false;
@@ -1637,6 +1618,13 @@
     });
   }
 
+  // Only the 10 most recent chats show here -- the sidebar is a quick-
+  // access list, not the full archive. Past that, a "View all" row
+  // links out to /conversations, which has room to show (and search)
+  // the entire history instead of turning the sidebar into an
+  // ever-growing scroll.
+  var SIDEBAR_CHAT_LIMIT = 10;
+
   function loadSidebarChats() {
     fetch("/api/chat/conversations")
       .then(function (r) { return r.json(); })
@@ -1650,7 +1638,7 @@
           sidebarChatsEl.appendChild(empty);
           return;
         }
-        data.conversations.forEach(function (c) {
+        data.conversations.slice(0, SIDEBAR_CHAT_LIMIT).forEach(function (c) {
           var row = document.createElement("button");
           row.type = "button";
           row.className = "sidebar-chat-row";
@@ -1665,6 +1653,13 @@
           });
           sidebarChatsEl.appendChild(row);
         });
+        if (data.conversations.length > SIDEBAR_CHAT_LIMIT) {
+          var viewAll = document.createElement("a");
+          viewAll.className = "sidebar-chat-viewall";
+          viewAll.href = "/conversations";
+          viewAll.textContent = "View all (" + data.conversations.length + ")";
+          sidebarChatsEl.appendChild(viewAll);
+        }
       })
       .catch(function () {});
   }

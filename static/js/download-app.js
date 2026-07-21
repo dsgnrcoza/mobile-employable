@@ -83,8 +83,8 @@
       promptEvent.prompt();
       promptEvent.userChoice.then(function (choice) {
         note.textContent = choice.outcome === "accepted"
-          ? "Installing Ploy…"
-          : "You can install Ploy any time from here or the browser menu.";
+          ? "Installing Avryn…"
+          : "You can install Avryn any time from here or the browser menu.";
         note.hidden = false;
       });
       return;

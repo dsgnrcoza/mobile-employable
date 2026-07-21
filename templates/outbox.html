@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Outbox — Ploy{% endblock %}
+{% block title %}Outbox — Avryn{% endblock %}
 
 {% block content %}
 <div class="outbox-shell">
@@ -36,25 +36,21 @@
   <button type="button" id="outbox-item-menu-delete">Delete</button>
 </div>
 
-<div class="outbox-options-overlay" id="outbox-options-overlay" hidden>
-  <div class="outbox-options-sheet">
-    <div class="outbox-options-handle" aria-hidden="true"></div>
-    <h2 class="outbox-options-title">Sort &amp; organize</h2>
+<!-- An inline dropdown anchored under the header button, not a full-
+     screen sheet -- the Outbox stays visible and live underneath, so
+     picking a sort order shows the list reorder immediately behind it. -->
+<div class="outbox-options-dropdown" id="outbox-options-overlay" hidden>
+  <span class="outbox-options-group-label">Sort by</span>
+  <div class="outbox-options-group">
+    <button type="button" class="outbox-sort-row" data-sort="newest">Newest first</button>
+    <button type="button" class="outbox-sort-row" data-sort="oldest">Oldest first</button>
+    <button type="button" class="outbox-sort-row" data-sort="salary-high">Salary: high to low</button>
+    <button type="button" class="outbox-sort-row" data-sort="salary-low">Salary: low to high</button>
+  </div>
 
-    <span class="outbox-options-group-label">Sort by</span>
-    <div class="outbox-options-group">
-      <button type="button" class="outbox-sort-row" data-sort="newest">Newest first</button>
-      <button type="button" class="outbox-sort-row" data-sort="oldest">Oldest first</button>
-      <button type="button" class="outbox-sort-row" data-sort="salary-high">Salary: high to low</button>
-      <button type="button" class="outbox-sort-row" data-sort="salary-low">Salary: low to high</button>
-    </div>
-
-    <span class="outbox-options-group-label">Manage</span>
-    <div class="outbox-options-group">
-      <button type="button" class="outbox-options-danger" id="outbox-clear-drafted-btn">Clear all drafted</button>
-    </div>
-
-    <button type="button" class="btn btn-ghost btn-block" id="outbox-options-close-btn">Close</button>
+  <span class="outbox-options-group-label">Manage</span>
+  <div class="outbox-options-group">
+    <button type="button" class="outbox-options-danger" id="outbox-clear-drafted-btn">Clear all drafted</button>
   </div>
 </div>
 

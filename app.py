@@ -432,7 +432,7 @@ def api_onboarding_readout():
     doc_content_block = "\n\n---\n\n".join(doc_texts) if doc_texts else "No readable content extracted."
 
     system = (
-        "You are Ploy's CV parser -- sharp, direct, zero corporate filler. "
+        "You are Avryn's CV parser -- sharp, direct, zero corporate filler. "
         "Given the real content of a CV below, return a JSON object with exactly these keys:\n"
         "- 'years_experience': a short string like '5+ years', '2 years', or 'Entry-level' -- your best "
         "honest estimate from the actual dates/roles in the CV, never invented.\n"
@@ -584,7 +584,7 @@ def api_onboarding_confirm():
 @app.route("/dashboard")
 @auth.login_required
 def dashboard():
-    # Ploy's chat screen (see home.html) -- kept at this same route/
+    # Avryn's chat screen (see home.html) -- kept at this same route/
     # endpoint name since every login/onboarding redirect in this file
     # targets url_for("dashboard"). The old dashboard.html template
     # (Cubic-Metric score, CV Workshop, etc.) is untouched on disk,
@@ -615,7 +615,7 @@ def _personalized_checkin(user, conversations):
     """A proactive check-in computed lazily at page-load time from idle
     duration + the stored brain profile -- not a scheduled background
     job (there's no persistent process to run one on this serverless
-    deployment), but it delivers the same "Ploy noticed you've been
+    deployment), but it delivers the same "Avryn noticed you've been
     away and remembers what you were doing" feeling without needing
     any external scheduler. Returns None when there's nothing to say."""
     if not user.get("remember_all_chats") or not conversations:
@@ -657,7 +657,7 @@ def _initials(full_name):
 
 
 def _real_uploaded_docs(user_id):
-    """Documents this user actually uploaded -- excludes CVs/letters Ploy
+    """Documents this user actually uploaded -- excludes CVs/letters Avryn
     itself generated, so every new generation is grounded in the user's
     original source material rather than compounding on its own earlier
     output."""
@@ -748,7 +748,7 @@ def _run_verdict(user, job_ad):
     doc_content_block = _doc_content_block(_real_uploaded_docs(user["id"]))
 
     system = (
-        "You are Ploy's brutally honest fit evaluator. Given a pasted job ad and the real content of "
+        "You are Avryn's brutally honest fit evaluator. Given a pasted job ad and the real content of "
         "this user's uploaded documents, decide how strong a candidate they are for THIS specific job, "
         "right now -- not how they could look someday.\n\n"
         "GROUNDING: base the verdict only on what's actually in the documents below. Never invent "
@@ -810,7 +810,7 @@ def _run_gap_analysis(user, target_role):
     doc_content_block = _doc_content_block(_real_uploaded_docs(user["id"]))
 
     system = (
-        "You are Ploy's honest gap analyst. Given the real content of this user's uploaded documents and "
+        "You are Avryn's honest gap analyst. Given the real content of this user's uploaded documents and "
         "the role or field they're targeting, identify what's actually holding them back from being a "
         "strong candidate for that kind of role right now.\n\n"
         "GROUNDING: base this only on what's actually in the documents below versus what that role/field "
@@ -865,7 +865,7 @@ def _company_stub(company):
 def _generate_tailored_document(user, kind, job_title="", company="", job_ad="", template=None):
     """Shared by /api/document and /api/letter-document -- generates a
     fresh, ATS-safe CV or cover letter grounded in the user's real
-    uploaded documents (never Ploy's own earlier output), tailored to a
+    uploaded documents (never Avryn's own earlier output), tailored to a
     specific job when one is given, renders it to PDF, and stores it as
     a private per-user document. Returns a Document-card-shaped dict, or
     raises on failure (caller turns that into a JSON error response)."""
@@ -907,7 +907,7 @@ def _generate_tailored_document(user, kind, job_title="", company="", job_ad="",
     brain_section = _brain_and_memory_section(user)
 
     system = (
-        f"You are Ploy's document writer, generating a {doc_label} for this user.\n\n"
+        f"You are Avryn's document writer, generating a {doc_label} for this user.\n\n"
         f"{job_context}"
         f"{design_guidance}\n\n"
         "GROUNDING -- the most important rule, above all others: every fact (employer names, job titles, "
@@ -2035,7 +2035,7 @@ def api_document_insight(doc_id):
 
     client = OpenAI(api_key=analyzer.get_openai_api_key(), timeout=analyzer.get_client_timeout(), max_retries=analyzer.CLIENT_MAX_RETRIES)
     system = (
-        "You are a career intelligence analyst inside the Employable platform. "
+        "You are a career intelligence analyst inside the Avryn platform. "
         "Respond ONLY with valid HTML — use <p>, <ul>, <li>, <strong> tags. "
         "Never use asterisks (*) or markdown. Keep paragraphs short (2-3 sentences max). "
         "Use bullet lists for multiple items. Be specific and reference real content from the document.\n\n"
@@ -2259,7 +2259,7 @@ def api_cv_edit():
 
     import re as _re
     system = (
-        "You are an expert CV/document editor built into the Employable platform. "
+        "You are an expert CV/document editor built into the Avryn platform. "
         "CRITICAL: Always attempt to understand and fulfill the user's intent, even if their instruction contains spelling mistakes, typos, or imprecise phrasing. "
         "Never refuse, do nothing, or ask for clarification — silently make your best reasonable interpretation and act on it. "
         "OUTPUT RULES — you MUST follow these exactly:\n"
@@ -2954,7 +2954,7 @@ def api_letter_edit():
 
     import re as _re
     system = (
-        "You are an expert cover letter writer built into the Employable platform. "
+        "You are an expert cover letter writer built into the Avryn platform. "
         "CRITICAL: Always attempt to understand and fulfill the user's intent, even if their instruction contains spelling mistakes, typos, or imprecise phrasing. "
         "Never refuse, do nothing, or ask for clarification — silently make your best reasonable interpretation and act on it. "
         "OUTPUT RULES — you MUST follow these exactly:\n"
@@ -3181,7 +3181,7 @@ _CHAT_TOOLS = [
 
 
 # ---------------- THE BRAIN: persistent profile + episodic memory ----------------
-# Everything below turns Ploy from a stateless ask/respond loop into
+# Everything below turns Avryn from a stateless ask/respond loop into
 # something that actually remembers who a person is and what's already
 # happened with them, across conversations. All of it is only ever
 # read/written when the user has "Remember all chats" switched on in
@@ -3328,7 +3328,7 @@ def _generate_thinking_note(client, latest_user_text, brain_summary=""):
             model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": (
-                    "You are Ploy's internal planner, thinking silently before it replies. In ONE short "
+                    "You are Avryn's internal planner, thinking silently before it replies. In ONE short "
                     "sentence (max 25 words), state in first person what you're actually about to do about "
                     "this message -- concrete and specific ('I'll check their fit against this job, then "
                     "flag the SQL gap'), never vague filler ('I'll help them out'). This is shown to the "
@@ -3640,7 +3640,7 @@ def api_chat():
     brain_section = _brain_and_memory_section(user)
     jobswiper_section = _jobswiper_context_section(user)
 
-    system_prompt = f"""You are Ploy — a chat-first AI career weapon for South African job seekers aged 18-25. You exist for one loop and everything you do serves it: paste a job, get a brutal-honest fit verdict, get the CV or cover letter rewritten for that exact job, download it, apply.
+    system_prompt = f"""You are Avryn — a chat-first AI career weapon for South African job seekers aged 18-25. You exist for one loop and everything you do serves it: paste a job, get a brutal-honest fit verdict, get the CV or cover letter rewritten for that exact job, download it, apply.
 
 You are not a scripted bot running a decision tree. You are genuinely intelligent, and you should reason about each message the way a sharp, switched-on person would — not by matching it to a template. Think before you answer: what is this person actually asking, what do you actually know about them that's relevant, and what's the single most useful thing to say back. Two users asking "is this a good fit" should get two different-shaped answers if their situations are different — never flatten a real, specific person into a generic response.
 
@@ -3817,7 +3817,7 @@ Never claim you can't see their documents — if the block above says no content
             print(f"[chat completion error] {e!r}")
             if steps:
                 break  # show what we already have rather than losing it to a later-round failure
-            return jsonify({"ok": False, "error": "Couldn't reach Ploy just now -- check your connection and try again."}), 500
+            return jsonify({"ok": False, "error": "Couldn't reach Avryn just now -- check your connection and try again."}), 500
 
         message = resp.choices[0].message
         tool_calls = message.tool_calls or []
