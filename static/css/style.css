@@ -2275,6 +2275,23 @@ button.auth-tab.active {
   padding: 10px 14px;
 }
 
+/* Spins in place (rather than the old bouncing-dots trio) as the one
+   bit of motion showing something is actively happening, while the
+   cycling phase text next to it carries the actual "what". */
+.chat-typing-star {
+  flex-shrink: 0;
+  color: var(--accent);
+  font-size: 15px;
+  font-weight: 900;
+  line-height: 1;
+  animation: chat-typing-star-spin 1.4s linear infinite;
+}
+
+@keyframes chat-typing-star-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 .chat-typing-phase {
   font-size: 12.5px;
   font-style: italic;
@@ -2292,16 +2309,12 @@ button.auth-tab.active {
   to { opacity: 1; transform: translateY(0); }
 }
 
-.chat-typing-dots {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .chat-typing-phase,
   .chat-typing-phase.is-in {
+    animation: none;
+  }
+  .chat-typing-star {
     animation: none;
   }
 }
@@ -2439,48 +2452,6 @@ button.auth-tab.active {
   line-height: 1.4;
 }
 
-/* ---------- "Working…" elapsed-time bar above the input ---------- */
-
-.chat-working-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 14px;
-  margin: 0 20px 8px;
-  color: var(--muted);
-  font-size: 12px;
-  flex-shrink: 0;
-}
-
-.chat-working-bar[hidden] {
-  display: none;
-}
-
-.chat-working-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--mid);
-  flex-shrink: 0;
-  animation: chat-working-pulse 1.2s ease-in-out infinite;
-}
-
-.chat-working-label {
-  font-size: 12px;
-  color: var(--muted);
-}
-
-@keyframes chat-working-pulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.35; transform: scale(0.8); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .chat-working-dot {
-    animation: none;
-    opacity: 0.8;
-  }
-}
 
 .chat-typing-dot {
   width: 6px;
