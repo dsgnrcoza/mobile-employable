@@ -189,6 +189,13 @@
             {% include "_download_app_button.html" %}
           </section>
 
+          <section class="profile-section">
+            <h2 class="profile-section-title">Keep it up to date</h2>
+            <p class="profile-section-desc">Already installed? This clears out anything cached and pulls the latest version straight from the server.</p>
+            <button type="button" class="btn btn-ghost btn-sm" id="profile-update-app-btn">Update app</button>
+            <p class="profile-status" id="profile-update-app-status" hidden></p>
+          </section>
+
           <section class="profile-section profile-section-danger">
             <a href="{{ url_for('logout_page') }}" class="btn btn-ghost btn-sm profile-logout-btn">Log out</a>
             <button type="button" class="btn btn-ghost btn-sm profile-delete-account-btn" id="profile-delete-account-btn">Delete account</button>
