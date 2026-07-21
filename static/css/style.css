@@ -3914,44 +3914,6 @@ button.auth-tab.active {
   flex: 1;
 }
 
-.chat-topbar-jobs-btn {
-  position: relative;
-  white-space: nowrap;
-  /* Extra breathing room beyond the topbar's own gap -- .chat-icon-btn's
-     negative margin (used to keep its hit target comfortable without
-     adding visual gaps elsewhere) was pulling the new-chat + right up
-     against this button, causing accidental taps meant for one to land
-     on the other. */
-  margin-right: 10px;
-}
-
-.chat-topbar-jobs-btn svg {
-  width: 19px;
-  height: 19px;
-}
-
-.chat-topbar-jobs-badge {
-  position: absolute;
-  top: -6px;
-  right: -6px;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
-  border-radius: 8px;
-  background: var(--bad);
-  color: #ffffff;
-  border: 2px solid var(--bg);
-  font-family: var(--font-mono);
-  font-size: 9.5px;
-  font-weight: 600;
-  line-height: 14px;
-  text-align: center;
-}
-
-.chat-topbar-jobs-badge[hidden] {
-  display: none;
-}
-
 .chat-avatar-btn {
   width: 30px;
   height: 30px;
@@ -4004,9 +3966,10 @@ button.auth-tab.active {
 }
 
 .chat-empty-star {
-  font-size: 34px;
+  font-size: 56px;
   font-weight: 900;
   line-height: 1;
+  margin-bottom: 4px;
 }
 
 .chat-messages {
@@ -4072,7 +4035,6 @@ button.auth-tab.active {
   gap: 6px;
 }
 
-.chat-slash-btn,
 .chat-mic-btn,
 .chat-send-btn {
   flex-shrink: 0;
@@ -4089,13 +4051,31 @@ button.auth-tab.active {
   transition: transform 0.1s ease, background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
+/* A squircle, not a circle -- and wide enough to hold a label, not
+   just an icon -- since this is a real labeled "Search" button now,
+   not a cryptic bare "/" glyph. */
 .chat-slash-btn {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  padding: 0 12px;
+  height: 36px;
   color: var(--muted);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.1s ease, background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
 .chat-slash-btn svg {
-  width: 18px;
-  height: 18px;
+  width: 17px;
+  height: 17px;
+  flex-shrink: 0;
 }
 
 .chat-slash-cancel-icon {
@@ -4103,14 +4083,18 @@ button.auth-tab.active {
 }
 
 /* While dictating, this same button shows the cancel-dictation X in
-   the slash icon's exact place, instead of a second X control stacked
-   above it. */
+   the slash icon's exact place (and drops the "Search" label), instead
+   of a second X control stacked above it. */
 .chat-slash-btn.is-listening {
   color: var(--bad);
   border-color: var(--bad);
 }
 
 .chat-slash-btn.is-listening .chat-slash-icon {
+  display: none;
+}
+
+.chat-slash-btn.is-listening .chat-slash-label {
   display: none;
 }
 
@@ -6606,8 +6590,8 @@ button.auth-tab.active {
 }
 
 /* A small notification-style bubble pinned to the chip's own top-right
-   corner (same idea as .job-tab-badge / .chat-topbar-jobs-badge)
-   instead of an inline sibling next to the label -- since it no longer
+   corner (same idea as .job-tab-badge) instead of an inline sibling
+   next to the label -- since it no longer
    competes with the label for the chip's own width, the label never
    has anything to shrink or truncate for, no matter how big the count
    gets ("Drafted" always renders in full). */

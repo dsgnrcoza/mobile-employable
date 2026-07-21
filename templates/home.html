@@ -18,11 +18,6 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
     </button>
     <span class="chat-topbar-spacer"></span>
-    <a href="{{ url_for('swiper_page') }}" class="btn btn-gold btn-sm chat-topbar-jobs-btn" id="chat-topbar-jobs-btn">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="14" height="14" rx="2" transform="rotate(-8 10 14)"/><rect x="7" y="3" width="14" height="14" rx="2"/></svg>
-      Find a job
-      <span class="chat-topbar-jobs-badge" id="chat-topbar-jobs-badge" hidden>0</span>
-    </a>
     <button type="button" class="chat-icon-btn" id="chat-new-btn" aria-label="New chat">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
     </button>
@@ -56,8 +51,8 @@
     <div class="chat-dictation-preview" id="chat-dictation-preview" hidden></div>
 
     <!-- Discord-style "/" command picker: typing "/" -- or tapping the
-         "/" button on the input itself -- slides this up with the
-         app's three explicit commands (builder, qualify, gaps). -->
+         Search button on the input itself -- slides this up with the
+         app's explicit commands (builder, qualify, gaps, image, help). -->
     <div class="chat-slash-menu" id="chat-slash-menu" hidden></div>
 
     <div class="chat-input-shell">
@@ -71,13 +66,15 @@
         </div>
       </div>
       <div class="chat-input-buttons-row">
-        <!-- Doubles as the "/" slash-command trigger and, while
-             dictating, the cancel-dictation control -- swapping icons
-             in place rather than showing a second X button stacked
-             above it, so cancel visually replaces "/" instead of
-             appearing as an extra element. -->
-        <button type="button" class="chat-slash-btn" id="chat-slash-btn" aria-label="Slash commands">
-          <svg class="chat-slash-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="17" y1="3" x2="7" y2="21"/></svg>
+        <!-- Doubles as the command-picker trigger (a squircle "Search"
+             button, not a bare "/" glyph) and, while dictating, the
+             cancel-dictation control -- swapping in place rather than
+             showing a second X button stacked above it, so cancel
+             visually replaces "Search" instead of appearing as an
+             extra element. -->
+        <button type="button" class="chat-slash-btn" id="chat-slash-btn" aria-label="Search">
+          <svg class="chat-slash-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <span class="chat-slash-label">Search</span>
           <svg class="chat-slash-cancel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
         <div class="chat-input-actions">
