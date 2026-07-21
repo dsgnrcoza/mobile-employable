@@ -507,6 +507,52 @@
 
   loadMemory();
 
+  // ---------- Update app ----------
+  // Static assets are already cache-busted per deploy (the ?v=... query
+  // param on every <script>/<link> tag), so a normal reload always gets
+  // the latest CSS/JS -- this button exists for the case that doesn't
+  // fix on its own: a standalone/installed PWA holding onto an old HTML
+  // document itself (some mobile browsers cache the shell page more
+  // aggressively once "installed" than a normal tab does). Re-checking
+  // the service worker and clearing the Cache Storage API covers any
+  // future code that starts actually caching things; the final
+  // cache-busted reload is what forces a fresh HTML document right now.
+  //
+  // What this can't do: change the icon already on the home screen.
+  // That's baked in by the OS at install time from the manifest, and
+  // no web API can reach in and swap it -- the only way to pick up a
+  // new app icon is to remove the installed app/shortcut and add it
+  // again from the browser.
+  var updateAppBtn = document.getElementById("profile-update-app-btn");
+  var updateAppStatus = document.getElementById("profile-update-app-status");
+
+  if (updateAppBtn) {
+    updateAppBtn.addEventListener("click", function () {
+      updateAppBtn.disabled = true;
+      setStatus(updateAppStatus, "Checking for updates…", false);
+
+      var swReady = ("serviceWorker" in navigator)
+        ? navigator.serviceWorker.getRegistration().then(function (reg) {
+            return reg ? reg.update() : null;
+          }).catch(function () {})
+        : Promise.resolve();
+
+      var cachesReady = (window.caches && caches.keys)
+        ? caches.keys().then(function (keys) {
+            return Promise.all(keys.map(function (key) { return caches.delete(key); }));
+          }).catch(function () {})
+        : Promise.resolve();
+
+      Promise.all([swReady, cachesReady]).then(function () {
+        setStatus(updateAppStatus, "Reloading…", false);
+        // A fresh query string guarantees the browser fetches the HTML
+        // document itself over the network instead of serving a cached
+        // copy of this exact URL.
+        window.location.replace(window.location.pathname + "?_updated=" + Date.now());
+      });
+    });
+  }
+
   // ---------- Delete account ----------
 
   document.getElementById("profile-delete-account-btn").addEventListener("click", function () {

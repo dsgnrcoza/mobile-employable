@@ -393,16 +393,15 @@ button.auth-tab.active {
   letter-spacing: 0.08em;
 }
 
-/* Brand wordmark: bold uppercase, wide tracking, mostly plain text --
-   the accent color is spent on exactly the trailing asterisk, not the
-   whole word. Applies wherever "AVRYN*" appears as a brand moment
-   (splash, auth header), not to every incidental mention of the name
-   in body copy. */
+/* Brand wordmark: bold, wide tracking, mixed-case "Avryn*" exactly as
+   the logo shows it -- not uppercased -- with the accent color spent
+   on exactly the trailing asterisk, not the whole word. Applies
+   wherever the wordmark appears as a brand moment (splash, auth
+   header), not to every incidental mention of the name in body copy. */
 .wordmark {
   font-family: var(--font-ui);
   font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.04em;
 }
 
 .wordmark-star,
