@@ -190,52 +190,47 @@
   }
 
   var emptyHeadlineEl = document.getElementById("chat-empty-headline");
-  var emptySubtextEl = document.getElementById("chat-empty-subtext");
   var firstName = ((window.HOME_STATE && window.HOME_STATE.profile.full_name) || "").trim().split(/\s+/)[0] || "";
 
   // A mix of name-personalized and plain openers -- picked fresh every
   // time a new chat starts, so the empty state reads like a person
   // asking "what are we doing today" instead of a static slogan. Named
   // ones are a minority by design (repeating someone's name every
-  // single chat gets old fast).
-  // Deliberately mixed tone -- some funny, some formal, some just plain
-  // direct -- so this doesn't read like one static voice repeating
-  // itself. Every subtext is its own specific, actionable line (never
-  // a copy-pasted "ask me anything") so a new chat always suggests a
-  // concrete next move instead of a generic shrug.
+  // single chat gets old fast). Just the one short line now -- no
+  // second explanatory sentence underneath it.
   var EMPTY_HEADLINES = [
-    ["Let's manufacture some employment.", "Paste a job ad and I'll tell you honestly if it's worth the anxiety."],
-    ["Good to see you" + (firstName ? ", " + firstName : "") + ". Where shall we begin?", "Share a role you're considering, or a document you'd like reviewed."],
-    ["Hey" + (firstName ? " " + firstName : "") + ", what's the move?", "A job ad, a CV tweak, a cover letter — tell me what's next."],
-    ["What needs doing today?", "Paste a job ad for a fit check, or ask me to fix something."],
-    ["Ready to pretend you have this all figured out?", "Paste the job ad — I'll do the pretending, you do the applying."],
-    ["Did you apply anywhere new?", "Tell me how it went, or paste a fresh ad and I'll size it up."],
-    ["How can I assist with your search today?", "I can score a job ad against your profile, or revise a document."],
-    ["What are we working on?", "Paste a job ad, tweak a CV, or just ask a question."],
-    ["Back for another round of adulting?", "Drop a job ad and let's see what we're dealing with."],
-    ["Got a job in mind?", "Paste the ad and I'll check how well you actually match it."],
-    ["Let's continue where we left off.", "Provide a job description and I'll evaluate your fit against it."],
-    [(firstName ? firstName + ", " : "") + "what's on your mind?", "Job hunting, a CV fix, a cover letter — just say it."],
-    ["Let's go pretend-apply to things.", "Except this time I'll actually tell you if you're wasting your shot."],
-    ["What's next on the list?", "A job to check, a CV to fix, a letter to write — up to you."],
-    ["Any new leads?", "Paste the job ad and I'll break down your real chances."],
-    ["Welcome back" + (firstName ? ", " + firstName : "") + ".", "Ask me to review a document, or share a role to evaluate."],
-    ["Let's find you a paycheck.", "Paste a job ad and I'll be brutally honest about your odds."],
-    ["Something new to look at?", "Paste a job ad and I'll score it against your profile."],
-    ["What can I help with?", "Fit checks, CVs, cover letters, or just questions — I'm listening."],
-    ["Ready when you are" + (firstName ? ", " + firstName : "") + ".", "Share a job posting or a document, and I'll get to work."],
+    "Let's manufacture employment.",
+    "Good to see you" + (firstName ? ", " + firstName : "") + ".",
+    "Hey" + (firstName ? " " + firstName : "") + ", what's the move?",
+    "What needs doing today?",
+    "Got this all figured out?",
+    "Did you apply anywhere new?",
+    "How can I help today?",
+    "What are we working on?",
+    "Back for another round of adulting?",
+    "Got a job in mind?",
+    "Let's continue where we left off.",
+    (firstName ? firstName + ", " : "") + "what's on your mind?",
+    "Let's pretend-apply to things.",
+    "What's next on the list?",
+    "Any new leads?",
+    "Welcome back" + (firstName ? ", " + firstName : "") + ".",
+    "Let's find you a paycheck.",
+    "Something new to look at?",
+    "What can I help with?",
+    "Ready when you are" + (firstName ? ", " + firstName : "") + ".",
     // A short, punchy Claude-style opener — a couple words, not a full
-    // sentence — mixed into the same rotation as the longer ones above.
-    ["Coffee and Avryn?", "Let's find your next move."],
-    ["Tea and a job hunt?", "Paste a job ad and let's get into it."],
-    ["Job hunt o'clock.", "Paste a job ad and I'll size it up."],
-    ["Let's make some moves.", "A job ad, a CV, a cover letter — your call."],
-    ["New day, new lead?", "Share a job ad or a document to review."],
-    ["Onwards and upwards.", "Paste a job ad, or ask me anything."],
-    ["Let's get you hired.", "Paste a job ad and I'll tell you your real odds."],
-    ["You vs. the job market.", "I'm on your side — paste a job ad to start."],
-    ["Ready to job hunt?", "Paste a job ad, or ask me anything."],
-    ["You, me, a job hunt.", "Paste a job ad and I'll tell you where you stand."],
+    // sentence — mixed into the same rotation as the ones above.
+    "Coffee and Avryn?",
+    "Tea and a job hunt?",
+    "Job hunt o'clock.",
+    "Let's make some moves.",
+    "New day, new lead?",
+    "Onwards and upwards.",
+    "Let's get you hired.",
+    "You vs. the job market.",
+    "Ready to job hunt?",
+    "You, me, a job hunt.",
   ];
 
   // A real proactive check-in, computed server-side from idle time and
@@ -248,14 +243,11 @@
   function rollEmptyStateCopy() {
     if (!emptyHeadlineEl) return;
     if (pendingCheckin) {
-      emptyHeadlineEl.textContent = "Hey" + (firstName ? " " + firstName : "") + ".";
-      emptySubtextEl.textContent = pendingCheckin;
+      emptyHeadlineEl.textContent = pendingCheckin;
       pendingCheckin = null;
       return;
     }
-    var pick = EMPTY_HEADLINES[Math.floor(Math.random() * EMPTY_HEADLINES.length)];
-    emptyHeadlineEl.textContent = pick[0];
-    emptySubtextEl.textContent = pick[1];
+    emptyHeadlineEl.textContent = EMPTY_HEADLINES[Math.floor(Math.random() * EMPTY_HEADLINES.length)];
   }
 
   function showEmptyState(show) {
