@@ -185,7 +185,7 @@
           }
         })
         .catch(function () {
-          showToast("Couldn't reach Ploy — that one didn't save. Try again.");
+          showToast("Couldn't reach Avryn — that one didn't save. Try again.");
         });
     }
   }

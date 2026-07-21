@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Profile — Ploy{% endblock %}
+{% block title %}Profile — Avryn{% endblock %}
 {% block content %}
 <div class="profile-shell">
   <header class="stub-header">
@@ -76,7 +76,7 @@
       <div class="profile-section-view" data-section-view="personality">
         <div class="profile-section-view-inner">
           <section class="profile-section">
-            <p class="profile-section-desc">Tell Ploy how you want it to talk to you — tone, things to always do or avoid. It follows this permanently, in every conversation.</p>
+            <p class="profile-section-desc">Tell Avryn how you want it to talk to you — tone, things to always do or avoid. It follows this permanently, in every conversation.</p>
             <div class="profile-instructions-chips" id="profile-instructions-chips">
               <button type="button" class="profile-instructions-chip" data-text="Keep replies short and to the point — 2-3 sentences unless I ask for more.">Keep it short</button>
               <button type="button" class="profile-instructions-chip" data-text="Don't sugar-coat feedback. Tell me straight if something's weak.">Be blunt</button>
@@ -156,13 +156,13 @@
             <div class="profile-toggle-row">
               <span class="profile-toggle-text">
                 <span class="profile-toggle-label">Remember all chats</span>
-                <span class="profile-toggle-desc">Let Ploy refer back to every past conversation, not just the one you're in.</span>
+                <span class="profile-toggle-desc">Let Avryn refer back to every past conversation, not just the one you're in.</span>
               </span>
               <button type="button" class="toggle-switch{{ ' is-on' if user.remember_all_chats else '' }}" id="profile-remember-chats-toggle" role="switch" aria-checked="{{ 'true' if user.remember_all_chats else 'false' }}" aria-label="Remember all chats">
                 <span class="toggle-switch-knob"></span>
               </button>
             </div>
-            <p class="profile-section-desc" id="profile-memory-desc">Every conversation Ploy remembers.</p>
+            <p class="profile-section-desc" id="profile-memory-desc">Every conversation Avryn remembers.</p>
             <div class="profile-memory-preview" id="profile-memory-preview"></div>
             <a href="{{ url_for('conversations_page') }}" class="profile-memory-viewall-row" id="profile-memory-viewall-row">
               <span>View all conversations</span>
@@ -185,7 +185,7 @@
         <div class="profile-section-view-inner">
           <section class="profile-section">
             <h2 class="profile-section-title">Get the app</h2>
-            <p class="profile-section-desc">Install Ploy on your phone or desktop for the full app experience.</p>
+            <p class="profile-section-desc">Install Avryn on your phone or desktop for the full app experience.</p>
             {% include "_download_app_button.html" %}
           </section>
 

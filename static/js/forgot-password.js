@@ -115,7 +115,7 @@
         window.location.href = data.redirect || "/dashboard";
       })
       .catch(function () {
-        setError("Couldn't reach Ploy to reset your password — check your connection and try again.");
+        setError("Couldn't reach Avryn to reset your password — check your connection and try again.");
         submitBtn.disabled = false;
       });
   });

@@ -198,7 +198,7 @@
         markUnsaved(activeType);
       })
       .catch(function () {
-        setStatus("Couldn't reach Ploy to draft that — check your connection and try again.", true);
+        setStatus("Couldn't reach Avryn to draft that — check your connection and try again.", true);
       })
       .finally(function () {
         generating = false;

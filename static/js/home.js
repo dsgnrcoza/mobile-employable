@@ -226,7 +226,7 @@
     ["Ready when you are" + (firstName ? ", " + firstName : "") + ".", "Share a job posting or a document, and I'll get to work."],
     // A short, punchy Claude-style opener — a couple words, not a full
     // sentence — mixed into the same rotation as the longer ones above.
-    ["Coffee and Ploy?", "Let's find your next move."],
+    ["Coffee and Avryn?", "Let's find your next move."],
     ["Tea and a job hunt?", "Paste a job ad and let's get into it."],
     ["Job hunt o'clock.", "Paste a job ad and I'll size it up."],
     ["Let's make some moves.", "A job ad, a CV, a cover letter — your call."],
@@ -239,7 +239,7 @@
   ];
 
   // A real proactive check-in, computed server-side from idle time and
-  // what Ploy remembers about this person (see app.py's
+  // what Avryn remembers about this person (see app.py's
   // _personalized_checkin) -- shown once, on the very first empty-state
   // render after a cold load, then it steps aside for the normal random
   // rotation so it doesn't repeat on every "New chat" tap this session.
@@ -852,7 +852,7 @@
       '<div class="card-header mono">IMAGE</div>' +
       '<img class="image-card-img" src="data:image/png;base64,' + card.image_b64 + '" alt="' + escapeHtml(card.prompt) + '">' +
       '<div class="card-actions">' +
-      '<a class="btn btn-gold btn-sm image-card-download-btn" href="data:image/png;base64,' + card.image_b64 + '" download="ploy-image.png">Download</a>' +
+      '<a class="btn btn-gold btn-sm image-card-download-btn" href="data:image/png;base64,' + card.image_b64 + '" download="avryn-image.png">Download</a>' +
       "</div>";
     return wrap;
   }
@@ -950,7 +950,7 @@
       })
       .catch(function () {
         removeTypingIndicator(typingEl);
-        appendChatMessage("assistant", "Couldn't reach Ploy just now — check your connection and try again.");
+        appendChatMessage("assistant", "Couldn't reach Avryn just now — check your connection and try again.");
       })
       .finally(function () {
         chatSending = false;

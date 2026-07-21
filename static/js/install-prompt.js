@@ -84,7 +84,7 @@
     }
     if (deferredInstallPrompt) {
       // The real thing: a native OS "Install app?" dialog. Accepting it
-      // installs Ploy as an actual standalone app -- its own icon, its
+      // installs Avryn as an actual standalone app -- its own icon, its
       // own entry in the app drawer/switcher, opens with no address bar
       // or browser chrome at all. No download, nothing to open
       // afterward, no security warning.
@@ -93,8 +93,8 @@
       promptEvent.prompt();
       promptEvent.userChoice.then(function (choice) {
         note.textContent = choice.outcome === "accepted"
-          ? "Installing Ploy…"
-          : "You can install Ploy any time from here or the browser menu.";
+          ? "Installing Avryn…"
+          : "You can install Avryn any time from here or the browser menu.";
         note.hidden = false;
       });
       return;

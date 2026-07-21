@@ -473,7 +473,7 @@
           memoryViewAllRow.hidden = true;
           return;
         }
-        memoryDesc.textContent = "Ploy remembers " + data.conversations.length +
+        memoryDesc.textContent = "Avryn remembers " + data.conversations.length +
           (data.conversations.length === 1 ? " conversation." : " conversations.");
         memoryClearBtn.hidden = false;
         memoryViewAllRow.hidden = false;
@@ -496,7 +496,7 @@
   }
 
   memoryClearBtn.addEventListener("click", function () {
-    if (!window.confirm("Delete every conversation Ploy remembers? This can't be undone.")) return;
+    if (!window.confirm("Delete every conversation Avryn remembers? This can't be undone.")) return;
     fetch("/api/chat/conversations", { method: "DELETE" })
       .then(function (r) { return r.json(); })
       .then(function (data) {

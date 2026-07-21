@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Ploy — mobile-first, monochrome baseline.
+   Avryn — mobile-first, monochrome baseline.
    Colors are CSS custom properties so animated gradients can slot in later
    without touching markup.
    ========================================================================== */
@@ -13,7 +13,40 @@
   navigation: auto;
 }
 
-/* Ploy is a fixed dark identity, not a switchable theme -- one
+/* Single typeface app-wide -- one family, four real faces (not a
+   synthetic bold/italic the browser fakes by skewing/thickening the
+   regular face), used for both UI text and the monospace/tabular-nums
+   spots (--font-ui and --font-mono both point at it). */
+@font-face {
+  font-family: "Avryn Mono";
+  src: url("../fonts/Consolas-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Avryn Mono";
+  src: url("../fonts/Consolas-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Avryn Mono";
+  src: url("../fonts/Consolas-Italic.ttf") format("truetype");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Avryn Mono";
+  src: url("../fonts/Consolas-BoldItalic.ttf") format("truetype");
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
+/* Avryn is a fixed dark identity, not a switchable theme -- one
    disciplined palette, one accent. --bg/--fg/etc keep their original
    names so every existing rule in this file picks up the new palette
    automatically; --panel-2/--accent/--good/--mid/--bad are new. */
@@ -27,19 +60,18 @@
   --card-bg: #16191E;
   --panel: #16191E;
   --panel-2: #1C2026;
-  --accent: #5286FF;
-  /* Back to the flat blue -- --accent-gradient is kept as an alias
-     (rather than reverting every rule that references it) so the
-     button/wordmark/avatar/badge rules that use it for backgrounds and
-     background-clip:text stay solid blue instead of needing to be
-     touched individually. */
+  --accent: #4A8FA0;
+  /* --accent-gradient is kept as an alias (rather than reverting every
+     rule that references it) so the button/wordmark/avatar/badge rules
+     that use it for backgrounds and background-clip:text stay solid
+     teal instead of needing to be touched individually. */
   --accent-gradient: var(--accent);
   --accent-ink: #EDEDE8;
   --good: #4CC38A;
   --mid: #E4B33C;
   --bad: #E0564B;
-  --font-ui: "Archivo", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font-ui: "Avryn Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font-mono: "Avryn Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
 * {
@@ -102,7 +134,7 @@ a {
 }
 
 /* Data always renders in mono -- fit scores, badges, filenames,
-   timestamps. This is a core part of Ploy's identity, not a stray
+   timestamps. This is a core part of Avryn's identity, not a stray
    utility class. */
 .mono {
   font-family: var(--font-mono);
@@ -112,13 +144,9 @@ a {
 :focus-visible {
   outline: 2px solid transparent;
   outline-offset: 2px;
-  box-shadow: 0 0 0 4px rgba(82, 134, 255, 0.35);
+  box-shadow: 0 0 0 4px rgba(74, 143, 160, 0.35);
   border-radius: 4px;
   transition: box-shadow 0.15s ease;
-}
-
-.dot {
-  display: none;
 }
 
 /* ---------- Flash messages ---------- */
@@ -366,8 +394,8 @@ button.auth-tab.active {
 }
 
 /* Brand wordmark: bold uppercase, wide tracking, mostly plain text --
-   the accent color is spent on exactly one letter (the "O"), not the
-   whole word. Applies wherever "PLOY" appears as a brand moment
+   the accent color is spent on exactly the trailing asterisk, not the
+   whole word. Applies wherever "AVRYN*" appears as a brand moment
    (splash, auth header), not to every incidental mention of the name
    in body copy. */
 .wordmark {
@@ -377,13 +405,19 @@ button.auth-tab.active {
   letter-spacing: 0.08em;
 }
 
-.wordmark-o,
+.wordmark-star,
 .accent-gradient-text {
   background: var(--accent-gradient);
   background-clip: text;
   -webkit-background-clip: text;
   color: transparent;
   -webkit-text-fill-color: transparent;
+}
+
+.policy-wordmark {
+  font-size: 20px;
+  color: var(--fg);
+  margin-bottom: 16px;
 }
 
 .splash-logo {
@@ -654,7 +688,7 @@ button.auth-tab.active {
 .btn-gold {
   background: var(--accent-gradient);
   color: var(--accent-ink);
-  box-shadow: 0 4px 14px rgba(82, 134, 255, 0.35);
+  box-shadow: 0 4px 14px rgba(74, 143, 160, 0.35);
 }
 
 .btn-gold:hover {
@@ -662,7 +696,7 @@ button.auth-tab.active {
 }
 
 .btn-gold:active {
-  box-shadow: 0 2px 8px rgba(82, 134, 255, 0.3);
+  box-shadow: 0 2px 8px rgba(74, 143, 160, 0.3);
 }
 
 .btn-ghost {
@@ -3417,7 +3451,7 @@ button.auth-tab.active {
 }
 
 /* ==========================================================================
-   Ploy Store — Browse Extras (coming soon)
+   Avryn Store — Browse Extras (coming soon)
    ========================================================================== */
 
 .shop-coming-soon {
@@ -3820,7 +3854,7 @@ button.auth-tab.active {
 }
 
 /* ==========================================================================
-   Ploy's chat screen -- the app's one core loop, always the default
+   Avryn's chat screen -- the app's one core loop, always the default
    screen. Top bar (wordmark + menu + avatar), empty-state greeting,
    message stream, the 3 numbered chips, and the input bar.
    ========================================================================== */
@@ -6851,7 +6885,7 @@ button.auth-tab.active {
 }
 
 .outbox-status-replied {
-  background: rgba(82, 134, 255, 0.15);
+  background: rgba(74, 143, 160, 0.15);
   color: var(--accent);
 }
 

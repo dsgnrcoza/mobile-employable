@@ -1358,7 +1358,7 @@ def clear_pending_code(user_id):
 
 # ---------------- USER BRAIN + EPISODIC MEMORY ----------------
 # A persistent, structured profile (user_brain) plus a running log of
-# short one-line events (memory_log) -- what turns Ploy from a stateless
+# short one-line events (memory_log) -- what turns Avryn from a stateless
 # ask/respond loop into something that actually remembers who this
 # person is and what's already happened, across conversations. Both are
 # only ever written to when the user has "Remember all chats" switched
