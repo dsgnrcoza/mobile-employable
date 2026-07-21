@@ -50,9 +50,10 @@
   <div class="chat-input-wrap">
     <div class="chat-dictation-preview" id="chat-dictation-preview" hidden></div>
 
-    <!-- Discord-style "/" command picker: typing "/" -- or tapping the
-         Search button on the input itself -- slides this up with the
-         app's explicit commands (builder, qualify, gaps, image, help). -->
+    <!-- Discord-style "/" command picker: typing "/" in the input
+         slides this up with the app's explicit commands (builder,
+         qualify, gaps, image, help). The Search button no longer opens
+         this -- it jumps straight to Find Jobs instead. -->
     <div class="chat-slash-menu" id="chat-slash-menu" hidden></div>
 
     <div class="chat-input-shell">
@@ -66,12 +67,13 @@
         </div>
       </div>
       <div class="chat-input-buttons-row">
-        <!-- Doubles as the command-picker trigger (a squircle "Search"
-             button, not a bare "/" glyph) and, while dictating, the
-             cancel-dictation control -- swapping in place rather than
-             showing a second X button stacked above it, so cancel
-             visually replaces "Search" instead of appearing as an
-             extra element. -->
+        <!-- Jumps straight to Find Jobs (swipe-through-listings) --
+             slash commands are still reachable by typing "/" directly
+             in the input. Doubles as the cancel-dictation control
+             while dictating, swapping in place rather than showing a
+             second X button stacked above it, so cancel visually
+             replaces "Search" instead of appearing as an extra
+             element. -->
         <button type="button" class="chat-slash-btn" id="chat-slash-btn" aria-label="Search">
           <svg class="chat-slash-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           <span class="chat-slash-label">Search</span>
@@ -108,12 +110,7 @@
   <div class="sidebar-header">
     <span class="wordmark">Avryn<span class="wordmark-star">*</span></span>
   </div>
-  <div class="sidebar-chats" id="sidebar-chats"></div>
-  <div class="sidebar-chat-menu" id="sidebar-chat-menu" hidden>
-    <button type="button" id="sidebar-chat-menu-rename">Rename</button>
-    <button type="button" id="sidebar-chat-menu-delete">Delete</button>
-  </div>
-  <div class="sidebar-footer">
+  <div class="sidebar-nav">
     <a href="{{ url_for('swiper_page') }}" class="sidebar-builder-btn">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="14" height="14" rx="2" transform="rotate(-8 10 14)"/><rect x="7" y="3" width="14" height="14" rx="2"/></svg>
       Find Jobs
@@ -127,6 +124,13 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h13l3 3v13H4Z"/><path d="M17 4v6h6"/><line x1="7.5" y1="12" x2="16" y2="12"/><line x1="7.5" y1="15.5" x2="16" y2="15.5"/></svg>
       Builder
     </a>
+  </div>
+  <div class="sidebar-chats" id="sidebar-chats"></div>
+  <div class="sidebar-chat-menu" id="sidebar-chat-menu" hidden>
+    <button type="button" id="sidebar-chat-menu-rename">Rename</button>
+    <button type="button" id="sidebar-chat-menu-delete">Delete</button>
+  </div>
+  <div class="sidebar-footer">
     <div class="sidebar-footer-row">
       <a href="{{ url_for('profile_page') }}" class="sidebar-link sidebar-link-profile">
         {% if profile.avatar_url %}

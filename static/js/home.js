@@ -250,10 +250,34 @@
     emptyHeadlineEl.textContent = EMPTY_HEADLINES[Math.floor(Math.random() * EMPTY_HEADLINES.length)];
   }
 
+  // The input's placeholder used to be one fixed line ("Paste a job ad
+  // or ask anything…") every single time -- rotating it alongside the
+  // empty-state headline actually surfaces the other things this app
+  // does (CV/cover-letter writing, gap analysis, plain questions)
+  // instead of only ever advertising the job-ad-fit-check path.
+  var INPUT_PLACEHOLDERS = [
+    "Paste a job ad or ask anything…",
+    "Ask for a CV rewrite, tailored to a role…",
+    "Need a cover letter? Just ask…",
+    "Paste a job ad — I'll score your real odds…",
+    "What's holding you back? Ask away…",
+    "Ask me to build or polish your CV…",
+    "Snap or paste a job ad to check your fit…",
+    "Ask anything about your job hunt…",
+  ];
+
+  function rollInputPlaceholder() {
+    if (!chatInput) return;
+    chatInput.placeholder = INPUT_PLACEHOLDERS[Math.floor(Math.random() * INPUT_PLACEHOLDERS.length)];
+  }
+
   function showEmptyState(show) {
     emptyEl.hidden = !show;
     messagesEl.hidden = show;
-    if (show) rollEmptyStateCopy();
+    if (show) {
+      rollEmptyStateCopy();
+      rollInputPlaceholder();
+    }
   }
 
   // Named phases for the "thinking" indicator -- always opens on
@@ -1184,9 +1208,10 @@
   });
 
   // ---------- "/" slash commands (Discord-style) ----------
-  // Typing "/" -- or tapping the dedicated "/" button on the input --
-  // opens a small picker with the app's three explicit commands.
-  // Picking one (or typing it out by hand) inserts the command; the
+  // Typing "/" in the input opens a small picker with the app's
+  // explicit commands (the Search button on the input no longer does
+  // this -- it jumps straight to Find Jobs instead). Picking one (or
+  // typing it out by hand) inserts the command; the
   // system prompt tells the model to treat a leading "/builder" or
   // "/gaps" as an explicit, unambiguous command rather than plain text
   // (see app.py). "/qualify" is different -- it has nothing useful to
@@ -1252,9 +1277,11 @@
 
   chatInput.addEventListener("input", updateSlashMenu);
 
-  // The "/" button always shows the full list regardless of what's
-  // typed -- typing "/" is the filtered/incremental path, this is the
-  // "just show me what's available" path Discord itself also offers.
+  // The Search button jumps straight to the swipe-through-listings
+  // screen -- slash commands are still reachable by typing "/" in the
+  // input itself (updateSlashMenu above handles that independently),
+  // so nothing is lost by giving this button a single, concrete job
+  // instead of doubling as a general command-list opener.
   chatSlashBtn.addEventListener("click", function () {
     // While dictating, this same button cancels instead -- handled by
     // its own listener further down, once voice dictation is set up
@@ -1262,9 +1289,7 @@
     // here rather than a shared variable keeps this listener safe to
     // run even in browsers where speech recognition never initializes.
     if (chatSlashBtn.classList.contains("is-listening")) return;
-    if (!slashMenuEl.hidden) { hideSlashMenu(); return; }
-    renderSlashMenu(SLASH_COMMANDS);
-    chatInput.focus();
+    window.location.href = "/swiper";
   });
 
   // ---------- /help: a static guide, not a model turn ----------
