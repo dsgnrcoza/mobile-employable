@@ -25,11 +25,10 @@
   var confirmYesBtn = document.getElementById("outbox-confirm-yes-btn");
 
   // Interview/Rejected are still real statuses (settable from the
-  // review sheet's status picker below, and still counted under "All")
-  // -- just not their own filter chips, so this row stays to the four
-  // that matter for the common case of scanning where things stand.
+  // review sheet's status picker below) -- just not their own filter
+  // chips, so this row stays to the three that matter for the common
+  // case of scanning where things stand.
   var FILTERS = [
-    { key: "all", label: "All" },
     { key: "drafted", label: "Drafted" },
     { key: "sent", label: "Sent" },
     { key: "replied", label: "Replied" },
@@ -38,7 +37,7 @@
   var GMAIL_BODY_LIMIT = 1800;
 
   var applications = [];
-  var activeFilter = "all";
+  var activeFilter = "drafted";
   var currentSort = "newest";
   var reviewId = null;
   var cvDocId = null;
@@ -138,7 +137,7 @@
     }
     filterRowEl.innerHTML = "";
     FILTERS.forEach(function (f) {
-      var count = f.key === "all" ? applications.length : applications.filter(function (a) { return a.status === f.key; }).length;
+      var count = applications.filter(function (a) { return a.status === f.key; }).length;
       var chip = document.createElement("button");
       chip.type = "button";
       chip.className = "outbox-filter-chip" + (activeFilter === f.key ? " is-active" : "");
@@ -171,7 +170,7 @@
     filterRowEl.hidden = applications.length === 0;
     if (!applications.length) return;
 
-    var visible = activeFilter === "all" ? applications : applications.filter(function (a) { return a.status === activeFilter; });
+    var visible = applications.filter(function (a) { return a.status === activeFilter; });
     visible = sortApplications(visible);
 
     if (!visible.length) {

@@ -256,7 +256,7 @@
   // does (CV/cover-letter writing, gap analysis, plain questions)
   // instead of only ever advertising the job-ad-fit-check path.
   var INPUT_PLACEHOLDERS = [
-    "Paste a job ad or ask anything…",
+    "Ask Avryn anything…",
     "Ask for a CV rewrite, tailored to a role…",
     "Need a cover letter? Just ask…",
     "Paste a job ad — I'll score your real odds…",
