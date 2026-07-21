@@ -250,34 +250,10 @@
     emptyHeadlineEl.textContent = EMPTY_HEADLINES[Math.floor(Math.random() * EMPTY_HEADLINES.length)];
   }
 
-  // The input's placeholder used to be one fixed line ("Paste a job ad
-  // or ask anything…") every single time -- rotating it alongside the
-  // empty-state headline actually surfaces the other things this app
-  // does (CV/cover-letter writing, gap analysis, plain questions)
-  // instead of only ever advertising the job-ad-fit-check path.
-  var INPUT_PLACEHOLDERS = [
-    "Ask Avryn anything…",
-    "Ask for a CV rewrite, tailored to a role…",
-    "Need a cover letter? Just ask…",
-    "Paste a job ad — I'll score your real odds…",
-    "What's holding you back? Ask away…",
-    "Ask me to build or polish your CV…",
-    "Snap or paste a job ad to check your fit…",
-    "Ask anything about your job hunt…",
-  ];
-
-  function rollInputPlaceholder() {
-    if (!chatInput) return;
-    chatInput.placeholder = INPUT_PLACEHOLDERS[Math.floor(Math.random() * INPUT_PLACEHOLDERS.length)];
-  }
-
   function showEmptyState(show) {
     emptyEl.hidden = !show;
     messagesEl.hidden = show;
-    if (show) {
-      rollEmptyStateCopy();
-      rollInputPlaceholder();
-    }
+    if (show) rollEmptyStateCopy();
   }
 
   // Named phases for the "thinking" indicator -- always opens on
@@ -318,12 +294,8 @@
     var el = document.createElement("div");
     el.className = "chat-msg-typing";
     el.innerHTML =
-      '<span class="chat-typing-phase"></span>' +
-      '<span class="chat-typing-dots">' +
-      '<span class="chat-typing-dot"></span>' +
-      '<span class="chat-typing-dot"></span>' +
-      '<span class="chat-typing-dot"></span>' +
-      '</span>';
+      '<span class="chat-typing-star" aria-hidden="true">*</span>' +
+      '<span class="chat-typing-phase"></span>';
     var phaseEl = el.querySelector(".chat-typing-phase");
     var i = 0;
     phaseEl.textContent = phases[0];
@@ -413,23 +385,6 @@
     el.innerHTML = THINKING_ICON + '<span class="chat-step-status-label"></span>';
     el.querySelector(".chat-step-status-label").textContent = text;
     return el;
-  }
-
-  // ---------- "Working…" indicator ----------
-  // A small pulsing dot pinned above the input for the full duration of
-  // a turn (from send through the last step actually landing), so the
-  // user can see something is actively happening on a slow multi-step
-  // reply. This used to also tick up a live elapsed-seconds counter,
-  // which read as fussy/distracting -- the dot alone is enough signal.
-
-  var workingBarEl = document.getElementById("chat-working-bar");
-
-  function startWorkingTimer() {
-    workingBarEl.hidden = false;
-  }
-
-  function stopWorkingTimer() {
-    workingBarEl.hidden = true;
   }
 
   // Every rendered message (text bubble or card, live-sent or reloaded)
@@ -1065,7 +1020,6 @@
       steps = [{ type: "text", text: "Something went wrong there. Try again?" }];
     }
     if (i >= steps.length) {
-      stopWorkingTimer();
       saveConversation();
       return;
     }
@@ -1102,7 +1056,6 @@
     var typingEl = createTypingIndicator(lastMsg && lastMsg.role === "user" ? lastMsg.text : "");
     messagesEl.appendChild(typingEl);
     scrollChatToBottom();
-    startWorkingTimer();
 
     chatSending = true;
     fetch("/api/chat", {
@@ -1114,7 +1067,6 @@
       .then(function (data) {
         removeTypingIndicator(typingEl);
         if (!data.ok) {
-          stopWorkingTimer();
           appendChatMessageTyped("Something went wrong there. Try again?");
           return;
         }
@@ -1122,7 +1074,6 @@
       })
       .catch(function () {
         removeTypingIndicator(typingEl);
-        stopWorkingTimer();
         appendChatMessageTyped("Couldn't send that — check your connection and try again.");
       })
       .finally(function () {
