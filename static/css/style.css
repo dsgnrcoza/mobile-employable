@@ -4003,10 +4003,10 @@ button.auth-tab.active {
   max-width: 280px;
 }
 
-.chat-empty p {
-  color: var(--muted);
-  font-size: 13px;
-  max-width: 300px;
+.chat-empty-star {
+  font-size: 34px;
+  font-weight: 900;
+  line-height: 1;
 }
 
 .chat-messages {
@@ -4513,7 +4513,7 @@ button.auth-tab.active {
   overscroll-behavior: contain;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 1px;
 }
 
 .sidebar-chats-empty {
@@ -4529,7 +4529,7 @@ button.auth-tab.active {
   color: var(--fg);
   font-size: 13px;
   font-family: inherit;
-  padding: 10px 8px;
+  padding: 7px 8px;
   border-radius: 10px;
   cursor: pointer;
   display: flex;
