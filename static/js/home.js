@@ -1635,13 +1635,9 @@
     });
   }
 
-  // Only the 10 most recent chats show here -- the sidebar is a quick-
-  // access list, not the full archive. Past that, a "View all" row
-  // links out to /conversations, which has room to show (and search)
-  // the entire history instead of turning the sidebar into an
-  // ever-growing scroll.
-  var SIDEBAR_CHAT_LIMIT = 10;
-
+  // Every chat renders here -- .sidebar-chats itself scrolls (see CSS),
+  // so a long history is just a scroll away instead of being capped
+  // and pushed off to a separate "view all" page.
   function loadSidebarChats() {
     fetch("/api/chat/conversations")
       .then(function (r) { return r.json(); })
@@ -1655,7 +1651,7 @@
           sidebarChatsEl.appendChild(empty);
           return;
         }
-        data.conversations.slice(0, SIDEBAR_CHAT_LIMIT).forEach(function (c) {
+        data.conversations.forEach(function (c) {
           var row = document.createElement("button");
           row.type = "button";
           row.className = "sidebar-chat-row";
@@ -1670,13 +1666,6 @@
           });
           sidebarChatsEl.appendChild(row);
         });
-        if (data.conversations.length > SIDEBAR_CHAT_LIMIT) {
-          var viewAll = document.createElement("a");
-          viewAll.className = "sidebar-chat-viewall";
-          viewAll.href = "/conversations";
-          viewAll.textContent = "View all (" + data.conversations.length + ")";
-          sidebarChatsEl.appendChild(viewAll);
-        }
       })
       .catch(function () {});
   }
