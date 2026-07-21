@@ -529,11 +529,33 @@
   if (updateAppBtn) {
     updateAppBtn.addEventListener("click", function () {
       updateAppBtn.disabled = true;
-      setStatus(updateAppStatus, "Checking for updates…", false);
+      setStatus(updateAppStatus, "Updating…", false);
+
+      var restarted = false;
+      function restart() {
+        if (restarted) return;
+        restarted = true;
+        setStatus(updateAppStatus, "Restarting…", false);
+        // Landing on /dashboard (not just reloading whatever page this
+        // button happened to be clicked from) is what makes this feel
+        // like the app actually restarted, not just a page refresh --
+        // and the fresh query string guarantees the browser fetches
+        // that document over the network instead of any cached copy.
+        window.location.replace("/dashboard?_updated=" + Date.now());
+      }
+
+      // The restart always fires within 2.5s no matter what happens
+      // below -- a slow or hung service-worker/cache call must never
+      // leave the button stuck looking like it did nothing.
+      setTimeout(restart, 2500);
 
       var swReady = ("serviceWorker" in navigator)
-        ? navigator.serviceWorker.getRegistration().then(function (reg) {
-            return reg ? reg.update() : null;
+        // .update() is a no-op here since sw.js is static and never
+        // changes -- unregistering it outright and letting base.html's
+        // own registration script re-add it fresh on the next load is
+        // what actually forces a clean slate.
+        ? navigator.serviceWorker.getRegistrations().then(function (regs) {
+            return Promise.all(regs.map(function (reg) { return reg.unregister(); }));
           }).catch(function () {})
         : Promise.resolve();
 
@@ -543,13 +565,7 @@
           }).catch(function () {})
         : Promise.resolve();
 
-      Promise.all([swReady, cachesReady]).then(function () {
-        setStatus(updateAppStatus, "Reloading…", false);
-        // A fresh query string guarantees the browser fetches the HTML
-        // document itself over the network instead of serving a cached
-        // copy of this exact URL.
-        window.location.replace(window.location.pathname + "?_updated=" + Date.now());
-      });
+      Promise.all([swReady, cachesReady]).then(restart).catch(restart);
     });
   }
 

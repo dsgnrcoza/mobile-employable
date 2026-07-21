@@ -1775,8 +1775,13 @@ def _generate_conversation_title(messages):
     no API key configured) so the caller can fall back to its own
     truncated-text title instead of leaving a new chat untitled."""
     from openai import OpenAI
+    # 1200 chars, not 400 -- a pasted job ad (the single most common
+    # first message in this app) routinely runs past 400 characters
+    # before it ever gets to the actual role title/company, which was
+    # silently starving the namer of exactly the detail that makes a
+    # title accurate instead of generic.
     convo_snippet = "\n".join(
-        f"{m.get('role')}: {(m.get('text') or '')[:400]}" for m in messages[:4]
+        f"{m.get('role')}: {(m.get('text') or '')[:1200]}" for m in messages[:4]
     )
     if not convo_snippet.strip():
         return None
@@ -1791,7 +1796,23 @@ def _generate_conversation_title(messages):
         resp = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "Give this chat a short title, 3-6 words, plain text, no quotes or trailing punctuation, summarizing what it's about."},
+                {"role": "system", "content": (
+                    "Give this chat a short title, 3-6 words, plain text, no quotes or "
+                    "trailing punctuation. This is a job-hunting app -- be as specific as "
+                    "the actual content allows, never a vague label:\n"
+                    "- Job ad pasted or a specific role discussed -> name the role and "
+                    "company if both are present (\"Junior Dev Role at Yoco\"), just the "
+                    "role if the company isn't named (\"Retail Cashier Fit Check\")\n"
+                    "- CV or cover letter request -> say what for (\"Cover Letter for "
+                    "Marketing Role\", \"CV Rewrite for Retail Job\")\n"
+                    "- A gap/skills question -> name the actual gap or field, not just "
+                    "\"Skills Gap Analysis\" (\"Missing Excel Experience\")\n"
+                    "- A general question with no job/document attached -> summarize the "
+                    "real question itself, specifically\n"
+                    "Never fall back to generic filler like \"Job Search Help\" or \"Career "
+                    "Advice\" when the actual message has a specific role, company, or "
+                    "topic in it."
+                )},
                 {"role": "user", "content": convo_snippet},
             ],
             max_tokens=20,

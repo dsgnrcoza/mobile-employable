@@ -3966,10 +3966,10 @@ button.auth-tab.active {
 }
 
 .chat-empty-star {
-  font-size: 56px;
+  font-size: 84px;
   font-weight: 900;
   line-height: 1;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
 }
 
 .chat-messages {
@@ -4059,12 +4059,12 @@ button.auth-tab.active {
   display: flex;
   align-items: center;
   gap: 6px;
-  background: none;
-  border: 1px solid var(--line-strong);
+  background: var(--accent-gradient);
+  border: 1px solid transparent;
   border-radius: 12px;
   padding: 0 12px;
   height: 36px;
-  color: var(--muted);
+  color: var(--accent-ink);
   font-family: inherit;
   font-size: 12.5px;
   font-weight: 600;
@@ -4084,8 +4084,11 @@ button.auth-tab.active {
 
 /* While dictating, this same button shows the cancel-dictation X in
    the slash icon's exact place (and drops the "Search" label), instead
-   of a second X control stacked above it. */
+   of a second X control stacked above it -- drops the solid teal fill
+   for a plain outlined red, since a filled button no longer makes
+   sense once there's no label left inside it, just an icon. */
 .chat-slash-btn.is-listening {
+  background: none;
   color: var(--bad);
   border-color: var(--bad);
 }
@@ -4487,6 +4490,13 @@ button.auth-tab.active {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 20px;
+}
+
+.sidebar-nav {
+  flex-shrink: 0;
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--line);
 }
 
 .sidebar-chats {
