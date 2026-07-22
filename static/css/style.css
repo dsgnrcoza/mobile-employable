@@ -3705,8 +3705,8 @@ button.auth-tab.active {
 
 .chat-empty-star {
   display: inline-block;
-  width: 84px;
-  height: 84px;
+  width: 34px;
+  height: 34px;
   color: var(--accent);
   cursor: pointer;
   transform-origin: 50% 100%;
@@ -3729,11 +3729,11 @@ button.auth-tab.active {
     animation-timing-function: cubic-bezier(0.32, 0, 0.67, 0);
   }
   10% {
-    transform: translateY(-8px) scaleY(1.16) scaleX(0.9);
+    transform: translateY(-3px) scaleY(1.16) scaleX(0.9);
     animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
   }
   30% {
-    transform: translateY(-72px) scaleY(1.04) scaleX(0.98);
+    transform: translateY(-29px) scaleY(1.04) scaleX(0.98);
     animation-timing-function: cubic-bezier(0.55, 0, 1, 0.45);
   }
   48% {
@@ -3741,11 +3741,11 @@ button.auth-tab.active {
     animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
   }
   56% {
-    transform: translateY(-6px) scaleY(1.12) scaleX(0.92);
+    transform: translateY(-2px) scaleY(1.12) scaleX(0.92);
     animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
   }
   68% {
-    transform: translateY(-26px) scaleY(1.02) scaleX(0.99);
+    transform: translateY(-11px) scaleY(1.02) scaleX(0.99);
     animation-timing-function: cubic-bezier(0.55, 0, 1, 0.45);
   }
   80% {
@@ -3753,11 +3753,11 @@ button.auth-tab.active {
     animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
   }
   86% {
-    transform: translateY(-3px) scaleY(1.06) scaleX(0.96);
+    transform: translateY(-1px) scaleY(1.06) scaleX(0.96);
     animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
   }
   94% {
-    transform: translateY(-8px) scaleY(1.01) scaleX(1);
+    transform: translateY(-3px) scaleY(1.01) scaleX(1);
     animation-timing-function: cubic-bezier(0.55, 0, 1, 0.45);
   }
   100% {
