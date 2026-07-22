@@ -634,8 +634,11 @@ def _personalized_checkin(user, conversations):
     days = idle.days
     target_roles = brain.get("target_roles") or []
     if target_roles:
-        return f"Welcome back — still chasing {target_roles[0]}? It's been {days} days, want me to check anything again?"
-    return f"Welcome back — it's been {days} days. Want to pick up where we left off?"
+        role = target_roles[0]
+        if len(role) > 18:
+            role = role[:18].rstrip() + "…"
+        return f"Still chasing {role}?"
+    return f"Welcome back, {days}d later."
 
 
 def _avatar_url_for(user):
