@@ -7,30 +7,42 @@ by get_jobs()/get_job_by_id() below -- never anything source-specific.
 STRICTLY real listings only -- there is no mock/synthetic/placeholder
 data anywhere in this module, on purpose, so the app can legitimately
 promise every listing a user sees is a real one. Real listings come
-from Jooble and/or JSearch (RapidAPI) when their API keys are
-configured (JOOBLE_API_KEY / RAPIDAPI_KEY -- see .env.example);
-results from both are merged, deduped, and cached in-process for
-_LIVE_JOBS_TTL_SECONDS so a page of swipes doesn't re-hit either API on
-every request. With neither key set, or if both sources fail (network
-error, bad key, quota) and there's no still-fresh cache to fall back
-on, get_jobs() returns an empty list -- the swiper's existing empty
-state ("You're all caught up... check back later") is what a user
-sees then, never a fake listing standing in for a real one.
+from Jooble, JSearch (RapidAPI), and Careerjet when their API keys are
+configured (JOOBLE_API_KEY / RAPIDAPI_KEY / CAREERJET_API_KEY -- see
+.env.example); Jooble and JSearch results are merged, deduped, and
+cached in-process for _LIVE_JOBS_TTL_SECONDS so a page of swipes
+doesn't re-hit either API on every request. With no key set, or if
+every source fails (network error, bad key, quota) and there's no
+still-fresh cache to fall back on, get_jobs() returns an empty list --
+the swiper's existing empty state ("You're all caught up... check back
+later") is what a user sees then, never a fake listing standing in for
+a real one.
+
+Careerjet is deliberately NOT folded into that shared cache -- its API
+requires the real end user's IP and User-Agent on every call (it
+attributes searches to the actual person who triggered them, core to
+how its affiliate model works), so it's fetched live, per request, by
+get_careerjet_jobs() below, called directly from the /api/jobs route
+where that real request context still exists.
 """
 
+import base64
 import concurrent.futures
+import hashlib
 import json
 import logging
 import os
 import re
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
 logger = logging.getLogger(__name__)
 
 JOOBLE_API_KEY = os.environ.get("JOOBLE_API_KEY", "").strip()
 RAPIDAPI_KEY = os.environ.get("RAPIDAPI_KEY", "").strip()
+CAREERJET_API_KEY = os.environ.get("CAREERJET_API_KEY", "").strip()
 
 # A handful of broad categories (not one all-encompassing query) so the
 # swipe deck spans a realistic range of entry-level work, rather than
@@ -250,6 +262,95 @@ def _fetch_jsearch_jobs(query):
         f" -- rejected locations: {rejected_locations[:10]}" if rejected_locations else "",
     )
     return jobs
+
+
+def _fetch_careerjet_jobs(user_ip, user_agent, referer, keywords=""):
+    """Careerjet's API requires user_ip/user_agent on every call -- it
+    attributes each search to the real person who triggered it, which is
+    why this isn't folded into the shared cache like the other two
+    sources (see module docstring). locale_code=en_ZA plus an unset
+    location asks for a country-wide South African search, per
+    Careerjet's own docs ("location... when not specified, indicates
+    country-wide search")."""
+    if not CAREERJET_API_KEY:
+        return []
+
+    params = {
+        "locale_code": "en_ZA",
+        "keywords": keywords,
+        "user_ip": user_ip or "0.0.0.0",
+        "user_agent": user_agent or "Unknown",
+        "page_size": "50",
+    }
+    url = "https://search.api.careerjet.net/v4/query?" + urllib.parse.urlencode(params)
+    basic_auth = base64.b64encode(f"{CAREERJET_API_KEY}:".encode()).decode()
+    req = urllib.request.Request(url, headers={
+        "Authorization": f"Basic {basic_auth}",
+        "Content-Type": "application/json",
+        "Referer": referer or "",
+    })
+    try:
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        logger.warning("Careerjet fetch failed: HTTP %s %s -- %s", e.code, e.reason, e.read()[:300])
+        return []
+    except (urllib.error.URLError, TimeoutError, ValueError) as e:
+        logger.warning("Careerjet fetch failed: %s", e)
+        return []
+
+    raw_jobs = data.get("jobs", [])
+    jobs = []
+    rejected_locations = []
+    for j in raw_jobs:
+        job_url = j.get("url") or ""
+        if not job_url:
+            continue
+        locations = j.get("locations")
+        if isinstance(locations, list):
+            location = ", ".join(str(p) for p in locations if p)
+        else:
+            location = (locations or j.get("location") or "").strip()
+        if not _is_confirmed_south_africa(location):
+            rejected_locations.append(location or "(blank)")
+            continue
+        salary_text = (j.get("salary") or "").strip()
+        salary_min, salary_max = _parse_zar_salary(salary_text)
+        jobs.append({
+            "id": f"careerjet-{hashlib.md5(job_url.encode()).hexdigest()[:16]}",
+            "title": _sentence_case((j.get("title") or "").strip()) or "Untitled role",
+            "company": (j.get("company") or "").strip(),
+            "location": location,
+            "region": _infer_region(location),
+            "salary": salary_text,
+            "salary_min": salary_min,
+            "salary_max": salary_max,
+            "salary_currency": "ZAR" if salary_min is not None else "",
+            "description": _strip_html(j.get("description", ""))[:1200],
+            "posted_at": (j.get("date") or "")[:10],
+            "email": "",
+            "url": job_url,
+        })
+    logger.warning(
+        "Careerjet %r: %d raw result(s), %d passed the South-Africa check%s",
+        keywords, len(raw_jobs), len(jobs),
+        f" -- rejected locations: {rejected_locations[:10]}" if rejected_locations else "",
+    )
+    return jobs
+
+
+def get_careerjet_jobs(user_ip, user_agent, referer, exclude_ids=None):
+    """Live, uncached Careerjet listings for this one request -- never
+    reuses another user's fetch, since the results are attributed to
+    this specific user_ip/user_agent. Returns [] with no source
+    configured or on any failure, same contract as get_jobs()."""
+    exclude_ids = exclude_ids or set()
+    try:
+        jobs = _fetch_careerjet_jobs(user_ip, user_agent, referer)
+    except Exception:
+        logger.exception("Careerjet fetch raised unexpectedly")
+        jobs = []
+    return [j for j in jobs if j["id"] not in exclude_ids]
 
 
 def _fetch_live_jobs():
