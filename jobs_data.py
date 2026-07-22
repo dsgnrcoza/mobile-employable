@@ -299,6 +299,14 @@ def _fetch_serper_jobs(category):
         logger.warning("Serper fetch failed for %r: %s", category, e)
         return []
 
+    # Real signals that a result is a job board's search/category page
+    # (e.g. "IT support jobs in South Africa" / "11165 results for...")
+    # rather than one specific posting -- these get surfaced constantly
+    # for broad category queries, and showing one as if it were a real
+    # listing would itself be misleading information.
+    _category_page_re = re.compile(r"\d[\d,]*\s+(?:results|jobs?|vacanc(?:y|ies))\b", re.IGNORECASE)
+    _generic_title_re = re.compile(rf"^{re.escape(category.lower())}\s+jobs?\b.*south africa", re.IGNORECASE)
+
     raw_jobs = data.get("organic", [])
     jobs = []
     rejected = []
@@ -307,6 +315,9 @@ def _fetch_serper_jobs(category):
         title = (j.get("title") or "").strip()
         snippet = (j.get("snippet") or "").strip()
         if not link or not title:
+            continue
+        if _category_page_re.search(snippet) or _generic_title_re.match(title.lower()):
+            rejected.append(f"(category/listing page) {title[:60]}")
             continue
         text = f"{title} {snippet}"
         if not _is_confirmed_south_africa(text):
