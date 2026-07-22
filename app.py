@@ -24,6 +24,7 @@ server is the single source of truth; the page never trusts its own
 old state once a change has been made.
 """
 
+import concurrent.futures
 import os
 import time
 import uuid
@@ -1087,20 +1088,36 @@ def api_jobs():
     hidden_ids = db.get_hidden_job_ids(user["id"])
     applied_ids = {e["job_id"] for e in db.get_tracker_entries_for_user(user["id"]) if e["job_id"]}
     exclude_ids = hidden_ids | applied_ids
-    jobs = jobs_data.get_jobs(exclude_ids=exclude_ids)
 
-    # Careerjet is fetched live here, not from the shared cache above --
-    # its API attributes every search to the real end user who triggered
-    # it, so it needs this specific request's actual IP/User-Agent, which
-    # only exists inside this route.
+    # Careerjet is fetched live here, not from the shared cache jobs_data
+    # keeps for Jooble/JSearch -- its API attributes every search to the
+    # real end user who triggered it, so it needs this specific
+    # request's actual IP/User-Agent, which only exists inside this
+    # route. Run alongside the cached lookup (not after it) -- back to
+    # back, a cold Jooble/JSearch cache plus Careerjet's own timeout
+    # could add up to longer than a serverless function is allowed to
+    # run, killing the request before either one gets a chance to
+    # return anything.
     forwarded_for = request.headers.get("X-Forwarded-For", "")
     user_ip = forwarded_for.split(",")[0].strip() if forwarded_for else request.remote_addr
-    careerjet_jobs = jobs_data.get_careerjet_jobs(
-        user_ip=user_ip,
-        user_agent=request.headers.get("User-Agent", ""),
-        referer=url_for("swiper_page", _external=True),
-        exclude_ids=exclude_ids,
-    )
+    referer = url_for("swiper_page", _external=True)
+    user_agent = request.headers.get("User-Agent", "")
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+        cached_future = pool.submit(jobs_data.get_jobs, exclude_ids=exclude_ids)
+        careerjet_future = pool.submit(
+            jobs_data.get_careerjet_jobs,
+            user_ip=user_ip, user_agent=user_agent, referer=referer, exclude_ids=exclude_ids,
+        )
+        try:
+            jobs = cached_future.result(timeout=15)
+        except Exception:
+            jobs = []
+        try:
+            careerjet_jobs = careerjet_future.result(timeout=15)
+        except Exception:
+            careerjet_jobs = []
+
     seen_ids = {j["id"] for j in jobs}
     jobs.extend(j for j in careerjet_jobs if j["id"] not in seen_ids)
 
