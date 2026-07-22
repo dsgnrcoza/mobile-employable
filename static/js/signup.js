@@ -19,7 +19,7 @@
   // On-brand instead of a generic party-confetti palette -- the app's
   // own accent plus its semantic good/mid tones, so the very first
   // celebratory moment already looks like Avryn.
-  var CONFETTI_COLORS = ["#F2751B", "#4CC38A", "#E4B33C", "#F7A662"];
+  var CONFETTI_COLORS = ["#C25F1C", "#4CC38A", "#E4B33C", "#D98A4C"];
 
   function launchConfetti() {
     var sides = ["left", "right"];

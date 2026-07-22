@@ -63,7 +63,7 @@
   --card-bg: #16191E;
   --panel: #16191E;
   --panel-2: #1C2026;
-  --accent: #F2751B;
+  --accent: #C25F1C;
   /* --accent-gradient is kept as an alias (rather than reverting every
      rule that references it) so the button/wordmark/avatar/badge rules
      that use it for backgrounds and background-clip:text stay solid
@@ -153,7 +153,7 @@ a {
 :focus-visible {
   outline: 2px solid transparent;
   outline-offset: 2px;
-  box-shadow: 0 0 0 4px rgba(242, 117, 27, 0.35);
+  box-shadow: 0 0 0 4px rgba(194, 95, 28, 0.35);
   border-radius: 4px;
   transition: box-shadow 0.15s ease;
 }
@@ -696,7 +696,7 @@ button.auth-tab.active {
 .btn-gold {
   background: var(--accent-gradient);
   color: var(--accent-ink);
-  box-shadow: 0 4px 14px rgba(242, 117, 27, 0.35);
+  box-shadow: 0 4px 14px rgba(194, 95, 28, 0.35);
 }
 
 .btn-gold:hover {
@@ -704,7 +704,7 @@ button.auth-tab.active {
 }
 
 .btn-gold:active {
-  box-shadow: 0 2px 8px rgba(242, 117, 27, 0.3);
+  box-shadow: 0 2px 8px rgba(194, 95, 28, 0.3);
 }
 
 .btn-ghost {
@@ -6650,7 +6650,7 @@ button.auth-tab.active {
 }
 
 .outbox-status-replied {
-  background: rgba(242, 117, 27, 0.15);
+  background: rgba(194, 95, 28, 0.15);
   color: var(--accent);
 }
 
