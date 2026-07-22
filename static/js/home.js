@@ -190,47 +190,38 @@
   }
 
   var emptyHeadlineEl = document.getElementById("chat-empty-headline");
-  var firstName = ((window.HOME_STATE && window.HOME_STATE.profile.full_name) || "").trim().split(/\s+/)[0] || "";
 
-  // A mix of name-personalized and plain openers -- picked fresh every
-  // time a new chat starts, so the empty state reads like a person
-  // asking "what are we doing today" instead of a static slogan. Named
-  // ones are a minority by design (repeating someone's name every
-  // single chat gets old fast). Just the one short line now -- no
-  // second explanatory sentence underneath it.
+  // Short, punchy one-liners only -- picked fresh every time a new chat
+  // starts. No name interpolation here: a first name of unpredictable
+  // length is exactly what pushed these past a single line, and the
+  // headline is guaranteed one line (white-space: nowrap in CSS), so
+  // every entry has to be safely short on its own regardless of who's
+  // reading it.
   var EMPTY_HEADLINES = [
-    "Let's manufacture employment.",
-    "Good to see you" + (firstName ? ", " + firstName : "") + ".",
-    "Hey" + (firstName ? " " + firstName : "") + ", what's the move?",
-    "What needs doing today?",
-    "Got this all figured out?",
-    "Did you apply anywhere new?",
-    "How can I help today?",
-    "What are we working on?",
-    "Back for another round of adulting?",
-    "Got a job in mind?",
-    "Let's continue where we left off.",
-    (firstName ? firstName + ", " : "") + "what's on your mind?",
-    "Let's pretend-apply to things.",
-    "What's next on the list?",
-    "Any new leads?",
-    "Welcome back" + (firstName ? ", " + firstName : "") + ".",
-    "Let's find you a paycheck.",
-    "Something new to look at?",
-    "What can I help with?",
-    "Ready when you are" + (firstName ? ", " + firstName : "") + ".",
-    // A short, punchy Claude-style opener — a couple words, not a full
-    // sentence — mixed into the same rotation as the ones above.
     "Coffee and Avryn?",
     "Tea and a job hunt?",
     "Job hunt o'clock.",
-    "Let's make some moves.",
     "New day, new lead?",
     "Onwards and upwards.",
     "Let's get you hired.",
-    "You vs. the job market.",
     "Ready to job hunt?",
     "You, me, a job hunt.",
+    "What's the move?",
+    "Got a lead in mind?",
+    "Let's find you work.",
+    "Any new leads?",
+    "What needs doing?",
+    "Time to get hired.",
+    "Let's go hunting.",
+    "Job market, beware.",
+    "Got this figured out?",
+    "Back for round two?",
+    "What's next?",
+    "Let's land you a job.",
+    "Another lead today?",
+    "Something new today?",
+    "Let's make some moves.",
+    "How can I help?",
   ];
 
   // A real proactive check-in, computed server-side from idle time and
