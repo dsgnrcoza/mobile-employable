@@ -144,13 +144,16 @@ def _fetch_jooble_jobs(keywords):
         logger.warning("Jooble fetch failed for %r: %s", keywords, e)
         return []
 
+    raw_jobs = data.get("jobs", [])
     jobs = []
-    for j in data.get("jobs", []):
+    rejected_locations = []
+    for j in raw_jobs:
         job_id = f"jooble-{j.get('id', '')}"
         if not j.get("id"):
             continue
         location = (j.get("location") or "").strip()
         if not _is_confirmed_south_africa(location):
+            rejected_locations.append(location or "(blank)")
             continue
         salary_text = (j.get("salary") or "").strip()
         salary_min, salary_max = _parse_zar_salary(salary_text)
@@ -169,6 +172,11 @@ def _fetch_jooble_jobs(keywords):
             "email": "",
             "url": j.get("link") or "",
         })
+    logger.info(
+        "Jooble %r: %d raw result(s), %d passed the South-Africa check%s",
+        keywords, len(raw_jobs), len(jobs),
+        f" -- rejected locations: {rejected_locations[:10]}" if rejected_locations else "",
+    )
     return jobs
 
 
@@ -198,8 +206,10 @@ def _fetch_jsearch_jobs(query):
         logger.warning("JSearch fetch failed for %r: %s", query, e)
         return []
 
+    raw_jobs = data.get("data", [])
     jobs = []
-    for j in data.get("data", []):
+    rejected_locations = []
+    for j in raw_jobs:
         job_id = j.get("job_id")
         if not job_id:
             continue
@@ -211,6 +221,7 @@ def _fetch_jsearch_jobs(query):
         # displayed reads like unprocessed API leftovers.
         location = ", ".join(location_parts) or ("South Africa" if country_code.strip().upper() == "ZA" else country_code)
         if not _is_confirmed_south_africa(location, country_code=country_code):
+            rejected_locations.append(f"{location or '(blank)'} [{country_code or '?'}]")
             continue
         salary = ""
         salary_min = float(j["job_min_salary"]) if j.get("job_min_salary") else None
@@ -233,6 +244,11 @@ def _fetch_jsearch_jobs(query):
             "email": "",
             "url": j.get("job_apply_link") or "",
         })
+    logger.info(
+        "JSearch %r: %d raw result(s), %d passed the South-Africa check%s",
+        query, len(raw_jobs), len(jobs),
+        f" -- rejected locations: {rejected_locations[:10]}" if rejected_locations else "",
+    )
     return jobs
 
 
