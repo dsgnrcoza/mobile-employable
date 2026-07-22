@@ -172,7 +172,7 @@ def _fetch_jooble_jobs(keywords):
             "email": "",
             "url": j.get("link") or "",
         })
-    logger.info(
+    logger.warning(
         "Jooble %r: %d raw result(s), %d passed the South-Africa check%s",
         keywords, len(raw_jobs), len(jobs),
         f" -- rejected locations: {rejected_locations[:10]}" if rejected_locations else "",
@@ -244,7 +244,7 @@ def _fetch_jsearch_jobs(query):
             "email": "",
             "url": j.get("job_apply_link") or "",
         })
-    logger.info(
+    logger.warning(
         "JSearch %r: %d raw result(s), %d passed the South-Africa check%s",
         query, len(raw_jobs), len(jobs),
         f" -- rejected locations: {rejected_locations[:10]}" if rejected_locations else "",
