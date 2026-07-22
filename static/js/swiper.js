@@ -3,6 +3,8 @@
 
   var deckEl = document.getElementById("swiper-deck");
   var emptyEl = document.getElementById("swiper-empty");
+  var emptyTitleEl = document.getElementById("swiper-empty-title");
+  var emptyTextEl = document.getElementById("swiper-empty-text");
   var fallbackActionsEl = document.getElementById("swiper-fallback-actions");
   var hideBtn = document.getElementById("swiper-hide-btn");
   var applyBtn = document.getElementById("swiper-apply-btn");
@@ -10,9 +12,11 @@
   var badgeEl = document.getElementById("job-tab-badge");
   var hintEl = document.getElementById("swiper-hint");
 
-  var queue = [];
+  var allJobs = []; // every real listing the server returned, unfiltered
+  var queue = []; // allJobs narrowed by the active filters, still to show
   var stack = []; // {el, job} front-to-back, stack[0] is always the interactive top card
   var toastTimer = null;
+  var filters = { region: "", title: "", minSalary: null };
 
   var SPRING_BACK = "transform 0.42s cubic-bezier(0.34, 1.56, 0.64, 1)";
   var STACK_SHIFT = "transform 0.38s cubic-bezier(0.22, 1, 0.36, 1)";
@@ -59,11 +63,28 @@
       .catch(function () {});
   }
 
+  function hasActiveFilter() {
+    return !!(filters.region || filters.title || filters.minSalary);
+  }
+
   function refreshEmptyState() {
     var hasCards = stack.length > 0;
     emptyEl.hidden = hasCards;
     fallbackActionsEl.hidden = !hasCards;
-    if (!hasCards) hintEl.hidden = true;
+    if (!hasCards) {
+      hintEl.hidden = true;
+      // Filtered-to-nothing is a different, correctable situation from
+      // genuinely having no more real listings -- saying "you're all
+      // caught up" when jobs actually exist behind an active filter
+      // would be showing the user something untrue.
+      if (hasActiveFilter() && allJobs.length > 0) {
+        emptyTitleEl.textContent = "No jobs match your filters";
+        emptyTextEl.textContent = "Try widening the area, clearing the salary minimum, or a different job title.";
+      } else {
+        emptyTitleEl.textContent = "You're all caught up";
+        emptyTextEl.textContent = "No more jobs to show right now — check back later for new listings.";
+      }
+    }
   }
 
   // Shown once, ever, before this user's very first swipe -- neither
@@ -337,15 +358,101 @@
   hideBtn.addEventListener("click", function () { triggerFallback("left"); });
   applyBtn.addEventListener("click", function () { triggerFallback("right"); });
 
+  // ---------- Filters: area, job title, minimum salary ----------
+  // Filtering runs entirely client-side over the already-fetched
+  // allJobs -- the deck is small enough that a full re-render per
+  // filter change is instant, and it avoids a round trip for something
+  // this simple.
+
+  function jobMatchesFilters(job) {
+    if (filters.region && job.region !== filters.region) return false;
+    if (filters.title && job.title.toLowerCase().indexOf(filters.title) === -1) return false;
+    if (filters.minSalary) {
+      // A job whose salary isn't a confirmed Rand figure can't honestly
+      // be said to meet (or fail) a Rand salary expectation -- excluded
+      // rather than guessed at, same as never showing a fake listing.
+      if (job.salary_currency !== "ZAR" || job.salary_max == null) return false;
+      if (job.salary_max < filters.minSalary) return false;
+    }
+    return true;
+  }
+
+  function applyFilters() {
+    queue = allJobs.filter(jobMatchesFilters);
+    renderInitialDeck();
+  }
+
+  var filterBtn = document.getElementById("swiper-filter-btn");
+  var filterOverlay = document.getElementById("swiper-filter-overlay");
+  var filterRegionSelect = document.getElementById("swiper-filter-region");
+  var filterTitleInput = document.getElementById("swiper-filter-title");
+  var filterSalaryInput = document.getElementById("swiper-filter-salary");
+  var filterClearBtn = document.getElementById("swiper-filter-clear-btn");
+  var filterApplyBtn = document.getElementById("swiper-filter-apply-btn");
+
+  function positionFilterDropdown() {
+    var btnRect = filterBtn.getBoundingClientRect();
+    var menuWidth = 260;
+    filterOverlay.style.top = (btnRect.bottom + 8) + "px";
+    filterOverlay.style.right = Math.max(12, window.innerWidth - btnRect.right) + "px";
+    filterOverlay.style.left = "auto";
+    filterOverlay.style.width = Math.min(menuWidth, window.innerWidth - 24) + "px";
+  }
+
+  function closeFilterDropdown() {
+    filterOverlay.hidden = true;
+  }
+
+  function updateFilterBadge() {
+    filterBtn.classList.toggle("has-active-filter", hasActiveFilter());
+  }
+
+  filterBtn.addEventListener("click", function (e) {
+    e.stopPropagation();
+    if (!filterOverlay.hidden) { closeFilterDropdown(); return; }
+    positionFilterDropdown();
+    filterOverlay.hidden = false;
+  });
+
+  document.addEventListener("click", function (e) {
+    if (filterOverlay.hidden) return;
+    if (filterOverlay.contains(e.target) || e.target === filterBtn) return;
+    closeFilterDropdown();
+  });
+
+  window.addEventListener("resize", function () {
+    if (!filterOverlay.hidden) positionFilterDropdown();
+  });
+
+  filterApplyBtn.addEventListener("click", function () {
+    filters.region = filterRegionSelect.value;
+    filters.title = filterTitleInput.value.trim().toLowerCase();
+    var salaryVal = parseFloat(filterSalaryInput.value);
+    filters.minSalary = isNaN(salaryVal) || salaryVal <= 0 ? null : salaryVal;
+    updateFilterBadge();
+    closeFilterDropdown();
+    applyFilters();
+  });
+
+  filterClearBtn.addEventListener("click", function () {
+    filters = { region: "", title: "", minSalary: null };
+    filterRegionSelect.value = "";
+    filterTitleInput.value = "";
+    filterSalaryInput.value = "";
+    updateFilterBadge();
+    closeFilterDropdown();
+    applyFilters();
+  });
+
   fetch("/api/jobs")
     .then(function (r) { return r.json(); })
     .then(function (data) {
-      queue = data.ok ? data.jobs : [];
-      renderInitialDeck();
+      allJobs = data.ok ? data.jobs : [];
+      applyFilters();
     })
     .catch(function () {
-      queue = [];
-      renderInitialDeck();
+      allJobs = [];
+      applyFilters();
       showToast("Couldn't load jobs — check your connection.");
     });
 
