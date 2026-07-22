@@ -3484,13 +3484,11 @@ _TOOL_FAILURE_MESSAGES = {
 
 
 def _search_jobs_for_chat(user, keywords, location):
-    """Backs the search_jobs tool -- searches the exact same pool
-    Find Jobs draws from (jobs_data.get_jobs(), currently synthetic;
-    swapping that module for a real listings API is the only change
-    this needs once one's wired up), excluding anything this user has
-    already skipped or applied to, and returns a plain-text summary
-    ready to hand straight back to the model as this tool call's
-    result."""
+    """Backs the search_jobs tool -- searches the exact same real,
+    live-sourced pool Find Jobs draws from (jobs_data.get_jobs()),
+    excluding anything this user has already skipped or applied to,
+    and returns a plain-text summary ready to hand straight back to
+    the model as this tool call's result."""
     hidden_ids = db.get_hidden_job_ids(user["id"])
     applied_ids = {e["job_id"] for e in db.get_tracker_entries_for_user(user["id"])}
     pool = jobs_data.get_jobs(exclude_ids=hidden_ids | applied_ids)
