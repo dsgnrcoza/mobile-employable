@@ -256,19 +256,19 @@
     if (show) rollEmptyStateCopy();
   }
 
-  // A small tap easter-egg -- one full spin around its own center,
+  // A small tap easter-egg -- a bouncy-ball jump with decaying rebounds,
   // played once per click rather than looping. Re-adding the class on
-  // an already-spinning star (rapid repeat taps) needs a reflow in
+  // an already-bouncing star (rapid repeat taps) needs a reflow in
   // between or the browser just coalesces it into a no-op restart.
   var chatEmptyStar = document.getElementById("chat-empty-star");
   if (chatEmptyStar) {
     chatEmptyStar.addEventListener("click", function () {
-      chatEmptyStar.classList.remove("is-spinning");
+      chatEmptyStar.classList.remove("is-bouncing");
       void chatEmptyStar.offsetWidth;
-      chatEmptyStar.classList.add("is-spinning");
+      chatEmptyStar.classList.add("is-bouncing");
     });
     chatEmptyStar.addEventListener("animationend", function () {
-      chatEmptyStar.classList.remove("is-spinning");
+      chatEmptyStar.classList.remove("is-bouncing");
     });
   }
 
