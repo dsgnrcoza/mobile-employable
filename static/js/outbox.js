@@ -586,15 +586,29 @@
     markAwaitingConfirmation();
   }
 
+  // Fire-and-forget -- the AI chat context reads this back later to tell
+  // "still just sitting drafted" apart from "actually acted on it", so
+  // it's worth logging even though nothing in this click flow waits on
+  // the response.
+  function recordContactAction(entryId, action) {
+    fetch("/api/applications/" + encodeURIComponent(entryId) + "/contact-action", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: action }),
+    }).catch(function () {});
+  }
+
   openGmailBtn.addEventListener("click", function () {
     var app = findApp(reviewId);
     if (!app) return;
 
     if (!app.recipientEmail) {
       if (app.jobUrl) window.open(app.jobUrl, "_blank");
+      recordContactAction(app.id, "listing");
       return;
     }
 
+    recordContactAction(app.id, "gmail");
     var subject = reviewSubjectEl.value.trim();
     var fullBody = reviewMessageEl.value;
 

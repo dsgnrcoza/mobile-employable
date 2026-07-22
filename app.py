@@ -1094,7 +1094,11 @@ def api_jobs():
 @auth.login_required
 def api_hide_job(job_id):
     user = auth.current_user()
-    db.hide_job(user["id"], job_id)
+    # Snapshotted now, not looked up later -- this job may age out of the
+    # live jobs cache by the time anything (the AI chat context, in
+    # particular) wants to know what this user actually passed on.
+    job = jobs_data.get_job_by_id(job_id)
+    db.hide_job(user["id"], job_id, job_title=job["title"] if job else "", company=job["company"] if job else "")
     return jsonify({"ok": True})
 
 
@@ -1158,6 +1162,25 @@ def api_update_application(entry_id):
 
     entry = db.get_tracker_entry(user["id"], entry_id)
     return jsonify({"ok": True, "application": _serialize_tracker_entry(entry)})
+
+
+@app.route("/api/applications/<int:entry_id>/contact-action", methods=["POST"])
+@auth.login_required
+def api_application_contact_action(entry_id):
+    """Fired the moment the user actually taps "Open in Gmail" (or, for a
+    listing with no recipient email, the fallback "Open job posting"
+    link it opens instead) -- real signal for the AI chat context below
+    on whether this application is still just sitting drafted or the
+    user has actually gone and acted on it."""
+    user = auth.current_user()
+    if not db.get_tracker_entry(user["id"], entry_id):
+        return jsonify({"ok": False, "error": "Application not found."}), 404
+    data = request.get_json(force=True)
+    action = data.get("action")
+    if action not in ("gmail", "listing"):
+        return jsonify({"ok": False, "error": "Invalid action."}), 400
+    db.record_contact_action(user["id"], entry_id, action)
+    return jsonify({"ok": True})
 
 
 @app.route("/api/applications/<int:entry_id>/mark-sent", methods=["POST"])
@@ -3267,10 +3290,16 @@ def _jobswiper_context_section(user):
         )
 
     lines = [
-        "\n\nJOB SWIPER / OUTBOX ACTIVITY (real data from this user's actual swipes and applications -- "
-        "ground advice in this; never ask them to repeat what's already listed here):"
+        "\n\nJOB SWIPER / OUTBOX ACTIVITY (real data from this user's actual swipes, applications, and "
+        "outreach clicks -- ground advice in this; never ask them to repeat what's already listed here):"
     ]
-    lines.append(f"- Skipped (swiped left, not interested): {len(hidden_ids)} listing(s).")
+    lines.append(f"- Skipped (swiped left, not interested): {len(hidden_ids)} listing(s) total.")
+    recent_hidden = db.get_recent_hidden_jobs(user["id"], limit=8)
+    if recent_hidden:
+        lines.append("Most recently skipped, newest first (use this to notice what they keep passing on):")
+        for h in recent_hidden:
+            label = f"{h['job_title']} at {h['company']}" if h.get("job_title") else "an untitled listing (title not recorded)"
+            lines.append(f"- {label}")
     if entries:
         by_status = {}
         for e in entries:
@@ -3281,8 +3310,15 @@ def _jobswiper_context_section(user):
         recent = sorted(entries, key=lambda e: e.get("updated_at") or e.get("created_at") or "", reverse=True)[:8]
         lines.append("Most recent applications, newest first:")
         for e in recent:
-            sent_bit = " (marked sent -- they opened their mail app for this one)" if e.get("sent_at") else ""
-            lines.append(f"- {e['job_title']} at {e['company']}: {e['status']}{sent_bit}")
+            contact = e.get("contact_action")
+            if contact == "gmail":
+                contact_bit = " (opened it in Gmail to send)"
+            elif contact == "listing":
+                contact_bit = " (viewed the original job posting, hasn't reached out yet)"
+            else:
+                contact_bit = " (drafted but hasn't opened it yet)"
+            sent_bit = " -- confirmed sent" if e.get("sent_at") else ""
+            lines.append(f"- {e['job_title']} at {e['company']}: {e['status']}{contact_bit}{sent_bit}")
     else:
         lines.append("- No applications drafted yet.")
     return "\n".join(lines) + "\n"

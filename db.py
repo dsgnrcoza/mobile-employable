@@ -374,6 +374,19 @@ def init_db():
         # the original job listing, which may no longer even be in the
         # current pool by then.
         "ALTER TABLE trackers ADD COLUMN salary TEXT NOT NULL DEFAULT ''",
+        # So the AI chatbot can be told what kind of jobs a user actually
+        # skips, not just the bare job_id -- that ID may not even resolve
+        # to anything by the time it's read back (the live jobs cache
+        # rotates), so the title/company are snapshotted at hide time,
+        # same pattern as trackers.job_title/company at apply time.
+        "ALTER TABLE hidden_jobs ADD COLUMN job_title TEXT NOT NULL DEFAULT ''",
+        "ALTER TABLE hidden_jobs ADD COLUMN company TEXT NOT NULL DEFAULT ''",
+        # Which outreach action a user actually took from a drafted
+        # application -- opened it in Gmail, or just viewed the original
+        # listing -- so the chatbot can tell "sent" from "still just
+        # looking" instead of guessing from status alone.
+        "ALTER TABLE trackers ADD COLUMN contact_action TEXT NOT NULL DEFAULT ''",
+        "ALTER TABLE trackers ADD COLUMN contact_action_at TEXT DEFAULT NULL",
         # Deliberately last and best-effort, not part of the CREATE TABLE
         # block above: if any pre-existing rows already share a non-blank
         # email (e.g. two accounts that both had their email set to the
@@ -896,6 +909,22 @@ def update_tracker_status(user_id, entry_id, status, sent_at=None):
         conn.close()
 
 
+def record_contact_action(user_id, entry_id, action):
+    """Logs which outreach action the user actually took on a drafted
+    application -- 'gmail' (opened the draft to send) or 'listing'
+    (viewed the original posting instead) -- so the chatbot can tell
+    real follow-through apart from a job that's just sitting drafted."""
+    conn = get_db()
+    try:
+        conn.execute(
+            "UPDATE trackers SET contact_action = ?, contact_action_at = ? WHERE id = ? AND user_id = ?",
+            (action, now_iso(), entry_id, user_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def delete_tracker_entry(user_id, entry_id):
     """Returns True if a row was actually deleted -- lets the route tell
     a real delete apart from someone re-deleting (or deleting another
@@ -932,14 +961,28 @@ def get_hidden_job_ids(user_id):
         conn.close()
 
 
-def hide_job(user_id, job_id):
+def hide_job(user_id, job_id, job_title="", company=""):
     conn = get_db()
     try:
         conn.execute(
-            "INSERT INTO hidden_jobs (user_id, job_id, hidden_at) VALUES (?, ?, ?)",
-            (user_id, job_id, now_iso()),
+            "INSERT INTO hidden_jobs (user_id, job_id, job_title, company, hidden_at) VALUES (?, ?, ?, ?, ?)",
+            (user_id, job_id, job_title, company, now_iso()),
         )
         conn.commit()
+    finally:
+        conn.close()
+
+
+def get_recent_hidden_jobs(user_id, limit=15):
+    """Most recently skipped jobs, newest first -- used to tell the AI
+    chatbot what kind of roles this user is passing on."""
+    conn = get_db()
+    try:
+        rows = conn.execute(
+            "SELECT job_title, company, hidden_at FROM hidden_jobs WHERE user_id = ? ORDER BY hidden_at DESC LIMIT ?",
+            (user_id, limit),
+        ).fetchall()
+        return [dict(r) for r in rows]
     finally:
         conn.close()
 
