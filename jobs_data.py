@@ -7,16 +7,17 @@ by get_jobs()/get_job_by_id() below -- never anything source-specific.
 STRICTLY real listings only -- there is no mock/synthetic/placeholder
 data anywhere in this module, on purpose, so the app can legitimately
 promise every listing a user sees is a real one. Real listings come
-from Jooble, JSearch (RapidAPI), and Careerjet when their API keys are
-configured (JOOBLE_API_KEY / RAPIDAPI_KEY / CAREERJET_API_KEY -- see
-.env.example); Jooble and JSearch results are merged, deduped, and
-cached in-process for _LIVE_JOBS_TTL_SECONDS so a page of swipes
-doesn't re-hit either API on every request. With no key set, or if
-every source fails (network error, bad key, quota) and there's no
-still-fresh cache to fall back on, get_jobs() returns an empty list --
-the swiper's existing empty state ("You're all caught up... check back
-later") is what a user sees then, never a fake listing standing in for
-a real one.
+from Jooble, JSearch (RapidAPI), Serper (Google Search results,
+restricted to real SA job board domains), and Careerjet when their API
+keys are configured (JOOBLE_API_KEY / RAPIDAPI_KEY / SERPER_API_KEY /
+CAREERJET_API_KEY -- see .env.example); Jooble, JSearch, and Serper
+results are merged, deduped, and cached in-process for
+_LIVE_JOBS_TTL_SECONDS so a page of swipes doesn't re-hit any of them
+on every request. With no key set, or if every source fails (network
+error, bad key, quota) and there's no still-fresh cache to fall back
+on, get_jobs() returns an empty list -- the swiper's existing empty
+state ("You're all caught up... check back later") is what a user
+sees then, never a fake listing standing in for a real one.
 
 Careerjet is deliberately NOT folded into that shared cache -- its API
 requires the real end user's IP and User-Agent on every call (it
@@ -43,6 +44,7 @@ logger = logging.getLogger(__name__)
 JOOBLE_API_KEY = os.environ.get("JOOBLE_API_KEY", "").strip()
 RAPIDAPI_KEY = os.environ.get("RAPIDAPI_KEY", "").strip()
 CAREERJET_API_KEY = os.environ.get("CAREERJET_API_KEY", "").strip()
+SERPER_API_KEY = os.environ.get("SERPER_API_KEY", "").strip()
 
 # A handful of broad categories (not one all-encompassing query) so the
 # swipe deck spans a realistic range of entry-level work, rather than
@@ -264,6 +266,76 @@ def _fetch_jsearch_jobs(query):
     return jobs
 
 
+# Real South African job boards Serper's query is restricted to via
+# site: operators -- without this, a plain "X jobs South Africa" search
+# mostly surfaces generic articles and aggregator category pages
+# instead of pages that are actually individual job postings.
+_SERPER_SA_JOB_SITES = ["careers24.com", "pnet.co.za", "careerjunction.co.za", "indeed.co.za"]
+
+
+def _fetch_serper_jobs(category):
+    """Serper (Google Search results as JSON) is a fallback, lower-
+    fidelity source -- it returns real web pages (title/snippet/link),
+    not structured job records, so there's no separate company/salary
+    field to extract; the South-Africa check runs against the visible
+    title+snippet text instead of a location field, since none exists
+    here."""
+    if not SERPER_API_KEY:
+        return []
+    site_filter = " OR ".join(f"site:{s}" for s in _SERPER_SA_JOB_SITES)
+    query = f"{category} jobs South Africa ({site_filter})"
+    body = json.dumps({"q": query, "gl": "za", "num": 10}).encode("utf-8")
+    req = urllib.request.Request(
+        "https://google.serper.dev/search", data=body,
+        headers={"X-API-KEY": SERPER_API_KEY, "Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        logger.warning("Serper fetch failed for %r: HTTP %s %s -- %s", category, e.code, e.reason, e.read()[:300])
+        return []
+    except (urllib.error.URLError, TimeoutError, ValueError) as e:
+        logger.warning("Serper fetch failed for %r: %s", category, e)
+        return []
+
+    raw_jobs = data.get("organic", [])
+    jobs = []
+    rejected = []
+    for j in raw_jobs:
+        link = j.get("link") or ""
+        title = (j.get("title") or "").strip()
+        snippet = (j.get("snippet") or "").strip()
+        if not link or not title:
+            continue
+        text = f"{title} {snippet}"
+        if not _is_confirmed_south_africa(text):
+            rejected.append(title[:60])
+            continue
+        region = _infer_region(text)
+        jobs.append({
+            "id": f"serper-{hashlib.md5(link.encode()).hexdigest()[:16]}",
+            "title": _sentence_case(title),
+            "company": "",
+            "location": region or "South Africa",
+            "region": region,
+            "salary": "",
+            "salary_min": None,
+            "salary_max": None,
+            "salary_currency": "",
+            "description": snippet[:1200],
+            "posted_at": (j.get("date") or "")[:10],
+            "email": "",
+            "url": link,
+        })
+    logger.warning(
+        "Serper %r: %d raw result(s), %d passed the South-Africa check%s",
+        category, len(raw_jobs), len(jobs),
+        f" -- rejected titles: {rejected[:10]}" if rejected else "",
+    )
+    return jobs
+
+
 def _fetch_careerjet_jobs(user_ip, user_agent, referer, keywords=""):
     """Careerjet's API requires user_ip/user_agent on every call -- it
     attributes each search to the real person who triggered it, which is
@@ -364,14 +436,14 @@ def _fetch_live_jobs():
     can tell "no keys/all failed" apart from "a real search legitimately
     returned nothing" and keep serving the last good cache only in the
     former case."""
-    if not JOOBLE_API_KEY and not RAPIDAPI_KEY:
-        logger.warning("No JOOBLE_API_KEY or RAPIDAPI_KEY configured -- JobSwiper has no real source to search.")
+    if not JOOBLE_API_KEY and not RAPIDAPI_KEY and not SERPER_API_KEY:
+        logger.warning("No JOOBLE_API_KEY, RAPIDAPI_KEY, or SERPER_API_KEY configured -- JobSwiper has no real source to search.")
         return None
 
     calls = [
         (fetch, category)
         for category in _LIVE_SEARCH_CATEGORIES
-        for fetch in (_fetch_jooble_jobs, _fetch_jsearch_jobs)
+        for fetch in (_fetch_jooble_jobs, _fetch_jsearch_jobs, _fetch_serper_jobs)
     ]
 
     seen_ids = set()
@@ -404,7 +476,7 @@ def _fetch_live_jobs():
         pool.shutdown(wait=False, cancel_futures=True)
 
     if not any_call_succeeded:
-        logger.warning("Every live job source returned nothing -- check that JOOBLE_API_KEY/RAPIDAPI_KEY are valid.")
+        logger.warning("Every live job source returned nothing -- check that JOOBLE_API_KEY/RAPIDAPI_KEY/SERPER_API_KEY are valid.")
     return jobs if any_call_succeeded else None
 
 
