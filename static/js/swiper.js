@@ -118,20 +118,26 @@
     card.className = "swiper-card";
     card.dataset.jobId = job.id;
 
+    // A field the source API genuinely didn't provide is labeled as
+    // such (matching the "No email listed" convention already used in
+    // the Outbox) rather than left as a blank line that could read as
+    // a rendering glitch, or worse, papered over with an invented value.
     var salaryHtml = job.salary
       ? '<p class="swiper-card-salary">' + escapeHtml(job.salary) + "</p>"
       : "";
+    var companyText = job.company || "Company not listed";
+    var descText = job.description || "No further details provided by the listing.";
 
     card.innerHTML =
       '<div class="swiper-card-stamp swiper-card-stamp-apply">APPLY</div>' +
       '<div class="swiper-card-stamp swiper-card-stamp-hide">SKIP</div>' +
       '<div class="swiper-card-top">' +
       '<h2 class="swiper-card-title">' + escapeHtml(job.title) + "</h2>" +
-      '<p class="swiper-card-company">' + escapeHtml(job.company) + "</p>" +
+      '<p class="swiper-card-company">' + escapeHtml(companyText) + "</p>" +
       "</div>" +
       '<p class="swiper-card-location">' + escapeHtml(job.location) + "</p>" +
       salaryHtml +
-      '<p class="swiper-card-desc">' + escapeHtml(job.description) + "</p>" +
+      '<p class="swiper-card-desc">' + escapeHtml(descText) + "</p>" +
       '<span class="swiper-card-date">' + escapeHtml(relativeDate(job.posted_at)) + "</span>";
     return card;
   }

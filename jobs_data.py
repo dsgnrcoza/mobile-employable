@@ -205,7 +205,11 @@ def _fetch_jsearch_jobs(query):
             continue
         country_code = j.get("job_country") or ""
         location_parts = [p for p in (j.get("job_city"), j.get("job_state")) if p]
-        location = ", ".join(location_parts) or country_code
+        # A raw ISO code ("ZA") is accurate but not a real place name --
+        # once a country-code-only match has confirmed this is a South
+        # African listing, show the country name, not the code, so nothing
+        # displayed reads like unprocessed API leftovers.
+        location = ", ".join(location_parts) or ("South Africa" if country_code.strip().upper() == "ZA" else country_code)
         if not _is_confirmed_south_africa(location, country_code=country_code):
             continue
         salary = ""
