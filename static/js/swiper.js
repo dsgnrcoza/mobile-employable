@@ -13,10 +13,13 @@
   var hintEl = document.getElementById("swiper-hint");
 
   var allJobs = []; // every real listing the server returned, unfiltered
-  var queue = []; // allJobs narrowed by the active filters, still to show
+  var queue = []; // released jobs, still to show
+  var releaseQueue = []; // filtered jobs not yet released into queue
+  var releaseTimer = null;
   var stack = []; // {el, job} front-to-back, stack[0] is always the interactive top card
   var toastTimer = null;
   var filters = { region: "", title: "", minSalary: null };
+  var RELEASE_INTERVAL_MS = 60000; // one new listing revealed per minute
 
   var SPRING_BACK = "transform 0.42s cubic-bezier(0.34, 1.56, 0.64, 1)";
   var STACK_SHIFT = "transform 0.38s cubic-bezier(0.22, 1, 0.36, 1)";
@@ -383,9 +386,31 @@
     return true;
   }
 
+  // Listings are revealed gradually -- one now, then one more every
+  // minute -- rather than dumping the whole filtered pool on screen at
+  // once, so the deck reads as a live feed of current openings instead
+  // of a static list. Newly released jobs stack onto the end of the
+  // queue and top up the visible deck immediately if it had run dry.
+  function releaseNextJob() {
+    if (!releaseQueue.length) {
+      clearInterval(releaseTimer);
+      releaseTimer = null;
+      return;
+    }
+    queue.push(releaseQueue.shift());
+    while (stack.length < 3 && stack.length < queue.length) {
+      addCardAt(stack.length);
+    }
+    refreshEmptyState();
+  }
+
   function applyFilters() {
-    queue = allJobs.filter(jobMatchesFilters);
+    clearInterval(releaseTimer);
+    var filtered = allJobs.filter(jobMatchesFilters);
+    queue = filtered.length ? [filtered[0]] : [];
+    releaseQueue = filtered.slice(1);
     renderInitialDeck();
+    if (releaseQueue.length) releaseTimer = setInterval(releaseNextJob, RELEASE_INTERVAL_MS);
   }
 
   var filterBtn = document.getElementById("swiper-filter-btn");
