@@ -6560,6 +6560,135 @@ button.auth-tab.active {
   color: var(--bad);
 }
 
+/* Find Jobs filter dropdown -- same floating-panel treatment as the
+   Outbox options dropdown above (see positionFilterDropdown in
+   swiper.js), just with form fields instead of button rows. */
+.swiper-filter-dropdown {
+  position: fixed;
+  z-index: 600;
+  background: var(--card-bg);
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  opacity: 1;
+  transform: scale(1);
+  transform-origin: top right;
+  transition: opacity 0.16s ease, transform 0.16s ease, display 0.16s allow-discrete;
+}
+
+.swiper-filter-dropdown[hidden] {
+  display: none;
+  opacity: 0;
+  transform: scale(0.95);
+  transition: opacity 0.12s ease, transform 0.12s ease, display 0.12s allow-discrete;
+}
+
+@starting-style {
+  .swiper-filter-dropdown:not([hidden]) {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .swiper-filter-dropdown {
+    transition: none;
+  }
+}
+
+.swiper-filter-group-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-top: 10px;
+  margin-bottom: 2px;
+}
+
+.swiper-filter-group-label:first-child {
+  margin-top: 0;
+}
+
+.swiper-filter-select,
+.swiper-filter-input {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  color: var(--fg);
+  font-family: inherit;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.swiper-filter-select:focus,
+.swiper-filter-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.swiper-filter-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.swiper-filter-clear-btn,
+.swiper-filter-apply-btn {
+  flex: 1;
+  border-radius: 10px;
+  padding: 11px 12px;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: center;
+}
+
+.swiper-filter-clear-btn {
+  background: none;
+  border: 1px solid var(--line);
+  color: var(--muted);
+}
+
+.swiper-filter-clear-btn:active {
+  background: var(--surface);
+}
+
+.swiper-filter-apply-btn {
+  background: var(--accent);
+  border: none;
+  color: #fff;
+}
+
+.swiper-filter-apply-btn:active {
+  opacity: 0.85;
+}
+
+/* Small dot on the filter button itself while a filter is narrowing the
+   deck, so it's visible at a glance without opening the dropdown. */
+#swiper-filter-btn {
+  position: relative;
+}
+
+#swiper-filter-btn.has-active-filter::after {
+  content: "";
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 1.5px solid var(--bg);
+}
+
 .outbox-item {
   display: flex;
   align-items: flex-start;

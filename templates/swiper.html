@@ -8,7 +8,9 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
     </a>
     <span class="stub-header-title">Find Jobs</span>
-    <span class="stub-header-spacer"></span>
+    <button type="button" class="chat-icon-btn" id="swiper-filter-btn" aria-label="Filter jobs">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="16" cy="6" r="1.6" fill="currentColor" stroke="none"/><circle cx="8" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="16" cy="18" r="1.6" fill="currentColor" stroke="none"/></svg>
+    </button>
   </header>
 
   <div class="job-tabs">
@@ -22,8 +24,8 @@
   <div class="swiper-deck" id="swiper-deck"></div>
 
   <div class="swiper-empty" id="swiper-empty" hidden>
-    <h2>You're all caught up</h2>
-    <p>No more jobs to show right now — check back later for new listings.</p>
+    <h2 id="swiper-empty-title">You're all caught up</h2>
+    <p id="swiper-empty-text">No more jobs to show right now — check back later for new listings.</p>
   </div>
 
   <div class="swiper-hint" id="swiper-hint" hidden>
@@ -41,6 +43,36 @@
   </div>
 
   <div class="swiper-toast" id="swiper-toast" hidden></div>
+</div>
+
+<!-- An inline dropdown anchored under the header filter button, matching
+     the Outbox options pattern -- the deck stays visible underneath, so
+     applying a filter shows the deck narrow down right there. -->
+<div class="swiper-filter-dropdown" id="swiper-filter-overlay" hidden>
+  <span class="swiper-filter-group-label">Area</span>
+  <select class="swiper-filter-select" id="swiper-filter-region">
+    <option value="">All of South Africa</option>
+    <option value="Gauteng">Gauteng</option>
+    <option value="Western Cape">Western Cape</option>
+    <option value="KwaZulu-Natal">KwaZulu-Natal</option>
+    <option value="Eastern Cape">Eastern Cape</option>
+    <option value="Free State">Free State</option>
+    <option value="Limpopo">Limpopo</option>
+    <option value="Mpumalanga">Mpumalanga</option>
+    <option value="North West">North West</option>
+    <option value="Northern Cape">Northern Cape</option>
+  </select>
+
+  <span class="swiper-filter-group-label">Job title</span>
+  <input type="text" class="swiper-filter-input" id="swiper-filter-title" placeholder="e.g. Retail assistant">
+
+  <span class="swiper-filter-group-label">Minimum salary (R)</span>
+  <input type="number" inputmode="numeric" min="0" step="500" class="swiper-filter-input" id="swiper-filter-salary" placeholder="e.g. 8000">
+
+  <div class="swiper-filter-actions">
+    <button type="button" class="swiper-filter-clear-btn" id="swiper-filter-clear-btn">Clear filters</button>
+    <button type="button" class="swiper-filter-apply-btn" id="swiper-filter-apply-btn">Apply</button>
+  </div>
 </div>
 {% endblock %}
 

@@ -22,6 +22,7 @@ import concurrent.futures
 import json
 import logging
 import os
+import re
 import time
 import urllib.error
 import urllib.request
@@ -40,6 +41,83 @@ _LIVE_SEARCH_CATEGORIES = ["retail", "admin", "IT support", "hospitality"]
 _LIVE_JOBS_TTL_SECONDS = 30 * 60
 _live_jobs_cache = {"jobs": None, "fetched_at": 0.0}
 
+# Both APIs are asked to search South Africa specifically, but neither
+# guarantees every result actually is one (JSearch's underlying sources
+# occasionally mislabel a remote/international posting; Jooble's
+# location text is a loose match, not a hard filter) -- so every result
+# is independently re-checked against this list before it's ever shown.
+# A job that can't be confirmed as South African is dropped rather than
+# risk presenting a foreign listing as one of ours.
+_SA_REGIONS = {
+    "Gauteng": ["gauteng", "johannesburg", "joburg", "jozi", "pretoria", "centurion",
+                "sandton", "midrand", "soweto", "randburg", "roodepoort", "benoni",
+                "boksburg", "kempton park", "germiston", "vereeniging", "vanderbijlpark",
+                "alberton", "krugersdorp"],
+    "Western Cape": ["western cape", "cape town", "stellenbosch", "paarl", "george",
+                      "worcester", "bellville", "somerset west", "mitchells plain",
+                      "khayelitsha", "atlantis", "hermanus"],
+    "KwaZulu-Natal": ["kwazulu-natal", "kwazulu natal", "kzn", "durban", "pietermaritzburg",
+                       "umhlanga", "newcastle", "richards bay", "ballito", "pinetown"],
+    "Eastern Cape": ["eastern cape", "port elizabeth", "gqeberha", "east london",
+                      "uitenhage", "mthatha", "queenstown"],
+    "Free State": ["free state", "bloemfontein", "welkom", "sasolburg"],
+    "Limpopo": ["limpopo", "polokwane", "tzaneen", "mokopane", "thohoyandou"],
+    "Mpumalanga": ["mpumalanga", "nelspruit", "mbombela", "witbank", "emalahleni", "secunda"],
+    "North West": ["north west", "rustenburg", "potchefstroom", "klerksdorp", "mahikeng", "brits"],
+    "Northern Cape": ["northern cape", "kimberley", "upington", "springbok", "kathu"],
+}
+
+
+def _sentence_case(text):
+    """Normal sentence casing -- only the very first character capitalized,
+    everything else lowercase -- regardless of how a source API cased a
+    title (ALL CAPS, Title Case, etc.)."""
+    text = (text or "").strip()
+    return text[:1].upper() + text[1:].lower() if text else text
+
+
+def _infer_region(location_text):
+    """Best-effort South African province, from a free-text location
+    string. Empty string when it can't be identified -- callers must not
+    invent a region for a job that doesn't clearly name one."""
+    text = (location_text or "").lower()
+    for region, keywords in _SA_REGIONS.items():
+        if any(kw in text for kw in keywords):
+            return region
+    return ""
+
+
+def _is_confirmed_south_africa(location_text, country_code=None):
+    """True only when there's real evidence a listing is South African --
+    an explicit ZA country code, the words "South Africa" in its
+    location, or a recognized SA city/province. Anything else (blank
+    location, a foreign city, a country code that isn't ZA) is not
+    treated as South African, so it never reaches the swiper mislabeled
+    as a local listing."""
+    if country_code and country_code.strip().upper() == "ZA":
+        return True
+    text = (location_text or "").lower()
+    if "south africa" in text:
+        return True
+    return bool(_infer_region(text))
+
+
+def _parse_zar_salary(salary_text):
+    """Extracts (min, max) Rand figures from Jooble's free-text salary
+    string, only when it actually looks Rand-denominated (an "R" prefix
+    or the words rand/zar) -- returns (None, None) rather than guess at
+    a currency the source never actually stated."""
+    text = salary_text or ""
+    if not re.search(r"\br\s?\d|rand|zar", text, re.IGNORECASE):
+        return None, None
+    values = []
+    for n in re.findall(r"\d[\d,]*(?:\.\d+)?", text):
+        try:
+            values.append(float(n.replace(",", "")))
+        except ValueError:
+            pass
+    return (min(values), max(values)) if values else (None, None)
+
 
 def _strip_html(text):
     """Job snippets from real APIs often carry inline <b> highlight tags
@@ -47,7 +125,6 @@ def _strip_html(text):
     text instead of literal escaped tags (the frontend already runs
     escapeHtml() on this before inserting it, which is what would turn
     an un-stripped '<b>' into a visible "&lt;b&gt;")."""
-    import re
     return re.sub(r"<[^>]+>", "", text or "").strip()
 
 
@@ -72,12 +149,21 @@ def _fetch_jooble_jobs(keywords):
         job_id = f"jooble-{j.get('id', '')}"
         if not j.get("id"):
             continue
+        location = (j.get("location") or "").strip()
+        if not _is_confirmed_south_africa(location):
+            continue
+        salary_text = (j.get("salary") or "").strip()
+        salary_min, salary_max = _parse_zar_salary(salary_text)
         jobs.append({
             "id": job_id,
-            "title": (j.get("title") or "").strip() or "Untitled role",
+            "title": _sentence_case((j.get("title") or "").strip()) or "Untitled role",
             "company": (j.get("company") or "").strip(),
-            "location": (j.get("location") or "").strip(),
-            "salary": (j.get("salary") or "").strip(),
+            "location": location,
+            "region": _infer_region(location),
+            "salary": salary_text,
+            "salary_min": salary_min,
+            "salary_max": salary_max,
+            "salary_currency": "ZAR" if salary_min is not None else "",
             "description": _strip_html(j.get("snippet", ""))[:1200],
             "posted_at": (j.get("updated") or "")[:10],
             "email": "",
@@ -117,17 +203,27 @@ def _fetch_jsearch_jobs(query):
         job_id = j.get("job_id")
         if not job_id:
             continue
+        country_code = j.get("job_country") or ""
         location_parts = [p for p in (j.get("job_city"), j.get("job_state")) if p]
+        location = ", ".join(location_parts) or country_code
+        if not _is_confirmed_south_africa(location, country_code=country_code):
+            continue
         salary = ""
-        if j.get("job_min_salary") and j.get("job_max_salary"):
-            currency = j.get("job_salary_currency") or ""
-            salary = f"{currency} {j['job_min_salary']:,.0f} - {j['job_max_salary']:,.0f}".strip()
+        salary_min = float(j["job_min_salary"]) if j.get("job_min_salary") else None
+        salary_max = float(j["job_max_salary"]) if j.get("job_max_salary") else None
+        salary_currency = (j.get("job_salary_currency") or "").strip().upper()
+        if salary_min is not None and salary_max is not None:
+            salary = f"{salary_currency} {salary_min:,.0f} - {salary_max:,.0f}".strip()
         jobs.append({
             "id": f"jsearch-{job_id}",
-            "title": (j.get("job_title") or "").strip() or "Untitled role",
+            "title": _sentence_case((j.get("job_title") or "").strip()) or "Untitled role",
             "company": (j.get("employer_name") or "").strip(),
-            "location": ", ".join(location_parts) or (j.get("job_country") or ""),
+            "location": location,
+            "region": _infer_region(location),
             "salary": salary,
+            "salary_min": salary_min,
+            "salary_max": salary_max,
+            "salary_currency": salary_currency,
             "description": _strip_html(j.get("job_description", ""))[:1200],
             "posted_at": (j.get("job_posted_at_datetime_utc") or "")[:10],
             "email": "",
