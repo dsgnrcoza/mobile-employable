@@ -19,7 +19,7 @@
   var stack = []; // {el, job} front-to-back, stack[0] is always the interactive top card
   var toastTimer = null;
   var filters = { region: "", title: "", minSalary: null };
-  var RELEASE_INTERVAL_MS = 60000; // one new listing revealed per minute
+  var RELEASE_INTERVAL_MS = 120000; // one new listing revealed every 2 minutes
 
   var SPRING_BACK = "transform 0.42s cubic-bezier(0.34, 1.56, 0.64, 1)";
   var STACK_SHIFT = "transform 0.38s cubic-bezier(0.22, 1, 0.36, 1)";
