@@ -14,26 +14,27 @@
 }
 
 /* Coolvetica (the originally requested face) is a paid Typodermic
-   Fonts license -- the copies floating around are personal-use-only
-   or unlicensed, so this uses Oswald instead: a free, similarly tall
-   condensed display grotesque, but one that (unlike Coolvetica) ships
-   a genuine light weight alongside its bold, which is exactly what a
-   bold-heading / thin-body contrast needs. Only two real weights are
-   registered on purpose -- headings ask for 700 (true Bold), and body
-   text's default below is 300 (true Light) -- so that contrast always
-   comes from real drawn weights, never the browser faking one. Oswald
-   has no italic face on Google Fonts; the handful of italic spots in
-   this file fall back to the browser's synthetic oblique. */
+   Fonts license with no free/legit distribution, so this uses Rubik
+   instead: a free grotesque with the same tall, blocky, rounded-corner
+   character Coolvetica has, and (unlike Coolvetica) a genuine light
+   weight alongside its black weight -- exactly what a bold-heading /
+   thin-body contrast needs. Only two real weights are registered on
+   purpose -- headings ask for 700 (mapped to Rubik's true Black cut),
+   and body text's default below is 300 (true Light) -- so the
+   heading/text contrast always comes from real drawn weights, never
+   the browser faking one. Rubik has no italic face on Google Fonts;
+   the handful of italic spots in this file fall back to the browser's
+   synthetic oblique. */
 @font-face {
   font-family: "Avryn Display";
-  src: url("../fonts/Oswald-Light.ttf") format("truetype");
+  src: url("../fonts/Rubik-Light.ttf") format("truetype");
   font-weight: 300;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: "Avryn Display";
-  src: url("../fonts/Oswald-Bold.ttf") format("truetype");
+  src: url("../fonts/Rubik-Black.ttf") format("truetype");
   font-weight: 700;
   font-style: normal;
   font-display: swap;
