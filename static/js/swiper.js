@@ -487,5 +487,32 @@
       showToast("Couldn't load jobs — check your connection.");
     });
 
+  // Live updates while this page stays open -- re-checks the real
+  // sources periodically and, if anything new has appeared since the
+  // last check, folds it into the same gradual-reveal queue rather
+  // than yanking the deck out from under a mid-swipe user or requiring
+  // a manual refresh to ever see it.
+  var LIVE_POLL_INTERVAL_MS = 3 * 60 * 1000;
+
+  function pollForNewJobs() {
+    fetch("/api/jobs")
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data.ok) return;
+        var knownIds = {};
+        allJobs.forEach(function (job) { knownIds[job.id] = true; });
+        var freshJobs = data.jobs.filter(function (job) { return !knownIds[job.id]; });
+        if (!freshJobs.length) return;
+        allJobs = allJobs.concat(freshJobs);
+        var newlyMatching = freshJobs.filter(jobMatchesFilters);
+        if (!newlyMatching.length) return;
+        releaseQueue = releaseQueue.concat(newlyMatching);
+        if (!releaseTimer) releaseTimer = setInterval(releaseNextJob, RELEASE_INTERVAL_MS);
+      })
+      .catch(function () {});
+  }
+
+  setInterval(pollForNewJobs, LIVE_POLL_INTERVAL_MS);
+
   updateBadge();
 })();
