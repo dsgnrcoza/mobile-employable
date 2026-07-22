@@ -3940,7 +3940,7 @@ button.auth-tab.active {
 .chat-empty h1 {
   font-size: 17px;
   max-width: 320px;
-  margin-top: -4px;
+  margin-top: -16px;
   white-space: nowrap;
 }
 
