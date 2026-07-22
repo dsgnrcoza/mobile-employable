@@ -1124,6 +1124,48 @@ def api_jobs():
     return jsonify({"ok": True, "jobs": jobs})
 
 
+@app.route("/api/jobs/debug")
+@auth.login_required
+def api_jobs_debug():
+    """Temporary diagnostic route -- reports exactly what each real job
+    source did on a fresh, uncached attempt (which key is configured,
+    how many raw results came back, how many passed the South-Africa
+    check, and the precise error for any failed call), so this can be
+    read straight out of a browser instead of hunting through Vercel's
+    log viewer for the same lines."""
+    import logging
+
+    log_lines = []
+
+    class _ListHandler(logging.Handler):
+        def emit(self, record):
+            log_lines.append(self.format(record))
+
+    handler = _ListHandler()
+    handler.setLevel(logging.WARNING)
+    jobs_data.logger.addHandler(handler)
+    try:
+        jooble_jsearch_jobs = jobs_data._fetch_live_jobs()
+        forwarded_for = request.headers.get("X-Forwarded-For", "")
+        user_ip = forwarded_for.split(",")[0].strip() if forwarded_for else request.remote_addr
+        careerjet_jobs = jobs_data.get_careerjet_jobs(
+            user_ip=user_ip,
+            user_agent=request.headers.get("User-Agent", ""),
+            referer=url_for("swiper_page", _external=True),
+        )
+    finally:
+        jobs_data.logger.removeHandler(handler)
+
+    return jsonify({
+        "jooble_key_set": bool(jobs_data.JOOBLE_API_KEY),
+        "rapidapi_key_set": bool(jobs_data.RAPIDAPI_KEY),
+        "careerjet_key_set": bool(jobs_data.CAREERJET_API_KEY),
+        "jooble_jsearch_result_count": len(jooble_jsearch_jobs) if jooble_jsearch_jobs else 0,
+        "careerjet_result_count": len(careerjet_jobs),
+        "log_lines": log_lines,
+    })
+
+
 @app.route("/api/jobs/<job_id>/hide", methods=["POST"])
 @auth.login_required
 def api_hide_job(job_id):
