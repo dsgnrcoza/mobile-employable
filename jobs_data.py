@@ -18,11 +18,15 @@ state ("You're all caught up... check back later") is what a user
 sees then, never a fake listing standing in for a real one.
 """
 
+import concurrent.futures
 import json
+import logging
 import os
 import time
 import urllib.error
 import urllib.request
+
+logger = logging.getLogger(__name__)
 
 JOOBLE_API_KEY = os.environ.get("JOOBLE_API_KEY", "").strip()
 RAPIDAPI_KEY = os.environ.get("RAPIDAPI_KEY", "").strip()
@@ -54,9 +58,13 @@ def _fetch_jooble_jobs(keywords):
     body = json.dumps({"keywords": keywords, "location": "South Africa"}).encode("utf-8")
     req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"}, method="POST")
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        with urllib.request.urlopen(req, timeout=8) as resp:
             data = json.loads(resp.read().decode("utf-8"))
-    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, ValueError):
+    except urllib.error.HTTPError as e:
+        logger.warning("Jooble fetch failed for %r: HTTP %s %s -- %s", keywords, e.code, e.reason, e.read()[:300])
+        return []
+    except (urllib.error.URLError, TimeoutError, ValueError) as e:
+        logger.warning("Jooble fetch failed for %r: %s", keywords, e)
         return []
 
     jobs = []
@@ -95,9 +103,13 @@ def _fetch_jsearch_jobs(query):
         "X-RapidAPI-Host": "jsearch.p.rapidapi.com",
     })
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        with urllib.request.urlopen(req, timeout=8) as resp:
             data = json.loads(resp.read().decode("utf-8"))
-    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, ValueError):
+    except urllib.error.HTTPError as e:
+        logger.warning("JSearch fetch failed for %r: HTTP %s %s -- %s", query, e.code, e.reason, e.read()[:300])
+        return []
+    except (urllib.error.URLError, TimeoutError, ValueError) as e:
+        logger.warning("JSearch fetch failed for %r: %s", query, e)
         return []
 
     jobs = []
@@ -125,23 +137,45 @@ def _fetch_jsearch_jobs(query):
 
 
 def _fetch_live_jobs():
-    """Merged, deduped listings from every configured real source, for
-    one category at a time across _LIVE_SEARCH_CATEGORIES. Returns None
-    (rather than an empty list) when no source is configured or every
-    call failed, so _get_live_jobs_cached() can tell "no keys/all
-    failed" apart from "a real search legitimately returned nothing"
-    and keep serving the last good cache only in the former case."""
+    """Merged, deduped listings from every configured real source, across
+    _LIVE_SEARCH_CATEGORIES. Every category/source combination is fetched
+    concurrently (not one at a time) -- these are independent network
+    calls, and running them serially could take longer than a serverless
+    function is allowed to run, which would kill the request before any
+    jobs ever came back. Returns None (rather than an empty list) when no
+    source is configured or every call failed, so _get_live_jobs_cached()
+    can tell "no keys/all failed" apart from "a real search legitimately
+    returned nothing" and keep serving the last good cache only in the
+    former case."""
     if not JOOBLE_API_KEY and not RAPIDAPI_KEY:
+        logger.warning("No JOOBLE_API_KEY or RAPIDAPI_KEY configured -- JobSwiper has no real source to search.")
         return None
+
+    calls = [
+        (fetch, category)
+        for category in _LIVE_SEARCH_CATEGORIES
+        for fetch in (_fetch_jooble_jobs, _fetch_jsearch_jobs)
+    ]
 
     seen_ids = set()
     jobs = []
     any_call_succeeded = False
-    for category in _LIVE_SEARCH_CATEGORIES:
-        for fetch in (_fetch_jooble_jobs, _fetch_jsearch_jobs):
+    pool = concurrent.futures.ThreadPoolExecutor(max_workers=len(calls))
+    try:
+        future_to_call = {pool.submit(fetch, category): (fetch, category) for fetch, category in calls}
+        # A bounded wait, not as_completed()'s own timeout, so a single
+        # hung call can't make this function raise -- anything still
+        # running when the deadline hits is just treated as failed.
+        done, not_done = concurrent.futures.wait(future_to_call, timeout=12)
+        for future in not_done:
+            fetch, category = future_to_call[future]
+            logger.warning("%s timed out fetching %r", fetch.__name__, category)
+        for future in done:
+            fetch, category = future_to_call[future]
             try:
-                results = fetch(category)
+                results = future.result()
             except Exception:
+                logger.exception("%s raised while fetching %r", fetch.__name__, category)
                 results = []
             if results:
                 any_call_succeeded = True
@@ -149,7 +183,11 @@ def _fetch_live_jobs():
                 if job["id"] not in seen_ids:
                     seen_ids.add(job["id"])
                     jobs.append(job)
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)
 
+    if not any_call_succeeded:
+        logger.warning("Every live job source returned nothing -- check that JOOBLE_API_KEY/RAPIDAPI_KEY are valid.")
     return jobs if any_call_succeeded else None
 
 
