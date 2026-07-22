@@ -256,6 +256,22 @@
     if (show) rollEmptyStateCopy();
   }
 
+  // A small tap easter-egg -- one full spin around its own center,
+  // played once per click rather than looping. Re-adding the class on
+  // an already-spinning star (rapid repeat taps) needs a reflow in
+  // between or the browser just coalesces it into a no-op restart.
+  var chatEmptyStar = document.getElementById("chat-empty-star");
+  if (chatEmptyStar) {
+    chatEmptyStar.addEventListener("click", function () {
+      chatEmptyStar.classList.remove("is-spinning");
+      void chatEmptyStar.offsetWidth;
+      chatEmptyStar.classList.add("is-spinning");
+    });
+    chatEmptyStar.addEventListener("animationend", function () {
+      chatEmptyStar.classList.remove("is-spinning");
+    });
+  }
+
   // Named phases for the "thinking" indicator -- always opens on
   // "Thinking", then cycles through the rest every ~2.5s for as long as
   // the request is in flight, instead of a flat, meaningless "...".

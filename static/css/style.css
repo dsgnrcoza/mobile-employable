@@ -3909,7 +3909,7 @@ button.auth-tab.active {
   align-items: center;
   justify-content: center;
   text-align: center;
-  gap: 10px;
+  gap: 4px;
   padding: 24px;
   opacity: 1;
   transition: opacity 0.22s ease, display 0.22s allow-discrete;
@@ -3937,10 +3937,29 @@ button.auth-tab.active {
 }
 
 .chat-empty-star {
+  display: inline-block;
   font-size: 84px;
   font-weight: 900;
   line-height: 1;
-  margin-bottom: 6px;
+  cursor: pointer;
+  transform-origin: 50% 50%;
+}
+
+/* A little tap easter-egg -- one full spin around its own center,
+   played once per click rather than looping. */
+.chat-empty-star.is-spinning {
+  animation: chat-empty-star-click-spin 0.6s ease;
+}
+
+@keyframes chat-empty-star-click-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-empty-star.is-spinning {
+    animation: none;
+  }
 }
 
 .chat-messages {
