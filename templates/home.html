@@ -24,7 +24,14 @@
   </header>
 
   <div class="chat-empty" id="chat-empty">
-    <span class="chat-empty-star wordmark-star" id="chat-empty-star" aria-hidden="true">*</span>
+    <!-- A drawn shape, not the "*" glyph -- so it always has the same
+         round-capped spokes as the app icon regardless of which font
+         the rest of the app is using. -->
+    <svg class="chat-empty-star" id="chat-empty-star" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4.6" stroke-linecap="round" aria-hidden="true">
+      <line x1="12" y1="2" x2="12" y2="22"/>
+      <line x1="20.66" y1="7" x2="3.34" y2="17"/>
+      <line x1="20.66" y1="17" x2="3.34" y2="7"/>
+    </svg>
     <h1 id="chat-empty-headline">Where are we getting you hired?</h1>
   </div>
 
