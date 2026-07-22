@@ -76,10 +76,15 @@
 
 * {
   box-sizing: border-box;
+  /* Kills the default translucent blue flash Android/Chrome draws over
+     whatever you tap -- this app already shows its own pressed/active
+     states, so the OS one is just visual noise on top of them. */
+  -webkit-tap-highlight-color: transparent;
 }
 
 html, body {
   height: 100%;
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
