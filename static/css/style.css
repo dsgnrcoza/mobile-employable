@@ -16,19 +16,28 @@
 /* Coolvetica (the originally requested face) is a paid Typodermic
    Fonts license with no free/legit distribution, so this uses Rubik
    instead: a free grotesque with the same tall, blocky, rounded-corner
-   character Coolvetica has, and (unlike Coolvetica) a genuine light
-   weight alongside its black weight -- exactly what a bold-heading /
-   thin-body contrast needs. Only two real weights are registered on
-   purpose -- headings ask for 700 (mapped to Rubik's true Black cut),
-   and body text's default below is 300 (true Light) -- so the
-   heading/text contrast always comes from real drawn weights, never
-   the browser faking one. Rubik has no italic face on Google Fonts;
-   the handful of italic spots in this file fall back to the browser's
-   synthetic oblique. */
+   character Coolvetica has. Three real weights are registered:
+   -- 300 (Light) is body text's default, for a thin, quiet baseline.
+   -- 400 (Regular) is what ordinary content headings (h1/h2/h3, card
+      and section titles) ask for -- a small, minimal step up from the
+      body weight, not a shout.
+   -- 700 (mapped to Rubik's actual Black cut, not its Bold) is
+      reserved for the brand wordmark itself (.wordmark, .splash-logo,
+      .auth-wordmark) -- the one place a heavy weight is the point,
+      matching the reference logo.
+   Rubik has no italic face on Google Fonts; the handful of italic
+   spots in this file fall back to the browser's synthetic oblique. */
 @font-face {
   font-family: "Avryn Display";
   src: url("../fonts/Rubik-Light.ttf") format("truetype");
   font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Avryn Display";
+  src: url("../fonts/Rubik-Regular.ttf") format("truetype");
+  font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
@@ -54,7 +63,7 @@
   --card-bg: #16191E;
   --panel: #16191E;
   --panel-2: #1C2026;
-  --accent: #4A8FA0;
+  --accent: #F2751B;
   /* --accent-gradient is kept as an alias (rather than reverting every
      rule that references it) so the button/wordmark/avatar/badge rules
      that use it for backgrounds and background-clip:text stay solid
@@ -125,7 +134,7 @@ h1, h2, h3, p {
 }
 
 h1, h2, h3 {
-  font-weight: 700;
+  font-weight: 400;
   letter-spacing: -0.01em;
 }
 
@@ -144,7 +153,7 @@ a {
 :focus-visible {
   outline: 2px solid transparent;
   outline-offset: 2px;
-  box-shadow: 0 0 0 4px rgba(74, 143, 160, 0.35);
+  box-shadow: 0 0 0 4px rgba(242, 117, 27, 0.35);
   border-radius: 4px;
   transition: box-shadow 0.15s ease;
 }
@@ -441,7 +450,7 @@ button.auth-tab.active {
 .auth-heading {
   display: block;
   font-size: 21px;
-  font-weight: 700;
+  font-weight: 400;
   line-height: 1.25;
   color: var(--fg);
 }
@@ -491,7 +500,7 @@ button.auth-tab.active {
 
 .auth-form-box h1 {
   font-size: 20px;
-  font-weight: 700;
+  font-weight: 400;
   margin-bottom: 4px;
 }
 
@@ -687,7 +696,7 @@ button.auth-tab.active {
 .btn-gold {
   background: var(--accent-gradient);
   color: var(--accent-ink);
-  box-shadow: 0 4px 14px rgba(74, 143, 160, 0.35);
+  box-shadow: 0 4px 14px rgba(242, 117, 27, 0.35);
 }
 
 .btn-gold:hover {
@@ -695,7 +704,7 @@ button.auth-tab.active {
 }
 
 .btn-gold:active {
-  box-shadow: 0 2px 8px rgba(74, 143, 160, 0.3);
+  box-shadow: 0 2px 8px rgba(242, 117, 27, 0.3);
 }
 
 .btn-ghost {
@@ -907,7 +916,7 @@ button.auth-tab.active {
 
 .ob-content h1 {
   font-size: 24px;
-  font-weight: 700;
+  font-weight: 400;
   margin-bottom: 10px;
 }
 
@@ -964,7 +973,7 @@ button.auth-tab.active {
   align-items: center;
   justify-content: center;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 400;
   color: rgba(255, 255, 255, 0.55);
   transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }
@@ -1022,7 +1031,7 @@ button.auth-tab.active {
 
 .ob-step h1 {
   font-size: 22px;
-  font-weight: 700;
+  font-weight: 400;
   margin-bottom: 10px;
   color: #ffffff;
 }
@@ -1361,7 +1370,7 @@ button.auth-tab.active {
 
 .terms-point h2 {
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 400;
   margin-bottom: 6px;
 }
 
@@ -1447,7 +1456,7 @@ button.auth-tab.active {
 
 .celebrate-modal h2 {
   font-size: 18px;
-  font-weight: 700;
+  font-weight: 400;
   margin-bottom: 8px;
 }
 
@@ -1738,7 +1747,7 @@ button.auth-tab.active {
 
 .action-panel-title {
   font-size: 18px;
-  font-weight: 700;
+  font-weight: 400;
   margin: 4px 0 16px;
 }
 
@@ -1908,7 +1917,7 @@ button.auth-tab.active {
 .chat-help-label {
   display: block;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 400;
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -2169,7 +2178,7 @@ button.auth-tab.active {
   flex-shrink: 0;
   color: var(--accent);
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 400;
   line-height: 1;
   animation: chat-typing-star-spin 1.4s linear infinite;
 }
@@ -2559,7 +2568,7 @@ button.auth-tab.active {
 
 .verdict-job-title {
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 400;
   line-height: 1.25;
 }
 
@@ -2571,7 +2580,7 @@ button.auth-tab.active {
 
 .verdict-score {
   font-size: 38px;
-  font-weight: 700;
+  font-weight: 400;
   line-height: 1.1;
   margin: 12px 0;
 }
@@ -3075,7 +3084,7 @@ button.auth-tab.active {
 }
 
 .cv-color-btn-label {
-  font-weight: 700;
+  font-weight: 400;
   font-size: 13px;
   line-height: 1;
 }
@@ -3152,12 +3161,12 @@ button.auth-tab.active {
 
 .cv-style-h1 {
   font-size: 18px;
-  font-weight: 700;
+  font-weight: 400;
 }
 
 .cv-style-h2 {
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 400;
 }
 
 .cv-style-h3 {
@@ -3440,7 +3449,7 @@ button.auth-tab.active {
 
 .subscription-price {
   font-size: 24px;
-  font-weight: 700;
+  font-weight: 400;
   margin-bottom: 6px;
 }
 
@@ -3450,7 +3459,7 @@ button.auth-tab.active {
 
 .subscription-section h3 {
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 400;
   margin-bottom: 8px;
 }
 
@@ -3569,7 +3578,7 @@ button.auth-tab.active {
   flex: 1;
   text-align: center;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 400;
 }
 
 .stub-header-spacer {
@@ -4064,7 +4073,7 @@ button.auth-tab.active {
 .chat-slash-cmd {
   flex-shrink: 0;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 400;
   color: var(--accent);
 }
 
@@ -4136,7 +4145,7 @@ button.auth-tab.active {
 
 .chat-qualify-title {
   font-size: 17px;
-  font-weight: 700;
+  font-weight: 400;
   margin: 0;
 }
 
@@ -4440,7 +4449,7 @@ button.auth-tab.active {
   color: var(--accent-ink);
   font-family: var(--font-mono);
   font-size: 10.5px;
-  font-weight: 700;
+  font-weight: 400;
   line-height: 18px;
   text-align: center;
 }
@@ -4555,7 +4564,7 @@ button.auth-tab.active {
 
 .plugin-row-label {
   font-size: 13.5px;
-  font-weight: 700;
+  font-weight: 400;
 }
 
 .plugin-row-desc {
@@ -4644,7 +4653,7 @@ button.auth-tab.active {
 
 .note-card-title {
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 400;
 }
 
 .note-card-body {
@@ -4734,7 +4743,7 @@ button.auth-tab.active {
   outline: none;
   color: var(--fg);
   font-size: 19px;
-  font-weight: 700;
+  font-weight: 400;
   font-family: inherit;
   padding: 8px 0;
   margin-bottom: 4px;
@@ -4945,7 +4954,7 @@ button.auth-tab.active {
 
 .template-card-name {
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 400;
   margin: 8px 2px 2px;
 }
 
@@ -5050,7 +5059,7 @@ button.auth-tab.active {
 
 .builder-preview h3 {
   margin: 0 0 8px;
-  font-weight: 700;
+  font-weight: 400;
 }
 
 .builder-preview p {
@@ -5094,7 +5103,7 @@ button.auth-tab.active {
   float: left;
   max-width: 55%;
   font-size: 20px;
-  font-weight: 700;
+  font-weight: 400;
   line-height: 1.25;
 }
 
@@ -5104,7 +5113,7 @@ button.auth-tab.active {
   float: right;
   clear: right;
   font-size: 12.5px;
-  font-weight: 700;
+  font-weight: 400;
   text-align: right;
 }
 
@@ -5122,7 +5131,7 @@ button.auth-tab.active {
 .template-thumb h2,
 .builder-preview h2 {
   font-size: 12.5px;
-  font-weight: 700;
+  font-weight: 400;
   margin: 16px 0 6px;
   padding-bottom: 4px;
   border-bottom: 1.5px solid #999;
@@ -5130,21 +5139,21 @@ button.auth-tab.active {
 
 .template-thumb .cv-entry-title,
 .builder-preview .cv-entry-title {
-  font-weight: 700;
+  font-weight: 400;
   font-size: 12.5px;
   margin: 10px 0 0;
 }
 
 .template-thumb .cv-entry-company,
 .builder-preview .cv-entry-company {
-  font-weight: 700;
+  font-weight: 400;
   font-size: 12.5px;
   margin: 0;
 }
 
 .template-thumb .cv-entry-dates,
 .builder-preview .cv-entry-dates {
-  font-weight: 700;
+  font-weight: 400;
   font-size: 11px;
   color: #555;
   margin: 0;
@@ -5229,7 +5238,7 @@ button.auth-tab.active {
 
 .template-thumb .letter-greeting,
 .builder-preview .letter-greeting {
-  font-weight: 700;
+  font-weight: 400;
   margin: 0 0 10px;
 }
 
@@ -5256,7 +5265,7 @@ button.auth-tab.active {
 
 .tmpl-letter-warm .letter-signoff {
   color: var(--accent);
-  font-weight: 700;
+  font-weight: 400;
 }
 
 .builder-save-state {
@@ -5360,7 +5369,7 @@ button.auth-tab.active {
 
 .template-preview-title {
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 400;
 }
 
 .template-preview-body {
@@ -5434,7 +5443,7 @@ button.auth-tab.active {
 
 .profile-section-title {
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 400;
   margin: 0 0 12px;
 }
 
@@ -6088,7 +6097,7 @@ button.auth-tab.active {
 
 .swiper-card-title {
   font-size: 20px;
-  font-weight: 700;
+  font-weight: 400;
   line-height: 1.25;
   margin: 0;
 }
@@ -6146,7 +6155,7 @@ button.auth-tab.active {
   border-radius: 10px;
   font-family: var(--font-mono);
   font-size: 18px;
-  font-weight: 700;
+  font-weight: 400;
   letter-spacing: 0.06em;
   opacity: 0;
   pointer-events: none;
@@ -6540,7 +6549,7 @@ button.auth-tab.active {
 
 .outbox-sort-row.is-active {
   color: var(--accent);
-  font-weight: 700;
+  font-weight: 400;
 }
 
 .outbox-sort-row.is-active::after {
@@ -6582,7 +6591,7 @@ button.auth-tab.active {
 
 .outbox-item-title {
   font-size: 14.5px;
-  font-weight: 700;
+  font-weight: 400;
 }
 
 .outbox-item-company {
@@ -6623,7 +6632,7 @@ button.auth-tab.active {
 .outbox-status-chip {
   font-family: var(--font-mono);
   font-size: 10.5px;
-  font-weight: 700;
+  font-weight: 400;
   letter-spacing: 0.03em;
   text-transform: uppercase;
   padding: 3px 9px;
@@ -6641,7 +6650,7 @@ button.auth-tab.active {
 }
 
 .outbox-status-replied {
-  background: rgba(74, 143, 160, 0.15);
+  background: rgba(242, 117, 27, 0.15);
   color: var(--accent);
 }
 
@@ -6761,7 +6770,7 @@ button.auth-tab.active {
 
 .outbox-review-title {
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 400;
 }
 
 .outbox-review-company {
@@ -6785,7 +6794,7 @@ button.auth-tab.active {
 
 .outbox-review-label {
   font-size: 11.5px;
-  font-weight: 700;
+  font-weight: 400;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--muted);
@@ -6922,7 +6931,7 @@ button.auth-tab.active {
 
 .outbox-confirm-question {
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 400;
   margin: 0;
   text-align: center;
 }
