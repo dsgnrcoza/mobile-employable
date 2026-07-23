@@ -271,15 +271,53 @@ def _fetch_jsearch_jobs(query):
 # mostly surfaces generic articles and aggregator category pages
 # instead of pages that are actually individual job postings.
 _SERPER_SA_JOB_SITES = ["careers24.com", "pnet.co.za", "careerjunction.co.za", "indeed.co.za"]
+_SERPER_SITE_BRAND_NAMES = {"pnet", "careers24", "careerjunction", "career junction", "indeed", "career24"}
+
+
+def _extract_role_and_company_from_title(title):
+    """Best-effort (role, company) split of a job posting page's own
+    <title> text, using the "<role> at <company>" and "<role> -/| <company>"
+    conventions real job board pages commonly use. Returns ("", "")
+    when nothing confident matches -- there's no reliable way to split
+    a generic search-result title into role/company otherwise, and
+    showing a wrong or made-up company would be worse than showing
+    none."""
+    for pattern in (
+        r"^(?P<role>.+?)\s+at\s+(?P<company>[A-Za-z][\w&.'\- ]{1,60}?)(?:\s*[-|].*)?$",
+        r"^(?P<role>.+?)\s*[-|]\s*(?P<company>[A-Za-z][\w&.'\- ]{1,60}?)(?:\s*[-|].*)?$",
+    ):
+        m = re.match(pattern, title)
+        if not m:
+            continue
+        company = m.group("company").strip(" -|")
+        role = m.group("role").strip(" -|")
+        if not company or not role or company.lower() in _SERPER_SITE_BRAND_NAMES:
+            continue
+        if len(company.split()) > 8:
+            continue
+        # A "Role - X" title is just as often "Role - Location" as
+        # "Role - Company" -- if the captured segment is itself a
+        # recognized SA place name, it's a location, not an employer,
+        # and mislabeling one as the other would be worse than not
+        # showing a company at all.
+        if _infer_region(company) or "south africa" in company.lower():
+            continue
+        return role, company
+    return "", ""
 
 
 def _fetch_serper_jobs(category):
     """Serper (Google Search results as JSON) is a fallback, lower-
     fidelity source -- it returns real web pages (title/snippet/link),
-    not structured job records, so there's no separate company/salary
-    field to extract; the South-Africa check runs against the visible
-    title+snippet text instead of a location field, since none exists
-    here."""
+    not structured job records. Company is pulled from the page's own
+    title via _extract_role_and_company_from_title(); a result with no
+    confidently-identified employer is dropped rather than shown with
+    "Company not listed", since this source is held to a stricter bar
+    than the others (one real role at one real, named company). Salary
+    is parsed from the snippet the same way Jooble's free-text salary
+    is (_parse_zar_salary) -- present only when actually stated. The
+    South-Africa check runs against the visible title+snippet text
+    instead of a location field, since none exists here."""
     if not SERPER_API_KEY:
         return []
     site_filter = " OR ".join(f"site:{s}" for s in _SERPER_SA_JOB_SITES)
@@ -323,17 +361,26 @@ def _fetch_serper_jobs(category):
         if not _is_confirmed_south_africa(text):
             rejected.append(title[:60])
             continue
+        role, company = _extract_role_and_company_from_title(title)
+        if not company:
+            # A listing with no confidently-identified employer doesn't
+            # meet the "real role at a real company" bar this source is
+            # held to -- dropped rather than shown half-complete.
+            rejected.append(f"(no confident company) {title[:60]}")
+            continue
+        salary_min, salary_max = _parse_zar_salary(snippet)
+        salary_display = f"ZAR {salary_min:,.0f} - {salary_max:,.0f}" if salary_min is not None else ""
         region = _infer_region(text)
         jobs.append({
             "id": f"serper-{hashlib.md5(link.encode()).hexdigest()[:16]}",
-            "title": _sentence_case(title),
-            "company": "",
+            "title": _sentence_case(role),
+            "company": company,
             "location": region or "South Africa",
             "region": region,
-            "salary": "",
-            "salary_min": None,
-            "salary_max": None,
-            "salary_currency": "",
+            "salary": salary_display,
+            "salary_min": salary_min,
+            "salary_max": salary_max,
+            "salary_currency": "ZAR" if salary_min is not None else "",
             "description": snippet[:1200],
             "posted_at": (j.get("date") or "")[:10],
             "email": "",
